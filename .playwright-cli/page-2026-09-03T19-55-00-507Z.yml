@@ -1,0 +1,340 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - link "Skip to main content" [ref=e3] [cursor=pointer]:
+      - /url: "#main-content"
+    - banner [ref=e4]:
+      - navigation "Main navigation" [ref=e5]:
+        - link "SuperFinz home" [ref=e6] [cursor=pointer]:
+          - /url: /
+          - generic [ref=e7]: SuperFinz
+        - link "Live demo" [ref=e19] [cursor=pointer]:
+          - /url: "#demo"
+    - main [ref=e22]:
+      - generic [ref=e23]:
+        - generic [ref=e24]:
+          - generic [ref=e25]:
+            - paragraph [ref=e26]: Innovation Unbound · Financial resilience
+            - heading "Gig income is irregular. Your life doesn’t have to be." [level=1] [ref=e30]:
+              - text: Gig income is irregular.
+              - generic [ref=e31]: Your life doesn’t have to be.
+            - paragraph [ref=e32]: SuperFinz turns every payout into a simple plan—protecting bills, work costs, savings, and showing exactly what is safe to spend.
+            - generic [ref=e33]:
+              - link "Watch the product demo" [ref=e34] [cursor=pointer]:
+                - /url: "#demo"
+              - link "See how it works" [ref=e37] [cursor=pointer]:
+                - /url: "#solution"
+            - list "Product principles" [ref=e38]:
+              - listitem [ref=e39]: No forced loans
+              - listitem [ref=e43]: You approve every split
+              - listitem [ref=e47]: iOS · Android · Web
+          - generic [ref=e51]:
+            - figure "Built around the way gig workers actually earn" [ref=e52]:
+              - img "A gig worker checking his phone beside his scooter before starting work" [ref=e53]
+            - generic [ref=e60]:
+              - generic [ref=e61]: Payout added
+              - strong [ref=e62]: +₹2,900
+            - generic "Example safe-to-spend amount" [ref=e66]:
+              - generic [ref=e67]:
+                - generic [ref=e68]: Safe to spend
+                - generic [ref=e69]: Live
+              - strong [ref=e70]: ₹3,010
+              - paragraph [ref=e71]: ₹430 a day until Sunday
+              - generic [ref=e74]:
+                - generic [ref=e75]: Bills protected
+                - generic [ref=e79]: ₹8,450
+        - generic [ref=e80]:
+          - generic [ref=e81]: One calm dashboard for
+          - list [ref=e82]:
+            - listitem [ref=e83]: Delivery partners
+            - listitem [ref=e84]: Drivers
+            - listitem [ref=e85]: Freelancers
+            - listitem [ref=e86]: Home-service workers
+      - generic [ref=e88]:
+        - generic [ref=e89]:
+          - generic [ref=e90]:
+            - paragraph [ref=e91]: Product walkthrough
+            - heading "See the complete app in action." [level=2] [ref=e92]
+          - paragraph [ref=e93]: From first sign-in to a clear money plan—watch the working SuperFinz mobile experience exactly as it was built for the hackathon.
+        - generic [ref=e94]:
+          - generic [aria-hidden] [ref=e95]:
+            - paragraph [ref=e99]: SuperFinz · Product demo
+            - generic [ref=e100]: 2× · 01:42
+          - generic "SuperFinz mobile product walkthrough playing at double speed" [ref=e109]: Your browser does not support embedded video.
+          - generic [ref=e116]:
+            - paragraph [ref=e117]:
+              - generic [ref=e118]: ●
+              - text: Real product capture
+            - paragraph [ref=e119]: iOS interface · Full journey · Plays at 2×
+      - generic [ref=e121]:
+        - generic [ref=e122]:
+          - paragraph [ref=e123]: The problem we found
+          - heading "Most money tools wait for a monthly salary." [level=2] [ref=e124]
+          - paragraph [ref=e125]: Gig workers earn daily, pay monthly, and spend money today to earn again tomorrow. That mismatch—not a lack of discipline—is the problem.
+        - generic [ref=e126]:
+          - article [ref=e127]:
+            - generic [ref=e128]: 01 · Income
+            - heading "There is no payday." [level=3] [ref=e133]
+            - paragraph [ref=e134]: Good days, slow days, cash, and several platform settlements.
+            - generic "Example of uneven income over fourteen days" [ref=e135]
+            - generic [ref=e150]:
+              - generic [ref=e151]: 14 days
+              - generic [ref=e152]: ₹18,470
+          - article [ref=e153]:
+            - generic [ref=e154]: 02 · Obligations
+            - heading "Bills still arrive all at once." [level=3] [ref=e159]
+            - paragraph [ref=e160]: Rent can be larger than the best earning day of the month.
+            - generic [ref=e161]:
+              - generic [ref=e162]:
+                - generic [ref=e163]: Best earning day
+                - generic [ref=e165]: ₹2,750
+              - generic [ref=e166]:
+                - generic [ref=e167]: Monthly rent
+                - generic [ref=e169]: ₹9,000
+          - article [ref=e170]:
+            - generic [ref=e171]: 03 · Work costs
+            - heading "Tomorrow’s income costs money today." [level=3] [ref=e177]
+            - paragraph [ref=e178]: Fuel, data, maintenance, and repairs compete with home expenses.
+            - generic [ref=e179]:
+              - generic [ref=e180]:
+                - text: Fuel
+                - generic [ref=e184]: ₹500
+              - generic [ref=e185]:
+                - text: Repair fund
+                - generic [ref=e189]: ₹350
+              - generic [ref=e190]:
+                - generic [ref=e191]: Protected for tomorrow
+                - strong [ref=e192]: ₹850
+        - generic [ref=e193]:
+          - paragraph [ref=e194]:
+            - strong [ref=e195]: 7.7 million
+            - text: gig workers were estimated in India in 2020–21.
+          - paragraph [ref=e197]:
+            - strong [ref=e198]: 23.5 million
+            - text: are projected by 2029–30.
+          - generic [ref=e199]: "Source: NITI Aayog, India’s Booming Gig and Platform Economy"
+      - generic [ref=e201]:
+        - generic [ref=e202]:
+          - paragraph [ref=e203]: The SuperFinz solution
+          - heading "A salary-like rhythm, without needing a salary." [level=2] [ref=e204]
+          - paragraph [ref=e205]: One guided flow turns scattered payouts into decisions a person can understand and act on immediately.
+        - list [ref=e206]:
+          - listitem [ref=e207]:
+            - generic [ref=e208]: "01"
+            - heading "Add what came in" [level=3] [ref=e216]
+            - paragraph [ref=e217]: Log UPI, cash, or a platform payout in a few taps.
+          - listitem [ref=e218]:
+            - generic [ref=e219]: "02"
+            - heading "Tell us what matters" [level=3] [ref=e223]
+            - paragraph [ref=e224]: Add rent, EMI, school fees, fuel, and goals once.
+          - listitem [ref=e225]:
+            - generic [ref=e226]: "03"
+            - heading "Review the split" [level=3] [ref=e229]
+            - paragraph [ref=e230]: SuperFinz suggests amounts. You stay in control and confirm.
+          - listitem [ref=e231]:
+            - generic [ref=e232]: "04"
+            - heading "Spend with confidence" [level=3] [ref=e237]
+            - paragraph [ref=e238]: See one safe number after tomorrow’s work and bills are protected.
+        - generic [ref=e239]:
+          - generic [ref=e240]:
+            - paragraph [ref=e241]: Our key innovation
+            - heading "One number that answers, “Can I spend this?”" [level=2] [ref=e242]
+            - paragraph [ref=e243]: Safe to spend is not an AI guess. It is a transparent calculation based on money available, upcoming bills, earning costs, and the safety contribution the worker chose.
+            - generic [ref=e244]:
+              - generic [ref=e245]: Money now
+              - generic [ref=e246]: −
+              - generic [ref=e247]: Bills
+              - generic [ref=e248]: −
+              - generic [ref=e249]: Work
+              - generic [ref=e250]: −
+              - generic [ref=e251]: Safety
+              - generic [ref=e252]: =
+              - strong [ref=e253]: Safe
+          - generic [ref=e254]:
+            - generic [ref=e255]:
+              - generic [ref=e256]: This week
+              - generic [ref=e257]: Updated now
+            - generic [ref=e258]:
+              - text: Safe to spend
+              - strong [ref=e259]: ₹3,010
+              - paragraph [ref=e260]: ₹430 per day for the next 7 days
+            - generic "₹11,460 split between bills, work, safety, and safe to spend" [ref=e261]
+            - generic [ref=e266]:
+              - generic [ref=e267]:
+                - term [ref=e268]: Money now
+                - definition [ref=e270]: ₹11,460
+              - generic [ref=e271]:
+                - term [ref=e272]: Bills protected
+                - definition [ref=e274]: −₹5,900
+              - generic [ref=e275]:
+                - term [ref=e276]: Work protected
+                - definition [ref=e278]: −₹1,450
+              - generic [ref=e279]:
+                - term [ref=e280]: Safety contribution
+                - definition [ref=e282]: −₹1,100
+              - generic [ref=e283]:
+                - term [ref=e284]: Safe to spend
+                - definition [ref=e286]: ₹3,010
+            - paragraph [ref=e287]: Nothing moves until the worker confirms.
+      - generic [ref=e292]:
+        - generic [ref=e293]:
+          - paragraph [ref=e294]: The one-stop dashboard
+          - heading "Everything useful. Nothing overwhelming." [level=2] [ref=e295]
+          - paragraph [ref=e296]: The product is designed for a five-second glance between jobs, with deeper detail only when someone asks for it.
+          - list [ref=e297]:
+            - listitem [ref=e298]:
+              - generic [ref=e303]:
+                - heading "Safe to spend" [level=3] [ref=e304]
+                - paragraph [ref=e305]: A simple daily and weekly number, explained line by line.
+            - listitem [ref=e306]:
+              - generic [ref=e312]:
+                - heading "Everything in one place" [level=3] [ref=e313]
+                - paragraph [ref=e314]: Payouts, cash, bills, fuel, savings, and goals on one dashboard.
+            - listitem [ref=e315]:
+              - generic [ref=e322]:
+                - heading "Useful reminders" [level=3] [ref=e323]
+                - paragraph [ref=e324]: A clear nudge before a bill is due—not a flood of notifications.
+          - link "Watch the full product demo" [ref=e325] [cursor=pointer]:
+            - /url: "#demo"
+        - generic [ref=e328]:
+          - generic [ref=e332]:
+            - generic [ref=e333]: Bills this month
+            - paragraph [ref=e336]: Protected so far
+            - paragraph [ref=e337]: ₹6,120
+            - paragraph [ref=e338]: of ₹16,349 due. Rent is fully covered.
+            - list [ref=e339]:
+              - listitem [ref=e340]:
+                - generic [ref=e341]: Rent · 5 Sep
+                - generic [ref=e342]: Covered
+              - listitem [ref=e343]:
+                - generic [ref=e344]: Bike EMI · 8 Sep
+                - generic [ref=e345]: ₹1,900 to go
+              - listitem [ref=e346]:
+                - generic [ref=e347]: Electricity · 14 Sep
+                - generic [ref=e348]: ₹1,150 to go
+              - listitem [ref=e349]:
+                - generic [ref=e350]: School fee · 20 Sep
+                - generic [ref=e351]: ₹2,500 to go
+            - paragraph [ref=e352]: "Next reminder: Tue 7 Sep, 8:00 am"
+          - generic [ref=e355]:
+            - generic [ref=e356]: Your Today page
+            - paragraph [ref=e359]: Safe to spend · this week
+            - paragraph [ref=e360]: ₹3,010
+            - paragraph [ref=e361]: ₹430 a day after protecting bills, work and savings
+            - list [ref=e362]:
+              - listitem [ref=e363]:
+                - generic [ref=e364]: Total money now
+                - generic [ref=e365]: ₹11,460
+              - listitem [ref=e366]:
+                - generic [ref=e367]: Bills, work and savings
+                - generic [ref=e368]: −₹8,450
+              - listitem [ref=e369]:
+                - generic [ref=e370]: Safe to spend
+                - generic [ref=e371]: ₹3,010
+            - generic [ref=e373]:
+              - generic [ref=e374]: Emergency cover
+              - generic [ref=e375]: 6 of 30 days
+            - navigation [aria-hidden] [ref=e378]:
+              - generic [ref=e379]: Today
+              - generic [ref=e380]: Income
+              - generic [ref=e381]: Plan
+              - generic [ref=e382]: Coach
+              - generic [ref=e383]: Safety
+          - generic [ref=e386]:
+            - generic [ref=e387]: Payout landed
+            - paragraph [ref=e390]: Zomato · settled 2 Sep
+            - paragraph [ref=e391]: ₹2,900
+            - paragraph [ref=e392]: Suggested split. Change anything before you confirm.
+            - list [ref=e393]:
+              - listitem [ref=e394]:
+                - generic [ref=e395]: Rent · due 5 Sep
+                - generic [ref=e396]: ₹1,200
+              - listitem [ref=e397]:
+                - generic [ref=e398]: Fuel and repairs
+                - generic [ref=e399]: ₹500
+              - listitem [ref=e400]:
+                - generic [ref=e401]: Safety cushion
+                - generic [ref=e402]: ₹400
+              - listitem [ref=e403]:
+                - generic [ref=e404]: Savings
+                - generic [ref=e405]: ₹300
+              - listitem [ref=e406]:
+                - generic [ref=e407]: Free to spend
+                - generic [ref=e408]: ₹500
+            - generic [ref=e409]: Confirm split
+          - paragraph [ref=e410]: ● Native app · iOS & Android
+      - generic [ref=e412]:
+        - generic [ref=e413]:
+          - paragraph [ref=e414]: Designed for trust
+          - heading "Simple enough for a first-time finance app." [level=2] [ref=e415]
+          - paragraph [ref=e416]: Clear words, reversible choices, and calm guidance make SuperFinz usable across ages and levels of digital confidence.
+        - generic [ref=e417]:
+          - article [ref=e418]:
+            - heading "Your money, your approval" [level=3] [ref=e424]
+            - paragraph [ref=e425]: Every suggested split is visible and editable before it is saved.
+          - article [ref=e426]:
+            - heading "Ready for weak networks" [level=3] [ref=e435]
+            - paragraph [ref=e436]: Essential actions remain simple and the mobile app can sync later.
+          - article [ref=e437]:
+            - heading "Made for real households" [level=3] [ref=e444]
+            - paragraph [ref=e445]: Plain language, large touch targets, and no finance jargon required.
+          - article [ref=e446]:
+            - heading "Resilience before credit" [level=3] [ref=e451]
+            - paragraph [ref=e452]: We protect bills and a safety cushion before suggesting borrowing.
+      - generic [ref=e454]:
+        - generic [ref=e455]:
+          - paragraph [ref=e456]: Why this can scale
+          - heading "Better daily decisions create stronger financial futures." [level=2] [ref=e457]
+        - generic [ref=e458]:
+          - article [ref=e459]:
+            - paragraph [ref=e466]: For workers
+            - heading "Fewer bill shocks. More control." [level=3] [ref=e467]
+            - paragraph [ref=e468]: Turn uncertain weeks into visible, achievable next steps.
+          - article [ref=e469]:
+            - paragraph [ref=e475]: For financial institutions
+            - heading "A fairer view of irregular cash flow." [level=3] [ref=e476]
+            - paragraph [ref=e477]: Consent-based patterns can support timely, responsible help.
+          - article [ref=e478]:
+            - paragraph [ref=e483]: For the ecosystem
+            - heading "Resilience before financial distress." [level=3] [ref=e484]
+            - paragraph [ref=e485]: Prevention becomes part of everyday money management.
+        - generic [ref=e486]:
+          - generic [ref=e487]:
+            - strong [ref=e488]: 5 sec
+            - generic [ref=e489]: to add a payout
+          - generic [ref=e490]:
+            - strong [ref=e491]: "1"
+            - generic [ref=e492]: number to guide spending
+          - generic [ref=e493]:
+            - strong [ref=e494]: "0"
+            - generic [ref=e495]: loans pushed by design
+          - generic [ref=e496]:
+            - strong [ref=e497]: ₹38,230
+            - generic [ref=e498]: sample irregular month understood
+      - generic [ref=e501]:
+        - paragraph [ref=e502]: Built for Innovation Unbound
+        - heading "Every payout can become progress." [level=2] [ref=e503]
+        - paragraph [ref=e504]: Experience the working SuperFinz dashboard—from onboarding and bills to smart payout splits and money coaching.
+        - generic [ref=e505]:
+          - link "Watch product demo" [ref=e506] [cursor=pointer]:
+            - /url: "#demo"
+          - link "View the build" [ref=e509] [cursor=pointer]:
+            - /url: https://github.com/YashvanthSankar/superfinz-gig
+    - contentinfo [ref=e510]:
+      - generic [ref=e511]:
+        - generic [ref=e512]:
+          - generic [ref=e513]: SuperFinz
+          - paragraph [ref=e516]: A salary layer for people without salaries.
+        - generic [ref=e517]:
+          - generic [ref=e518]: ●
+          - text: Working prototype · Web, iOS & Android
+      - generic [ref=e519]:
+        - paragraph [ref=e520]: © 2026 SuperFinz
+        - generic [ref=e521]:
+          - link "Problem" [ref=e522] [cursor=pointer]:
+            - /url: "#problem"
+          - link "Solution" [ref=e523] [cursor=pointer]:
+            - /url: "#solution"
+          - link "Product" [ref=e524] [cursor=pointer]:
+            - /url: "#product"
+        - paragraph [ref=e525]: Built in India for irregular earners.
+  - region "Notifications alt+T"

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Button } from "@/components/ui";
 import { colors } from "@/constants/theme";
@@ -17,9 +17,13 @@ export default function Login() {
       >
         <View style={styles.brand}>
           <View accessible accessibilityLabel="SuperFinz" style={styles.mark}>
-            <Text style={styles.markText}>SF</Text>
+            <Image
+              accessibilityIgnoresInvertColors
+              source={require("../../assets/images/brand-mark.png")}
+              style={styles.markImage}
+            />
           </View>
-          <Text style={styles.logo}>SUPERFINZ</Text>
+          <Text style={styles.logo}>SuperFinz</Text>
         </View>
         <View style={styles.hero}>
           <Text style={styles.kicker}>MONEY, WITHOUT THE LECTURE</Text>
@@ -81,20 +85,20 @@ const styles = StyleSheet.create({
   },
   brand: { flexDirection: "row", alignItems: "center", gap: 10 },
   mark: {
-    width: 42,
-    height: 42,
-    backgroundColor: colors.actionStrong,
+    width: 44,
+    height: 44,
+    backgroundColor: colors.accentSoft,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 12,
+    borderRadius: 13,
     alignItems: "center",
     justifyContent: "center",
   },
-  markText: { color: colors.white, fontWeight: "700" },
+  markImage: { width: 38, height: 38, resizeMode: "contain" },
   logo: {
-    fontWeight: "700",
-    fontSize: 18,
-    letterSpacing: 1.5,
+    fontWeight: "800",
+    fontSize: 20,
+    letterSpacing: -0.5,
     color: colors.ink,
   },
   hero: { gap: 18 },

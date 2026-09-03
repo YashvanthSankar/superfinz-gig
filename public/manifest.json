@@ -1,12 +1,12 @@
 {
   "name": "SuperFinz",
   "short_name": "SuperFinz",
-  "description": "All-in-one finance dashboard for Gen Z — track spends, crush goals, retire early.",
+  "description": "A financial-resilience dashboard that turns irregular earnings into a predictable money plan.",
   "start_url": "/dashboard",
   "display": "standalone",
   "orientation": "portrait-primary",
-  "background_color": "#fefce8",
-  "theme_color": "#b45309",
+  "background_color": "#F5F0E4",
+  "theme_color": "#FF5A1F",
   "categories": ["finance", "productivity"],
   "lang": "en-IN",
   "icons": [
@@ -30,19 +30,19 @@
   ],
   "shortcuts": [
     {
-      "name": "Add Transaction",
-      "url": "/dashboard/transactions",
-      "description": "Log a spend"
+      "name": "Add Entry",
+      "url": "/dashboard/income",
+      "description": "Record income or a work cost"
     },
     {
-      "name": "View Goals",
-      "url": "/dashboard/goals",
-      "description": "Check savings goals"
+      "name": "View Plan",
+      "url": "/dashboard/plan",
+      "description": "Review commitments and scenarios"
     },
     {
-      "name": "Budgets",
-      "url": "/dashboard/budgets",
-      "description": "Check your budget"
+      "name": "Safety",
+      "url": "/dashboard/safety",
+      "description": "Check pockets and resilience"
     }
   ],
   "screenshots": []

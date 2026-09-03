@@ -120,7 +120,7 @@ html, body {
 
 body {
   font-family: var(--font-geist-sans), system-ui, sans-serif;
-  min-height: 100vh;
+  min-height: 100dvh;
   -webkit-font-smoothing: antialiased;
   font-feature-settings: "ss01", "cv11";
 }
@@ -214,3 +214,17 @@ body {
   100% { transform: translateX(-50%); }
 }
 .animate-marquee { animation: brut-marquee 40s linear infinite; }
+
+:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

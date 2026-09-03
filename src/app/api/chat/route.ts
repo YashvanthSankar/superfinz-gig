@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { getUserById, listGoals, listTransactions } from "@/lib/convex-store";
 import { rateLimit } from "@/lib/rate-limit";
 import { z } from "zod";
 
@@ -237,29 +237,22 @@ export async function POST(req: NextRequest) {
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const fourteenDaysAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
 
-  const [user, monthTx, recentTx, goals] = await Promise.all([
-    prisma.user.findUnique({
-      where: { id: session.userId },
-      include: { profile: true },
+  const [user, monthResult, recentResult, goals] = await Promise.all([
+    getUserById(session.userId),
+    listTransactions({ userId: session.userId, startInclusive: monthStart }),
+    listTransactions({
+      userId: session.userId,
+      startInclusive: fourteenDaysAgo,
+      descending: true,
+      limit: 25,
     }),
-    prisma.transaction.aggregate({
-      where: { userId: session.userId, date: { gte: monthStart } },
-      _sum: { amount: true },
-    }),
-    prisma.transaction.findMany({
-      where: { userId: session.userId, date: { gte: fourteenDaysAgo } },
-      orderBy: { date: "desc" },
-      take: 25,
-    }),
-    prisma.goal.findMany({
-      where: { userId: session.userId, achieved: false },
-      take: 5,
-    }),
+    listGoals(session.userId, { includeAchieved: false, limit: 5 }),
   ]);
 
   if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-  const monthlySpend = monthTx._sum.amount ?? 0;
+  const monthlySpend = monthResult.transactions.reduce((sum, transaction) => sum + transaction.amount, 0);
+  const recentTx = recentResult.transactions;
   const budget       = user.profile?.monthlyBudget ?? 0;
   const income       = user.profile?.monthlySalary ?? user.profile?.monthlyAllowance ?? 0;
   const savingsGoal  = user.profile?.savingsGoal ?? 0;

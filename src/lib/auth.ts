@@ -1,5 +1,5 @@
 import { auth } from "@/auth";
-import { prisma } from "@/lib/prisma";
+import { getUserByEmail, getUserById } from "@/lib/convex-store";
 import { verifyAccessToken } from "@/lib/mobile-auth";
 
 // Always reads onboarded from DB. Falls back to email lookup if
@@ -18,19 +18,15 @@ export async function getSession(request?: Request) {
     let user: { id: string; onboarded: boolean } | null = null;
 
     if (session.user.id) {
-      user = await prisma.user.findUnique({
-        where: { id: session.user.id },
-        select: { id: true, onboarded: true },
-      });
+      const found = await getUserById(session.user.id);
+      user = found ? { id: found.id, onboarded: found.onboarded } : null;
     }
 
     // Fallback: session.user.id might be the Google OAuth sub (numeric string).
     // Try by email which is always correct.
     if (!user && session.user.email) {
-      user = await prisma.user.findUnique({
-        where: { email: session.user.email },
-        select: { id: true, onboarded: true },
-      });
+      const found = await getUserByEmail(session.user.email);
+      user = found ? { id: found.id, onboarded: found.onboarded } : null;
     }
 
     if (!user) return null;

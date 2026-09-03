@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidateTag } from "next/cache";
 import { getSession } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { createTransaction, listTransactions } from "@/lib/convex-store";
 import { rateLimit } from "@/lib/rate-limit";
 import { z } from "zod";
 
@@ -22,22 +22,21 @@ export async function GET(req: NextRequest) {
   const month = searchParams.get("month");
   const year = searchParams.get("year");
 
-  const where: Record<string, unknown> = { userId: session.userId };
+  let startInclusive: Date | undefined;
+  let endExclusive: Date | undefined;
   if (month && year) {
-    const start = new Date(parseInt(year), parseInt(month) - 1, 1);
-    const end = new Date(parseInt(year), parseInt(month), 1);
-    where.date = { gte: start, lt: end };
+    startInclusive = new Date(parseInt(year), parseInt(month) - 1, 1);
+    endExclusive = new Date(parseInt(year), parseInt(month), 1);
   }
 
-  const [transactions, total] = await Promise.all([
-    prisma.transaction.findMany({
-      where,
-      orderBy: { date: "desc" },
-      take: limit,
-      skip: offset,
-    }),
-    prisma.transaction.count({ where }),
-  ]);
+  const { transactions, total } = await listTransactions({
+    userId: session.userId,
+    startInclusive,
+    endExclusive,
+    limit,
+    offset,
+    descending: true,
+  });
 
   return NextResponse.json({ transactions, total });
 }
@@ -62,26 +61,12 @@ export async function POST(req: NextRequest) {
 
   const { amount, category, description, date } = parsed.data;
 
-  const transaction = await prisma.transaction.create({
-    data: {
-      userId: session.userId,
-      amount,
-      category,
-      description,
-      date: date ? new Date(date) : new Date(),
-    },
-  });
-
-  // Update budget spent for this month
-  const txDate = transaction.date;
-  await prisma.budget.updateMany({
-    where: {
-      userId: session.userId,
-      category,
-      month: txDate.getMonth() + 1,
-      year: txDate.getFullYear(),
-    },
-    data: { spent: { increment: amount } },
+  const transaction = await createTransaction({
+    userId: session.userId,
+    amount,
+    category,
+    description,
+    date: date ? new Date(date) : new Date(),
   });
 
   revalidateTag(`dashboard-${session.userId}`, "default");

@@ -13,7 +13,7 @@ function Routes() {
     <Stack.Screen name="index" options={{ headerShown: false }} />
     <Stack.Protected guard={!user}><Stack.Screen name="login" options={{ headerShown: false }} /></Stack.Protected>
     <Stack.Protected guard={!!user && !user.onboarded}><Stack.Screen name="onboarding" options={{ headerShown: false }} /></Stack.Protected>
-    <Stack.Protected guard={!!user && user.onboarded}><Stack.Screen name="(app)" options={{ headerShown: false }} /><Stack.Screen name="chat" options={{ presentation: "modal", title: "Ask Finz" }} /><Stack.Screen name="split" options={{ presentation: "modal", title: "Smart Split" }} /></Stack.Protected>
+    <Stack.Protected guard={!!user && user.onboarded}><Stack.Screen name="(app)" options={{ headerShown: false }} /><Stack.Screen name="split" options={{ presentation: "modal", title: "Smart Split" }} /></Stack.Protected>
   </Stack>;
 }
 export default function RootLayout() { return <SafeAreaProvider><QueryClientProvider client={queryClient}><AuthProvider><Routes /><StatusBar style="dark" /></AuthProvider></QueryClientProvider></SafeAreaProvider>; }

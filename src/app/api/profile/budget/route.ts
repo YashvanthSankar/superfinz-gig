@@ -1,5 +1,5 @@
 import { getSession } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { patchUserProfile } from "@/lib/convex-store";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -18,10 +18,8 @@ export async function PATCH(req: Request) {
   }
 
   try {
-    await prisma.profile.update({
-      where: { userId: session.userId },
-      data: { monthlyBudget: parsed.data.budget },
-    });
+    const updated = await patchUserProfile(session.userId, { monthlyBudget: parsed.data.budget });
+    if (!updated) return NextResponse.json({ error: "User not found" }, { status: 404 });
     return NextResponse.json({ success: true });
   } catch {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

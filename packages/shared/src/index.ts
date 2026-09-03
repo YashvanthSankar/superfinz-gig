@@ -4,3 +4,4 @@ export * from "./categories";
 export * from "./calculators";
 export * from "./types";
 export * from "./learn";
+export * from "./gig";

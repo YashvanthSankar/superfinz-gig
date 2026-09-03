@@ -1,6 +1,12 @@
 import { createHash, randomBytes } from "node:crypto";
 import { SignJWT, jwtVerify } from "jose";
-import { prisma } from "@/lib/prisma";
+import {
+  createSessionRecord,
+  getSessionById,
+  getSessionByRefreshHash,
+  revokeSessionByRefreshHash,
+  rotateSessionRecord,
+} from "@/lib/convex-store";
 
 const ACCESS_TOKEN_TTL_SECONDS = 15 * 60;
 const REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
@@ -30,16 +36,14 @@ export async function createAccessToken(userId: string, sessionId: string) {
 
 export async function createMobileSession(userId: string, deviceLabel?: string) {
   const refreshToken = newRefreshToken();
-  const session = await prisma.mobileSession.create({
-    data: {
-      userId,
-      deviceLabel,
-      refreshTokenHash: hashRefreshToken(refreshToken),
-      expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_MS),
-    },
+  const sessionId = await createSessionRecord({
+    userId,
+    deviceLabel,
+    refreshTokenHash: hashRefreshToken(refreshToken),
+    expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_MS),
   });
   return {
-    accessToken: await createAccessToken(userId, session.id),
+    accessToken: await createAccessToken(userId, sessionId),
     refreshToken,
     expiresIn: ACCESS_TOKEN_TTL_SECONDS,
   };
@@ -47,21 +51,17 @@ export async function createMobileSession(userId: string, deviceLabel?: string) 
 
 export async function rotateMobileSession(refreshToken: string) {
   const oldHash = hashRefreshToken(refreshToken);
-  const session = await prisma.mobileSession.findUnique({
-    where: { refreshTokenHash: oldHash },
-    include: { user: { include: { profile: true } } },
-  });
+  const session = await getSessionByRefreshHash(oldHash);
   if (!session || session.revokedAt || session.expiresAt <= new Date()) return null;
 
   const replacement = newRefreshToken();
-  const updated = await prisma.mobileSession.updateMany({
-    where: { id: session.id, refreshTokenHash: oldHash, revokedAt: null },
-    data: {
-      refreshTokenHash: hashRefreshToken(replacement),
-      expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_MS),
-    },
+  const updated = await rotateSessionRecord({
+    id: session.id,
+    oldRefreshTokenHash: oldHash,
+    newRefreshTokenHash: hashRefreshToken(replacement),
+    expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_MS),
   });
-  if (updated.count !== 1) return null;
+  if (!updated) return null;
 
   return {
     accessToken: await createAccessToken(session.userId, session.id),
@@ -75,10 +75,7 @@ export async function verifyAccessToken(token: string) {
   try {
     const { payload } = await jwtVerify(token, signingSecret(), { algorithms: ["HS256"] });
     if (payload.type !== "mobile-access" || !payload.sub || typeof payload.sid !== "string") return null;
-    const session = await prisma.mobileSession.findUnique({
-      where: { id: payload.sid },
-      select: { userId: true, expiresAt: true, revokedAt: true, user: { select: { onboarded: true } } },
-    });
+    const session = await getSessionById(payload.sid);
     if (!session || session.userId !== payload.sub || session.revokedAt || session.expiresAt <= new Date()) return null;
     return { userId: session.userId, onboarded: session.user.onboarded };
   } catch {
@@ -87,8 +84,5 @@ export async function verifyAccessToken(token: string) {
 }
 
 export async function revokeRefreshToken(refreshToken: string) {
-  return prisma.mobileSession.updateMany({
-    where: { refreshTokenHash: hashRefreshToken(refreshToken), revokedAt: null },
-    data: { revokedAt: new Date() },
-  });
+  return revokeSessionByRefreshHash(hashRefreshToken(refreshToken));
 }

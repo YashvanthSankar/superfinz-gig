@@ -35,6 +35,7 @@
     "apps",
     "packages",
     "prisma/**/*.ts",
+    "scripts/migrate-prisma-to-convex.ts",
     "pgsql"
   ]
 }

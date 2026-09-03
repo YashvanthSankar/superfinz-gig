@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidateTag } from "next/cache";
 import { getSession } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { deleteTransaction } from "@/lib/convex-store";
 
 export async function DELETE(
   req: NextRequest,
@@ -12,23 +12,10 @@ export async function DELETE(
 
   const { id } = await params;
 
-  const tx = await prisma.transaction.findUnique({ where: { id } });
-  if (!tx || tx.userId !== session.userId) {
+  const deleted = await deleteTransaction(session.userId, id);
+  if (!deleted) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-
-  await prisma.transaction.delete({ where: { id } });
-
-  // Reverse budget spent
-  await prisma.budget.updateMany({
-    where: {
-      userId: session.userId,
-      category: tx.category,
-      month: tx.date.getMonth() + 1,
-      year: tx.date.getFullYear(),
-    },
-    data: { spent: { decrement: tx.amount } },
-  });
 
   revalidateTag(`dashboard-${session.userId}`, "default");
   return NextResponse.json({ success: true });

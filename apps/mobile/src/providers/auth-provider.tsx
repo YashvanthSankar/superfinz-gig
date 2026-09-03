@@ -15,7 +15,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
     try {
       const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
       if (!webClientId) throw new Error("Set EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID in apps/mobile/.env");
-      GoogleOneTapSignIn.configure({ webClientId, scopes: ["email", "profile"], offlineAccess: false });
+      GoogleOneTapSignIn.configure({
+        webClientId,
+        iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+        scopes: ["email", "profile"],
+        offlineAccess: false,
+      });
       let response = await GoogleOneTapSignIn.signIn();
       if (isNoSavedCredentialFoundResponse(response)) response = await GoogleOneTapSignIn.createAccount();
       if (!isSuccessResponse(response) || !response.data.idToken) throw new Error("Google sign-in was cancelled");

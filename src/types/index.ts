@@ -1,4 +1,4 @@
-// Local type definitions — mirrors Prisma schema without importing from @prisma/client
+// Local compatibility types used by legacy import routes without a runtime database client.
 
 export type User = {
   id: string;
@@ -61,6 +61,7 @@ export type Goal = {
   savedAmount: number;
   deadline: Date | null;
   achieved: boolean;
+  isEssential: boolean;
   createdAt: Date;
 };
 

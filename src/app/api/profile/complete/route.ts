@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { completeUserProfile } from "@/lib/convex-store";
 import { financePlanError } from "@/lib/finance";
 import { z } from "zod";
 
@@ -55,57 +55,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: planError }, { status: 400 });
   }
 
-  await prisma.user.update({
-    where: { id: session.userId },
-    data: {
-      age: data.age,
-      userType: data.userType,
-      onboarded: true,
-      profile: {
-        upsert: {
-          create: {
-            institution: data.institution,
-            monthlyAllowance: data.monthlyAllowance,
-            incomeSources: { set: (data.incomeSources ?? []) as never[] },
-            company: data.company,
-            monthlySalary: data.monthlySalary,
-            industry: data.industry,
-            monthlyBudget: data.monthlyBudget,
-            savingsGoal: data.savingsGoal,
-            spendingPattern: data.spendingPattern ?? "BALANCED",
-            cycleStartDate: data.cycleStartDate ?? 1,
-          },
-          update: {
-            institution: data.institution,
-            monthlyAllowance: data.monthlyAllowance,
-            incomeSources: { set: (data.incomeSources ?? []) as never[] },
-            company: data.company,
-            monthlySalary: data.monthlySalary,
-            industry: data.industry,
-            monthlyBudget: data.monthlyBudget,
-            savingsGoal: data.savingsGoal,
-            spendingPattern: data.spendingPattern ?? "BALANCED",
-            cycleStartDate: data.cycleStartDate ?? 1,
-          },
-        },
-      },
-    },
+  const updated = await completeUserProfile({
+    userId: session.userId,
+    age: data.age,
+    userType: data.userType,
+    institution: data.institution,
+    monthlyAllowance: data.monthlyAllowance,
+    incomeSources: data.incomeSources ?? [],
+    company: data.company,
+    monthlySalary: data.monthlySalary,
+    industry: data.industry,
+    monthlyBudget: data.monthlyBudget,
+    savingsGoal: data.savingsGoal,
+    spendingPattern: data.spendingPattern ?? "BALANCED",
+    cycleStartDate: data.cycleStartDate ?? 1,
   });
-
-  const existingGoals = await prisma.goal.count({
-    where: { userId: session.userId },
-  });
-
-  if (existingGoals === 0 && data.savingsGoal > 0) {
-    await prisma.goal.create({
-      data: {
-        userId: session.userId,
-        title: "Emergency Fund",
-        targetAmount: data.savingsGoal * 6,
-        savedAmount: 0,
-      },
-    });
-  }
+  if (!updated) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
   return NextResponse.json({ success: true });
 }

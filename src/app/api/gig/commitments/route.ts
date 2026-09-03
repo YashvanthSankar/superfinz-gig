@@ -1,0 +1,13 @@
+import { NextRequest, NextResponse } from "next/server";
+import { commitmentInputSchema } from "@superfinz/shared";
+import { z } from "zod";
+import { getSession } from "@/lib/auth";
+import { createGigCommitment, deleteGigCommitment, getGigBundle, markGigCommitmentPaid, updateGigCommitment } from "@/lib/gig-store";
+
+const patchSchema = z.object({ id: z.string().min(1), dueDate: z.string().datetime().optional(), amount: z.number().positive().optional(), status: z.enum(["DUE", "PAID", "RESCHEDULED"]).optional() });
+const deleteSchema = z.object({ id: z.string().min(1) });
+
+export async function GET(request: NextRequest) { const session = await getSession(request); if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 }); const bundle = await getGigBundle(session.userId); return NextResponse.json({ commitments: bundle?.commitments ?? [] }); }
+export async function POST(request: NextRequest) { const session = await getSession(request); if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 }); const parsed = commitmentInputSchema.safeParse(await request.json().catch(() => null)); if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid commitment" }, { status: 400 }); return NextResponse.json({ commitment: await createGigCommitment(session.userId, parsed.data) }, { status: 201 }); }
+export async function PATCH(request: NextRequest) { const session = await getSession(request); if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 }); const parsed = patchSchema.safeParse(await request.json().catch(() => null)); if (!parsed.success) return NextResponse.json({ error: "Invalid commitment update" }, { status: 400 }); const { id, ...changes } = parsed.data; const commitment = changes.status === "PAID" ? await markGigCommitmentPaid(session.userId, id, new Date().toISOString()) : await updateGigCommitment(session.userId, { id, ...changes }); return commitment ? NextResponse.json({ commitment }) : NextResponse.json({ error: "Commitment not found" }, { status: 404 }); }
+export async function DELETE(request: NextRequest) { const session = await getSession(request); if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 }); const parsed = deleteSchema.safeParse(await request.json().catch(() => null)); if (!parsed.success) return NextResponse.json({ error: "Invalid commitment" }, { status: 400 }); const deleted = await deleteGigCommitment(session.userId, parsed.data.id); return deleted ? NextResponse.json({ ok: true }) : NextResponse.json({ error: "Commitment not found" }, { status: 404 }); }

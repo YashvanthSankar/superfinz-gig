@@ -1,67 +1,13 @@
 "use client";
-import { signIn } from "next-auth/react";
+
 import { useState } from "react";
 import Link from "next/link";
+import { signIn } from "next-auth/react";
+import { ArrowRight, CircleGauge, ShieldCheck, WalletCards } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 
 export default function LoginPage() {
-  const [loading, setLoading] = useState(false);
-
-  const go = async () => {
-    setLoading(true);
-    await signIn("google", { callbackUrl: "/dashboard" });
-  };
-
-  return (
-    <div className="min-h-screen bg-paper flex items-center justify-center p-4">
-      <div className="w-full max-w-sm">
-        {/* Logo */}
-        <div className="text-center mb-10">
-          <Logo size="lg" />
-          <p className="brut-label mt-3">Your money. Your rules.</p>
-        </div>
-
-        <div className="brut-card p-8 space-y-6">
-          <div className="text-center">
-            <h1 className="brut-display text-3xl text-ink">Welcome back.</h1>
-            <p className="text-ink-soft text-sm mt-2 font-semibold">Sign in to continue.</p>
-          </div>
-
-          <button
-            onClick={go}
-            disabled={loading}
-            className="w-full brut-btn bg-ink text-paper h-12 text-sm"
-          >
-            {loading ? (
-              <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-              </svg>
-            ) : (
-              <svg width="18" height="18" viewBox="0 0 24 24">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-              </svg>
-            )}
-            Continue with Google
-          </button>
-
-          <div className="text-center">
-            <p className="text-[11px] text-ink-soft font-semibold">
-              Only your name and email are accessed. No passwords stored.
-            </p>
-          </div>
-        </div>
-
-        <p className="text-center text-ink-soft text-xs mt-6 font-semibold">
-          New here?{" "}
-          <Link href="/onboarding" className="text-accent hover:underline font-black uppercase tracking-wider">
-            Get started free →
-          </Link>
-        </p>
-      </div>
-    </div>
-  );
+  const [loading, setLoading] = useState(false); const [error, setError] = useState<string | null>(null);
+  const go = async () => { setLoading(true); setError(null); try { await signIn("google", { callbackUrl: "/dashboard" }); } catch { setError("Google sign-in could not start. You can retry or open the demo without an account."); setLoading(false); } };
+  return <main className="min-h-dvh bg-paper p-4 sm:p-8"><div className="mx-auto grid min-h-[calc(100dvh-4rem)] max-w-5xl items-center gap-10 lg:grid-cols-2"><section><Link href="/" aria-label="SuperFinz home" className="inline-flex items-center gap-3"><Logo size="lg" /><span className="text-2xl font-black">SUPERFINZ</span></Link><p className="brut-stamp mt-8 inline-flex bg-accent-soft">Salary layer for irregular earners</p><h1 className="brut-display mt-5 text-5xl sm:text-6xl">Know what is safe today.</h1><p className="mt-5 text-lg font-semibold leading-8 text-ink-soft">Sign in to build a live plan, or enter the Ravi demo immediately—no setup and no bank account required.</p><div className="mt-7 grid gap-3">{[[CircleGauge, "Know today’s safe amount"], [ShieldCheck, "Protect essentials and earning costs"], [WalletCards, "Prepare for low-income weeks"]].map(([Icon, text]) => { const Glyph = Icon as typeof CircleGauge; return <div key={String(text)} className="flex min-h-12 items-center gap-3 border-2 border-ink bg-paper-2 px-4 font-bold"><Glyph aria-hidden size={19} />{String(text)}</div>; })}</div></section><section className="brut-card-lg bg-paper p-6 sm:p-8"><p className="brut-label">Welcome to SuperFinz</p><h2 className="mt-2 text-3xl font-black">Your earnings vary. Your plan adapts.</h2><button onClick={go} disabled={loading} className="brut-btn mt-7 min-h-14 w-full bg-ink text-paper" aria-describedby={error ? "login-error" : undefined}>{loading && <span className="h-4 w-4 animate-spin border-2 border-paper border-t-transparent" aria-hidden />}Continue with Google</button><Link href="/demo" className="brut-btn mt-3 min-h-14 w-full bg-accent text-paper">Continue as Ravi<ArrowRight aria-hidden size={18} /></Link>{error && <p id="login-error" role="alert" className="mt-4 border-2 border-bad bg-bad-soft p-3 text-sm font-bold text-bad">{error}</p>}<div className="mt-6 border-t-2 border-ink pt-5"><p className="text-sm font-semibold text-ink-soft">Only your basic Google identity is used for sign-in. The demo uses clearly labeled prototype data. No account connection, money transfer, or credit request occurs.</p></div></section></div></main>;
 }

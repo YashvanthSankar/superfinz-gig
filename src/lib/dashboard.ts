@@ -1,12 +1,12 @@
 import type { DashboardDto, GoalDto, TransactionDto, UserDto } from "@superfinz/shared";
 import { categoryColor } from "@superfinz/shared";
-import { prisma } from "@/lib/prisma";
+import { getUserById, listBudgets, listGoals, listTransactions } from "@/lib/convex-store";
 import { toUserDto } from "@/lib/dto";
 
 const dayMs = 86_400_000;
 
 export async function getDashboardData(userId: string): Promise<DashboardDto | null> {
-  const user = await prisma.user.findUnique({ where: { id: userId }, include: { profile: true } });
+  const user = await getUserById(userId);
   if (!user) return null;
 
   const now = new Date();
@@ -17,9 +17,9 @@ export async function getDashboardData(userId: string): Promise<DashboardDto | n
   end.setHours(0, 0, 0, 0);
 
   const [transactions, goals, budgets] = await Promise.all([
-    prisma.transaction.findMany({ where: { userId, date: { gte: start, lt: end } }, orderBy: { date: "asc" } }),
-    prisma.goal.findMany({ where: { userId }, orderBy: { createdAt: "desc" } }),
-    prisma.budget.findMany({ where: { userId, month: now.getMonth() + 1, year: now.getFullYear() } }),
+    listTransactions({ userId, startInclusive: start, endExclusive: end }).then((result) => result.transactions),
+    listGoals(userId),
+    listBudgets(userId, now.getMonth() + 1, now.getFullYear()),
   ]);
 
   const budget = user.profile?.monthlyBudget ?? 0;

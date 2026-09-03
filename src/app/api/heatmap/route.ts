@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { listTransactions } from "@/lib/convex-store";
 
 export async function GET(req: NextRequest) {
   const session = await getSession(req);
@@ -10,10 +10,9 @@ export async function GET(req: NextRequest) {
   threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
   threeMonthsAgo.setHours(0, 0, 0, 0);
 
-  const transactions = await prisma.transaction.findMany({
-    where: { userId: session.userId, date: { gte: threeMonthsAgo } },
-    select: { amount: true, date: true },
-    orderBy: { date: "asc" },
+  const { transactions } = await listTransactions({
+    userId: session.userId,
+    startInclusive: threeMonthsAgo,
   });
 
   // Group by date string

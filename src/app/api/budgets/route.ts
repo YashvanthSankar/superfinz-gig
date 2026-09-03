@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { listBudgets, upsertBudget } from "@/lib/convex-store";
 import { z } from "zod";
 
 const upsertSchema = z.object({
@@ -18,9 +18,7 @@ export async function GET(req: NextRequest) {
   const month = parseInt(searchParams.get("month") ?? String(new Date().getMonth() + 1));
   const year = parseInt(searchParams.get("year") ?? String(new Date().getFullYear()));
 
-  const budgets = await prisma.budget.findMany({
-    where: { userId: session.userId, month, year },
-  });
+  const budgets = await listBudgets(session.userId, month, year);
 
   return NextResponse.json({ budgets });
 }
@@ -37,11 +35,7 @@ export async function POST(req: NextRequest) {
 
   const { category, limit, month, year } = parsed.data;
 
-  const budget = await prisma.budget.upsert({
-    where: { userId_category_month_year: { userId: session.userId, category, month, year } },
-    update: { limit },
-    create: { userId: session.userId, category, limit, month, year },
-  });
+  const budget = await upsertBudget({ userId: session.userId, category, limit, month, year });
 
   return NextResponse.json({ budget });
 }

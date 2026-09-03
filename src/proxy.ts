@@ -11,6 +11,7 @@ const PROTECTED_API = [
   "/api/profile",
   "/api/news",
   "/api/dashboard",
+  "/api/gig",
 ];
 
 export const proxy = auth((req) => {
@@ -63,5 +64,6 @@ export const config = {
     "/api/profile/:path*",
     "/api/news/:path*",
     "/api/dashboard/:path*",
+    "/api/gig/:path*",
   ],
 };

@@ -1,18 +1,21 @@
 import { Sidebar } from '@/components/dashboard/sidebar';
-import { Chat } from '@/components/dashboard/chat';
-import { DashboardBreadcrumbs } from '@/components/dashboard/breadcrumbs';
+import { getSession } from '@/lib/auth';
+import { getGigBundle } from '@/lib/gig-store';
+import { redirect } from 'next/navigation';
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const session = await getSession();
+  if (!session) redirect('/login');
+  if (!session.onboarded) redirect('/onboarding');
+  if (!await getGigBundle(session.userId)) redirect('/onboarding');
   return (
-    <div className="flex h-screen overflow-hidden text-ink bg-paper">
+    <div className="flex min-h-dvh text-ink bg-paper">
       <Sidebar />
-      <main className="flex-1 overflow-y-auto">
-        <div className="max-w-5xl mx-auto px-4 py-4 pt-[4.5rem] pb-24 lg:p-7 lg:pt-7 lg:pb-7">
-          <DashboardBreadcrumbs />
-          <div className="mt-3">{children}</div>
+      <main id="main-content" className="min-w-0 flex-1">
+        <div className="max-w-6xl mx-auto px-4 py-5 pt-[4.5rem] pb-24 sm:px-6 lg:p-8">
+          {children}
         </div>
       </main>
-      <Chat />
     </div>
   );
 }

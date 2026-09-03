@@ -1,9 +1,10 @@
 import { OAuth2Client } from "google-auth-library";
 import { NextResponse } from "next/server";
 import { mobileGoogleAuthSchema } from "@superfinz/shared";
-import { prisma } from "@/lib/prisma";
+import { upsertGoogleUser } from "@/lib/convex-store";
 import { createMobileSession } from "@/lib/mobile-auth";
 import { toUserDto } from "@/lib/dto";
+import { getGigBundle } from "@/lib/gig-store";
 
 export const runtime = "nodejs";
 
@@ -21,14 +22,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Google account could not be verified" }, { status: 401 });
     }
 
-    const user = await prisma.user.upsert({
-      where: { email: payload.email },
-      update: { googleId: payload.sub, avatar: payload.picture, name: payload.name ?? payload.email },
-      create: { email: payload.email, googleId: payload.sub, avatar: payload.picture, name: payload.name ?? payload.email },
-      include: { profile: true },
+    const user = await upsertGoogleUser({
+      email: payload.email,
+      googleId: payload.sub,
+      avatar: payload.picture,
+      name: payload.name ?? payload.email,
     });
     const tokens = await createMobileSession(user.id, parsed.data.deviceLabel);
-    return NextResponse.json({ ...tokens, user: toUserDto(user) });
+    const gigPlan = await getGigBundle(user.id);
+    return NextResponse.json({ ...tokens, user: { ...toUserDto(user), onboarded: Boolean(gigPlan) } });
   } catch (error) {
     console.warn("[mobile-auth] Google token rejected", error instanceof Error ? error.message : error);
     return NextResponse.json({ error: "Invalid Google credential" }, { status: 401 });

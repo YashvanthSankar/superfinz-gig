@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import {
+  annotateTransaction,
+  getCategoryBudget,
+  listTransactions,
+} from "@/lib/convex-store";
 import { rateLimit } from "@/lib/rate-limit";
 import { z } from "zod";
 
@@ -97,14 +101,12 @@ export async function POST(req: NextRequest) {
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-  const recentSame = await prisma.transaction.findMany({
-    where: {
-      userId: session.userId,
-      category,
-      date: { gte: sevenDaysAgo },
-      id: { not: transactionId },
-    },
-    orderBy: { date: "desc" },
+  const { transactions: recentSame } = await listTransactions({
+    userId: session.userId,
+    category,
+    startInclusive: sevenDaysAgo,
+    excludeId: transactionId,
+    descending: true,
   });
 
   const weekSpend = recentSame.reduce<number>(
@@ -114,16 +116,12 @@ export async function POST(req: NextRequest) {
   const prevCount = recentSame.length;
 
   const now = new Date();
-  const budget = await prisma.budget.findUnique({
-    where: {
-      userId_category_month_year: {
-        userId: session.userId,
-        category,
-        month: now.getMonth() + 1,
-        year: now.getFullYear(),
-      },
-    },
-  });
+  const budget = await getCategoryBudget(
+    session.userId,
+    category,
+    now.getMonth() + 1,
+    now.getFullYear(),
+  );
 
   let isNecessary = ESSENTIAL.includes(category);
 
@@ -159,10 +157,7 @@ export async function POST(req: NextRequest) {
     aiNote = llmNote ?? pickFallbackRoast(category, vars);
   }
 
-  await prisma.transaction.update({
-    where: { id: transactionId },
-    data: { isNecessary, aiNote },
-  });
+  await annotateTransaction({ userId: session.userId, id: transactionId, isNecessary, aiNote });
 
   return NextResponse.json({ isNecessary, aiNote });
 }

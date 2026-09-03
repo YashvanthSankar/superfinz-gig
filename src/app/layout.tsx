@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono, Playfair_Display, Inter } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
 import { Providers } from "@/components/session-provider";
@@ -12,17 +12,6 @@ const geistSans = Geist({
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-const playfair = Playfair_Display({
-  variable: "--font-playfair",
-  subsets: ["latin"],
-  weight: ["400", "700", "800", "900"],
-});
-
-const inter = Inter({
-  variable: "--font-inter",
   subsets: ["latin"],
 });
 
@@ -43,12 +32,12 @@ export const viewport: Viewport = {
   themeColor: "#FF5A1F",
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
 };
 
 export const metadata: Metadata = {
-  title: "SuperFinz — Gen Z Finance Dashboard",
-  description: "All-in-one finance dashboard for students and young professionals. Track spends, crush savings goals, and plan your retirement early.",
+  metadataBase: new URL(process.env.NEXTAUTH_URL ?? "http://localhost:3000"),
+  title: "SuperFinz — Financial resilience for irregular earners",
+  description: "Turn irregular earnings into a predictable money plan with safe-to-spend guidance, protected pockets, and explainable resilience.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
@@ -66,8 +55,8 @@ export const metadata: Metadata = {
     shortcut: "/favicon.ico",
   },
   openGraph: {
-    title: "SuperFinz — Gen Z Finance Dashboard",
-    description: "Track spends, crush savings goals, and plan your retirement early.",
+    title: "SuperFinz — Financial resilience for irregular earners",
+    description: "A salary layer for people without salaries.",
     type: "website",
     images: [{ url: "/superfinz.png", width: 2000, height: 2000, alt: "SuperFinz" }],
   },
@@ -81,7 +70,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${playfair.variable} ${inter.variable} ${gatwick.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${gatwick.variable} h-full antialiased`}
     >
       <head>
         <link rel="manifest" href="/manifest.json" />
@@ -91,7 +80,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="SuperFinz" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
       </head>
-      <body className="min-h-screen relative">
+      <body className="min-h-dvh relative">
         <Providers>{children}</Providers>
         <Analytics />
       </body>

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { getUserById, patchUserProfile } from "@/lib/convex-store";
 import { financePlanError } from "@/lib/finance";
 import { z } from "zod";
 
@@ -8,10 +8,7 @@ export async function GET(req: NextRequest) {
   const session = await getSession(req);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.userId },
-    include: { profile: true },
-  });
+  const user = await getUserById(session.userId);
 
   if (!user) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json({ user });
@@ -35,10 +32,7 @@ export async function PATCH(req: NextRequest) {
   const parsed = patchSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
-  const existingUser = await prisma.user.findUnique({
-    where: { id: session.userId },
-    include: { profile: true },
-  });
+  const existingUser = await getUserById(session.userId);
 
   if (!existingUser) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -58,11 +52,7 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: planError }, { status: 400 });
   }
 
-  await prisma.profile.upsert({
-    where: { userId: session.userId },
-    update: parsed.data,
-    create: { userId: session.userId, ...parsed.data },
-  });
+  await patchUserProfile(session.userId, parsed.data);
 
   return NextResponse.json({ success: true });
 }

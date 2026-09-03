@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { refreshTokenSchema } from "@superfinz/shared";
 import { rotateMobileSession } from "@/lib/mobile-auth";
 import { toUserDto } from "@/lib/dto";
+import { getGigBundle } from "@/lib/gig-store";
 
 export const runtime = "nodejs";
 
@@ -11,5 +12,6 @@ export async function POST(request: Request) {
   const result = await rotateMobileSession(parsed.data.refreshToken);
   if (!result) return NextResponse.json({ error: "Session expired" }, { status: 401 });
   const { user, ...tokens } = result;
-  return NextResponse.json({ ...tokens, user: toUserDto(user) });
+  const gigPlan = await getGigBundle(user.id);
+  return NextResponse.json({ ...tokens, user: { ...toUserDto(user), onboarded: Boolean(gigPlan) } });
 }

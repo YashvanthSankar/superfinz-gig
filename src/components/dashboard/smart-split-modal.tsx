@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useRouter } from "next/navigation";
-import { type Goal } from "@/generated/prisma/client";
+import { type Goal } from "@/types";
 import { formatCurrency } from "@/lib/utils";
 
 type Step = "ask-new" | "create-new" | "split" | "done";

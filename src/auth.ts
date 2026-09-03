@@ -1,6 +1,6 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
-import { prisma } from "@/lib/prisma";
+import { getUserByEmail, upsertGoogleUser } from "@/lib/convex-store";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
@@ -14,19 +14,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async signIn({ user, account }) {
       if (account?.provider === "google" && user.email) {
         try {
-          await prisma.user.upsert({
-            where: { email: user.email },
-            update: {
-              googleId: account.providerAccountId,
-              avatar: user.image ?? undefined,
-              name: user.name ?? user.email,
-            },
-            create: {
-              email: user.email,
-              name: user.name ?? user.email,
-              googleId: account.providerAccountId,
-              avatar: user.image ?? undefined,
-            },
+          await upsertGoogleUser({
+            email: user.email,
+            googleId: account.providerAccountId,
+            avatar: user.image ?? undefined,
+            name: user.name ?? user.email,
           });
           return true;
         } catch (err) {
@@ -39,9 +31,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async jwt({ token, trigger }) {
       if (trigger === "signIn" || trigger === "update" || !token.userId) {
         if (token.email) {
-          const dbUser = await prisma.user.findUnique({
-            where: { email: token.email },
-          });
+          const dbUser = await getUserByEmail(token.email);
           if (dbUser) {
             token.userId = dbUser.id;
             token.onboarded = dbUser.onboarded;

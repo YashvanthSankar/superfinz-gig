@@ -1,10 +1,9 @@
 import { useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   simulateGigScenario,
   type CommitmentRecurrence,
-  type GigDashboardDto,
   type GigScenarioInput,
 } from "@superfinz/shared";
 import { apiFetch } from "@/lib/api";
@@ -21,6 +20,10 @@ import {
 } from "@/components/ui";
 import { DateField } from "@/components/date-field";
 import { colors } from "@/constants/theme";
+import {
+  refreshGigDashboard,
+  useGigDashboard,
+} from "@/hooks/use-gig-dashboard";
 
 type Scenario =
   "BASELINE" | "LOWER_INCOME" | "PAYOUT_DELAY" | "REPAIR" | "TIME_OFF";
@@ -117,13 +120,8 @@ export default function Plan() {
   const [essential, setEssential] = useState(true);
   const [recurrence, setRecurrence] = useState<CommitmentRecurrence>("MONTHLY");
   const [scenario, setScenario] = useState<Scenario>("BASELINE");
-  const query = useQuery({
-    queryKey: ["gig-dashboard"],
-    queryFn: () =>
-      apiFetch<{ dashboard: GigDashboardDto }>("/api/gig/dashboard"),
-  });
-  const refresh = () =>
-    client.invalidateQueries({ queryKey: ["gig-dashboard"] });
+  const query = useGigDashboard();
+  const refresh = () => refreshGigDashboard(client);
   const create = useMutation({
     mutationFn: () =>
       apiFetch("/api/gig/commitments", {
@@ -153,11 +151,24 @@ export default function Plan() {
   });
   const markPaid = useMutation({
     mutationFn: (id: string) =>
-      apiFetch("/api/gig/commitments", {
-        method: "PATCH",
-        body: JSON.stringify({ id, status: "PAID" }),
-      }),
-    onSuccess: refresh,
+      apiFetch<{ commitment: { dueDate: string; status: string } }>(
+        "/api/gig/commitments",
+        {
+          method: "PATCH",
+          body: JSON.stringify({ id, status: "PAID" }),
+        },
+      ),
+    onSuccess: async (result: {
+      commitment: { dueDate: string; status: string };
+    }) => {
+      await refresh();
+      Alert.alert(
+        "Bill recorded as paid",
+        result.commitment.status === "DUE"
+          ? `Your plan balance was reduced. No payment was sent. Next due ${new Date(result.commitment.dueDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}.`
+          : "Your plan balance was reduced. No payment was sent.",
+      );
+    },
     onError: (cause) =>
       Alert.alert(
         "Couldn’t update bill",
@@ -293,13 +304,13 @@ export default function Plan() {
               {item.status !== "PAID" && (
                 <View style={styles.billActions}>
                   <Button
-                    title="Paid"
+                    title="Mark paid"
                     tone="quiet"
                     loading={markPaid.isPending}
                     onPress={() =>
                       Alert.alert(
                         "Mark this bill as paid?",
-                        `${money(item.amount)} will be taken from your available balance.`,
+                        `Your plan balance will reduce by ${money(item.amount)}. No payment is sent.`,
                         [
                           { text: "Cancel", style: "cancel" },
                           {
@@ -371,6 +382,15 @@ export default function Plan() {
               </Label>
               <Text style={styles.safeValue}>{money(result.safeToSpend)}</Text>
               <Text style={styles.safeLabel}>safe to use</Text>
+              <Text style={ui.body}>
+                Emergency cover: {Math.floor(result.protectedDays)}{" "}
+                {Math.floor(result.protectedDays) === 1 ? "day" : "days"}
+              </Text>
+              <Text style={ui.body}>
+                {result.atRiskCommitments.length
+                  ? `${result.atRiskCommitments.length} important bill${result.atRiskCommitments.length === 1 ? "" : "s"} may be at risk.`
+                  : "No important bills are at risk."}
+              </Text>
               <Text style={ui.body}>{result.recommendedAction}</Text>
               {hasGap && (
                 <Text style={styles.target}>

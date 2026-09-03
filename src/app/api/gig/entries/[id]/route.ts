@@ -33,8 +33,21 @@ export async function DELETE(
   if (!session)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await context.params;
-  const deleted = await deleteGigEntry(session.userId, id);
-  return deleted
-    ? NextResponse.json({ ok: true })
-    : NextResponse.json({ error: "Entry not found" }, { status: 404 });
+  try {
+    const deleted = await deleteGigEntry(session.userId, id);
+    return deleted
+      ? NextResponse.json({ ok: true })
+      : NextResponse.json({ error: "Entry not found" }, { status: 404 });
+  } catch (cause) {
+    const message =
+      cause instanceof Error ? cause.message : "Unable to delete entry";
+    return NextResponse.json(
+      {
+        error: message.includes("Only the latest")
+          ? message.slice(message.indexOf("Only the latest"))
+          : "This entry cannot be removed safely",
+      },
+      { status: 409 },
+    );
+  }
 }

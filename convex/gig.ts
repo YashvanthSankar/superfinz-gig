@@ -45,6 +45,11 @@ async function findCommitment(ctx: ReadCtx, id: string) {
   return nativeId ? await ctx.db.get(nativeId) : null;
 }
 
+async function findPayoutSplit(ctx: ReadCtx, id: string) {
+  const nativeId = ctx.db.normalizeId("gigPayoutSplits", id);
+  return nativeId ? await ctx.db.get(nativeId) : null;
+}
+
 const sourceValidator = v.object({
   name: v.string(),
   type: v.string(),
@@ -247,6 +252,7 @@ function toPayoutSplit(doc: Doc<"gigPayoutSplits">) {
     beforeProtectedDays: doc.beforeProtectedDays ?? null,
     afterProtectedDays: doc.afterProtectedDays ?? null,
     fundedCommitmentIds: doc.fundedCommitmentIds ?? [],
+    fundedCommitments: doc.fundedCommitments ?? [],
     recommendationReason: doc.recommendationReason ?? null,
     createdAt: new Date(doc.createdAt).toISOString(),
   };
@@ -598,12 +604,23 @@ async function adjustPocketTarget(
 }
 function nextCommitmentDue(dueDate: number, recurrence: string, after: number) {
   const next = new Date(dueDate);
+  const anchorDay = next.getDate();
+  const addMonths = (months: number) => {
+    next.setDate(1);
+    next.setMonth(next.getMonth() + months);
+    const lastDay = new Date(
+      next.getFullYear(),
+      next.getMonth() + 1,
+      0,
+    ).getDate();
+    next.setDate(Math.min(anchorDay, lastDay));
+  };
   const advance = () => {
     if (recurrence === "WEEKLY") next.setDate(next.getDate() + 7);
     else if (recurrence === "FORTNIGHTLY") next.setDate(next.getDate() + 14);
-    else if (recurrence === "MONTHLY") next.setMonth(next.getMonth() + 1);
-    else if (recurrence === "QUARTERLY") next.setMonth(next.getMonth() + 3);
-    else if (recurrence === "YEARLY") next.setFullYear(next.getFullYear() + 1);
+    else if (recurrence === "MONTHLY") addMonths(1);
+    else if (recurrence === "QUARTERLY") addMonths(3);
+    else if (recurrence === "YEARLY") addMonths(12);
   };
   do advance();
   while (next.getTime() <= after);
@@ -613,12 +630,23 @@ function nextSourcePayout(source: Doc<"gigIncomeSources">, after: number) {
   if (!["DAILY", "WEEKLY", "FORTNIGHTLY", "MONTHLY"].includes(source.frequency))
     return null;
   const next = new Date(source.nextPayoutAt ?? after);
+  const anchorDay = next.getDate();
+  const addMonth = () => {
+    next.setDate(1);
+    next.setMonth(next.getMonth() + 1);
+    const lastDay = new Date(
+      next.getFullYear(),
+      next.getMonth() + 1,
+      0,
+    ).getDate();
+    next.setDate(Math.min(anchorDay, lastDay));
+  };
   const advance = () => {
     if (source.frequency === "DAILY") next.setDate(next.getDate() + 1);
     else if (source.frequency === "WEEKLY") next.setDate(next.getDate() + 7);
     else if (source.frequency === "FORTNIGHTLY")
       next.setDate(next.getDate() + 14);
-    else if (source.frequency === "MONTHLY") next.setMonth(next.getMonth() + 1);
+    else if (source.frequency === "MONTHLY") addMonth();
   };
   do advance();
   while (next.getTime() <= after);
@@ -644,6 +672,11 @@ export const createEntry = mutation({
   handler: async (ctx, args) => {
     assertServerKey(args.serverKey);
     if (args.amount <= 0) throw new Error("Amount must be positive");
+    if (
+      ["SETTLED", "PAID"].includes(args.status) &&
+      args.date > Date.now() + 60_000
+    )
+      throw new Error("Settled money and costs cannot use a future date");
     const profile = await profileForUser(ctx, args.userId);
     if (args.sourceId) {
       const source = await findSource(ctx, args.sourceId);
@@ -704,6 +737,11 @@ export const updateEntry = mutation({
   handler: async (ctx, args) => {
     assertServerKey(args.serverKey);
     if (args.amount <= 0) throw new Error("Amount must be positive");
+    if (
+      ["SETTLED", "PAID"].includes(args.status) &&
+      args.date > Date.now() + 60_000
+    )
+      throw new Error("Settled money and costs cannot use a future date");
     const entry = await findEntry(ctx, args.id);
     if (!entry || entry.userId !== args.userId) return null;
     if (entry.payoutSplitId || entry.commitmentId)
@@ -756,17 +794,152 @@ export const deleteEntry = mutation({
     assertServerKey(args.serverKey);
     const entry = await findEntry(ctx, args.id);
     if (!entry || entry.userId !== args.userId) return false;
-    if (entry.payoutSplitId)
-      throw new Error("Payout records cannot be deleted from the cashbook");
     const profile = await profileForUser(ctx, args.userId);
+    if (entry.payoutSplitId) {
+      const split = await findPayoutSplit(ctx, entry.payoutSplitId);
+      if (!split || split.userId !== args.userId) return false;
+      const [userSplits, userEntries] = await Promise.all([
+        ctx.db
+          .query("gigPayoutSplits")
+          .withIndex("by_user_received", (q) => q.eq("userId", args.userId))
+          .collect(),
+        ctx.db
+          .query("gigCashEntries")
+          .withIndex("by_user_date", (q) => q.eq("userId", args.userId))
+          .collect(),
+      ]);
+      const newestSplit = [...userSplits].sort(
+        (a, b) => b.createdAt - a.createdAt,
+      )[0];
+      const hasLaterActivity = userEntries.some(
+        (item) => item._id !== entry._id && item.createdAt > entry.createdAt,
+      );
+      if (newestSplit?._id !== split._id || hasLaterActivity)
+        throw new Error(
+          "Only the latest payout can be undone before newer money activity is added",
+        );
+      const now = Date.now();
+      const savedFunding = split.fundedCommitments ?? [];
+      if (
+        savedFunding.length &&
+        (
+          await Promise.all(
+            savedFunding.map((funding) => findCommitment(ctx, funding.id)),
+          )
+        ).some((commitment) => !commitment)
+      )
+        throw new Error(
+          "Only the latest payout can be undone before its funded bills change",
+        );
+      if (savedFunding.length) {
+        for (const funding of savedFunding) {
+          const commitment = await findCommitment(ctx, funding.id);
+          if (
+            !commitment ||
+            commitment.userId !== args.userId ||
+            commitment.status === "PAID"
+          )
+            continue;
+          await ctx.db.patch(commitment._id, {
+            fundedAmount: roundMoney(
+              Math.max(0, commitment.fundedAmount - funding.amount),
+            ),
+            updatedAt: now,
+          });
+        }
+      } else {
+        // Older payout records stored only the funded bill IDs. Reverse as much
+        // of the still-funded amount as this payout originally allocated.
+        let remaining = split.essentialsAmount;
+        for (const id of split.fundedCommitmentIds ?? []) {
+          if (remaining <= 0) break;
+          const commitment = await findCommitment(ctx, id);
+          if (
+            !commitment ||
+            commitment.userId !== args.userId ||
+            commitment.status === "PAID"
+          )
+            continue;
+          const amount = Math.min(remaining, commitment.fundedAmount);
+          if (amount <= 0) continue;
+          await ctx.db.patch(commitment._id, {
+            fundedAmount: roundMoney(commitment.fundedAmount - amount),
+            updatedAt: now,
+          });
+          remaining = roundMoney(remaining - amount);
+        }
+      }
+      await subtractFromPocket(
+        ctx,
+        args.userId,
+        "ESSENTIALS",
+        split.essentialsAmount,
+      );
+      await subtractFromPocket(
+        ctx,
+        args.userId,
+        "WORK_COSTS",
+        split.workCostsAmount,
+      );
+      await subtractFromPocket(
+        ctx,
+        args.userId,
+        "EMERGENCY_CUSHION",
+        split.emergencyAmount,
+      );
+      await subtractFromPocket(
+        ctx,
+        args.userId,
+        "LONG_TERM_SAVINGS",
+        split.longTermAmount,
+      );
+      await subtractFromPocket(
+        ctx,
+        args.userId,
+        "FLEXIBLE_SPENDING",
+        split.flexibleAmount,
+      );
+      await ctx.db.patch(profile._id, {
+        currentBalance: roundMoney(profile.currentBalance - entry.amount),
+        updatedAt: now,
+      });
+      if (split.sourceId && split.sourceScheduleCaptured) {
+        const source = await findSource(ctx, split.sourceId);
+        if (source && source.userId === args.userId)
+          await ctx.db.patch(source._id, {
+            nextPayoutAt: split.previousNextPayoutAt,
+            lastSyncAt: split.previousLastSyncAt,
+            updatedAt: now,
+          });
+      }
+      await ctx.db.delete(entry._id);
+      await ctx.db.delete(split._id);
+      return true;
+    }
     const delta = balanceDelta(entry.kind, entry.amount, entry.status);
+    let pocketReversalKind = entry.kind;
     if (entry.commitmentId) {
       const commitment = await findCommitment(ctx, entry.commitmentId);
       if (!commitment || commitment.userId !== args.userId)
         throw new Error("Linked commitment not found");
+      const laterPayment = await ctx.db
+        .query("gigCashEntries")
+        .withIndex("by_user_date", (q) => q.eq("userId", args.userId))
+        .filter((q) => q.eq(q.field("commitmentId"), entry.commitmentId))
+        .collect();
+      if (
+        laterPayment.some(
+          (item) => item._id !== entry._id && item.createdAt > entry.createdAt,
+        )
+      )
+        throw new Error("Only the latest payment for this bill can be undone");
+      pocketReversalKind = commitment.essential
+        ? "ESSENTIAL_EXPENSE"
+        : "FLEXIBLE_EXPENSE";
       await ctx.db.patch(commitment._id, {
         status: "DUE",
         fundedAmount: 0,
+        lastPaidAt: entry.commitmentPreviousPaidAt,
         ...(entry.commitmentDueDate
           ? { dueDate: entry.commitmentDueDate }
           : {}),
@@ -791,7 +964,12 @@ export const deleteEntry = mutation({
         updatedAt: Date.now(),
       });
       if (delta < 0 && entry.pocketDebit)
-        await adjustPocket(ctx, args.userId, entry.kind, entry.pocketDebit);
+        await adjustPocket(
+          ctx,
+          args.userId,
+          pocketReversalKind,
+          entry.pocketDebit,
+        );
     }
     return true;
   },
@@ -954,6 +1132,16 @@ export const markCommitmentPaid = mutation({
     const commitment = await findCommitment(ctx, args.id);
     if (!commitment || commitment.userId !== args.userId) return null;
     if (commitment.status === "PAID") return toCommitment(commitment);
+    if (
+      commitment.lastPaidAt &&
+      args.paidAt - commitment.lastPaidAt < 12 * 60 * 60 * 1_000
+    )
+      throw new Error("This bill was already marked paid today");
+    if (
+      commitment.recurrence !== "ONE_TIME" &&
+      args.paidAt < commitment.dueDate - 7 * 86_400_000
+    )
+      throw new Error("This bill is not due yet");
     const profile = await profileForUser(ctx, args.userId);
     const now = Date.now();
     const recurring = commitment.recurrence !== "ONE_TIME";
@@ -969,6 +1157,7 @@ export const markCommitmentPaid = mutation({
             ),
           }
         : {}),
+      lastPaidAt: args.paidAt,
       updatedAt: now,
     };
     await ctx.db.patch(commitment._id, nextState);
@@ -986,7 +1175,7 @@ export const markCommitmentPaid = mutation({
     const applied = await adjustPocket(
       ctx,
       args.userId,
-      "COMMITMENT_PAYMENT",
+      commitment.essential ? "ESSENTIAL_EXPENSE" : "FLEXIBLE_EXPENSE",
       -commitment.amount,
     );
     await ctx.db.insert("gigCashEntries", {
@@ -1000,6 +1189,9 @@ export const markCommitmentPaid = mutation({
       status: "PAID",
       commitmentId: String(commitment._id),
       commitmentDueDate: commitment.dueDate,
+      ...(commitment.lastPaidAt !== undefined
+        ? { commitmentPreviousPaidAt: commitment.lastPaidAt }
+        : {}),
       ...(applied < 0 ? { pocketDebit: -applied } : {}),
       date: args.paidAt,
       createdAt: now,
@@ -1024,6 +1216,20 @@ export const deleteCommitment = mutation({
           commitmentId: undefined,
           commitmentDueDate: undefined,
         });
+    if (commitment.essential && commitment.fundedAmount > 0) {
+      await subtractFromPocket(
+        ctx,
+        args.userId,
+        "ESSENTIALS",
+        commitment.fundedAmount,
+      );
+      await addToPocket(
+        ctx,
+        args.userId,
+        "FLEXIBLE_SPENDING",
+        commitment.fundedAmount,
+      );
+    }
     if (
       commitment.essential &&
       !(commitment.recurrence === "ONE_TIME" && commitment.status === "PAID")
@@ -1057,6 +1263,23 @@ async function addToPocket(
   });
 }
 
+async function subtractFromPocket(
+  ctx: MutationCtx,
+  userId: string,
+  kind: string,
+  amount: number,
+) {
+  const pocket = await ctx.db
+    .query("gigPockets")
+    .withIndex("by_user_kind", (q) => q.eq("userId", userId).eq("kind", kind))
+    .unique();
+  if (!pocket) return;
+  await ctx.db.patch(pocket._id, {
+    currentAmount: roundMoney(Math.max(0, pocket.currentAmount - amount)),
+    updatedAt: Date.now(),
+  });
+}
+
 export const applyPayoutSplit = mutation({
   args: {
     serverKey: v.string(),
@@ -1084,6 +1307,8 @@ export const applyPayoutSplit = mutation({
   handler: async (ctx, args) => {
     assertServerKey(args.serverKey);
     if (args.amount <= 0) throw new Error("Amount must be positive");
+    if (args.receivedAt > Date.now() + 60_000)
+      throw new Error("Record a payout only after the money reaches you");
     const totalPct = Object.values(args.percentages).reduce(
       (sum, value) => sum + value,
       0,
@@ -1182,6 +1407,25 @@ export const applyPayoutSplit = mutation({
         ? { afterProtectedDays: args.afterProtectedDays }
         : {}),
       ...(fundedCommitmentIds.length ? { fundedCommitmentIds } : {}),
+      ...(fundedCommitments.length
+        ? {
+            fundedCommitments: fundedCommitments.map(({ doc, amount }) => ({
+              id: String(doc._id),
+              amount,
+            })),
+          }
+        : {}),
+      ...(linkedSource
+        ? {
+            sourceScheduleCaptured: true,
+            ...(linkedSource.nextPayoutAt !== undefined
+              ? { previousNextPayoutAt: linkedSource.nextPayoutAt }
+              : {}),
+            ...(linkedSource.lastSyncAt !== undefined
+              ? { previousLastSyncAt: linkedSource.lastSyncAt }
+              : {}),
+          }
+        : {}),
       ...(args.recommendationReason
         ? { recommendationReason: args.recommendationReason }
         : {}),
@@ -1532,7 +1776,11 @@ export const getPartnerMetrics = query({
       .filter((item) => item.kind === "INCOME" && item.status === "SETTLED")
       .reduce((sum, item) => sum + item.amount, 0);
     const workCosts = entries
-      .filter((item) => item.kind === "WORK_EXPENSE" && item.status === "PAID")
+      .filter(
+        (item) =>
+          item.kind === "WORK_EXPENSE" &&
+          ["SETTLED", "PAID"].includes(item.status),
+      )
       .reduce((sum, item) => sum + item.amount, 0);
     const linkedSplits = splits.filter((split) => split.sourceId);
     const accurateSplits = linkedSplits.filter((split) => {
@@ -1565,7 +1813,9 @@ export const getPartnerMetrics = query({
         .reduce((sum, item) => sum + item.amount, 0);
       const weeklyCosts = rows
         .filter(
-          (item) => item.kind === "WORK_EXPENSE" && item.status === "PAID",
+          (item) =>
+            item.kind === "WORK_EXPENSE" &&
+            ["SETTLED", "PAID"].includes(item.status),
         )
         .reduce((sum, item) => sum + item.amount, 0);
       return {
@@ -1638,7 +1888,7 @@ export const getPartnerMetrics = query({
       trends,
       policy: {
         aggregationOnly: true,
-        minimumCohortSize: 1,
+        minimumCohortSize: 10,
         workerLevelSurveillance: false,
         punitiveScoring: false,
         creditPromotionNotifications: false,

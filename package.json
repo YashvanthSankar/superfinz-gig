@@ -44,8 +44,8 @@
     "jsonwebtoken": "^9.0.3",
     "lucide-react": "^1.7.0",
     "motion": "^12.38.0",
-    "next": "16.2.1",
-    "next-auth": "^5.0.0-beta.30",
+    "next": "16.3.4",
+    "next-auth": "5.0.0-beta.32",
     "pg": "^8.20.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
@@ -55,6 +55,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@expo/metro-runtime": "~57.0.15",
     "@tailwindcss/postcss": "^4",
     "@types/bcryptjs": "^2.4.6",
     "@types/jsonwebtoken": "^9.0.10",
@@ -63,7 +64,8 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.2.1",
+    "eslint-config-next": "16.3.4",
+    "expo-router": "~57.0.18",
     "prisma": "^7.6.0",
     "tailwindcss": "^4",
     "tsx": "^4.20.5",

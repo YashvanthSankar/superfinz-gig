@@ -1607,7 +1607,11 @@ function buildIncomeAnalysis(entries: CashEntryDto[], typicalWeek: number) {
       .filter((item) => item.kind === "INCOME" && item.status === "SETTLED")
       .reduce((sum, item) => sum + item.amount, 0);
     const costs = rows
-      .filter((item) => item.kind === "WORK_EXPENSE" && item.status === "PAID")
+      .filter(
+        (item) =>
+          item.kind === "WORK_EXPENSE" &&
+          ["SETTLED", "PAID"].includes(item.status),
+      )
       .reduce((sum, item) => sum + item.amount, 0);
     return {
       label: start.toLocaleDateString("en-IN", {

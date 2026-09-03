@@ -282,31 +282,6 @@ async function main() {
           ?.currentAmount === 30,
       "Gig cashbook edit did not update balance and pocket atomically",
     );
-    const payoutEntry = afterGigActivity?.entries.find(
-      (entry) => entry.payoutSplitId === payout.id,
-    );
-    check(Boolean(payoutEntry), "Payout cashbook link failed");
-    let rejectedPayoutDeletion = false;
-    try {
-      await convex.mutation(api.gig.deleteEntry, {
-        serverKey,
-        userId: user.id,
-        id: payoutEntry!.id,
-      });
-    } catch {
-      rejectedPayoutDeletion = true;
-    }
-    check(rejectedPayoutDeletion, "Payout split deletion protection failed");
-    const paid = await convex.mutation(api.gig.markCommitmentPaid, {
-      serverKey,
-      userId: user.id,
-      id: gigBundle.commitments[0].id,
-      paidAt: Date.now(),
-    });
-    check(
-      paid?.status === "DUE" && new Date(paid.dueDate).getTime() > nextPayoutAt,
-      "Recurring commitment rollover failed",
-    );
     const removedExpense = await convex.mutation(api.gig.deleteEntry, {
       serverKey,
       userId: user.id,
@@ -318,10 +293,106 @@ async function main() {
       userId: user.id,
     });
     check(
-      afterExpenseRemoval?.pockets.find(
-        (pocket) => pocket.kind === "WORK_COSTS",
-      )?.currentAmount === 480,
+      afterExpenseRemoval?.profile.currentBalance === 10_000 &&
+        afterExpenseRemoval.pockets.find(
+          (pocket) => pocket.kind === "WORK_COSTS",
+        )?.currentAmount === 480,
       "Gig pocket reversal failed",
+    );
+    const payoutEntry = afterGigActivity?.entries.find(
+      (entry) => entry.payoutSplitId === payout.id,
+    );
+    check(Boolean(payoutEntry), "Payout cashbook link failed");
+    const removedPayout = await convex.mutation(api.gig.deleteEntry, {
+      serverKey,
+      userId: user.id,
+      id: payoutEntry!.id,
+    });
+    check(removedPayout, "Payout split deletion failed");
+    const afterPayoutRemoval = await convex.query(api.gig.getBundle, {
+      serverKey,
+      userId: user.id,
+    });
+    check(
+      afterPayoutRemoval?.profile.currentBalance === 6_800 &&
+        afterPayoutRemoval.payoutSplits.length === 0 &&
+        afterPayoutRemoval.commitments[0]?.fundedAmount === 0 &&
+        afterPayoutRemoval.pockets.find(
+          (pocket) => pocket.kind === "ESSENTIALS",
+        )?.currentAmount === 0 &&
+        afterPayoutRemoval.pockets.find(
+          (pocket) => pocket.kind === "EMERGENCY_CUSHION",
+        )?.currentAmount === 600 &&
+        afterPayoutRemoval.sources[0]?.nextPayoutAt ===
+          new Date(nextPayoutAt).toISOString(),
+      "Payout deletion did not reverse balance, pockets, bills, and split",
+    );
+    const paid = await convex.mutation(api.gig.markCommitmentPaid, {
+      serverKey,
+      userId: user.id,
+      id: gigBundle.commitments[0].id,
+      paidAt: Date.now(),
+    });
+    check(
+      paid?.status === "DUE" && new Date(paid.dueDate).getTime() > nextPayoutAt,
+      "Recurring commitment rollover failed",
+    );
+    const afterBillPayment = await convex.query(api.gig.getBundle, {
+      serverKey,
+      userId: user.id,
+    });
+    check(
+      afterBillPayment?.profile.currentBalance === 2_800,
+      "Bill payment did not update the plan balance",
+    );
+    const fundedBill = await convex.mutation(api.gig.createCommitment, {
+      serverKey,
+      userId: user.id,
+      commitment: {
+        title: "School fee",
+        category: "Education",
+        amount: 500,
+        dueDate: Date.now() + 2 * 86_400_000,
+        recurrence: "ONE_TIME",
+        essential: true,
+        priority: 1,
+        autopay: false,
+      },
+    });
+    await convex.mutation(api.gig.applyPayoutSplit, {
+      serverKey,
+      userId: user.id,
+      sourceName: "Cash client",
+      amount: 500,
+      receivedAt: Date.now(),
+      allocationMode: "ADAPTIVE",
+      fundedCommitmentIds: [fundedBill.id],
+      percentages: {
+        essentialsPct: 100,
+        workCostsPct: 0,
+        emergencyPct: 0,
+        longTermPct: 0,
+        flexiblePct: 0,
+      },
+    });
+    const deletedFundedBill = await convex.mutation(api.gig.deleteCommitment, {
+      serverKey,
+      userId: user.id,
+      id: fundedBill.id,
+    });
+    const afterFundedBillDelete = await convex.query(api.gig.getBundle, {
+      serverKey,
+      userId: user.id,
+    });
+    check(
+      deletedFundedBill &&
+        afterFundedBillDelete?.pockets.find(
+          (pocket) => pocket.kind === "ESSENTIALS",
+        )?.currentAmount === 0 &&
+        afterFundedBillDelete.pockets.find(
+          (pocket) => pocket.kind === "FLEXIBLE_SPENDING",
+        )?.currentAmount === 500,
+      "Deleting a funded bill did not release its protected money",
     );
 
     const preferences = await convex.query(api.gig.getPreferences, {

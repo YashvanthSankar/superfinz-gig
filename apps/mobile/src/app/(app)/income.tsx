@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
-import type { CashEntryKind, GigDashboardDto } from "@superfinz/shared";
+import type { CashEntryKind } from "@superfinz/shared";
 import { apiFetch } from "@/lib/api";
 import {
   Button,
@@ -18,6 +18,10 @@ import {
 } from "@/components/ui";
 import { DateField } from "@/components/date-field";
 import { colors } from "@/constants/theme";
+import {
+  refreshGigDashboard,
+  useGigDashboard,
+} from "@/hooks/use-gig-dashboard";
 
 const kinds: Array<{ value: CashEntryKind; label: string }> = [
   { value: "WORK_EXPENSE", label: "Work cost" },
@@ -46,13 +50,8 @@ export default function Income() {
   const [note, setNote] = useState("");
   const [method, setMethod] = useState("UPI");
   const [date, setDate] = useState(new Date());
-  const query = useQuery({
-    queryKey: ["gig-dashboard"],
-    queryFn: () =>
-      apiFetch<{ dashboard: GigDashboardDto }>("/api/gig/dashboard"),
-  });
-  const refresh = () =>
-    client.invalidateQueries({ queryKey: ["gig-dashboard"] });
+  const query = useGigDashboard();
+  const refresh = () => refreshGigDashboard(client);
   const create = useMutation({
     mutationFn: () =>
       apiFetch("/api/gig/entries", {
@@ -73,6 +72,10 @@ export default function Income() {
       setNote("");
       setShow(false);
       await refresh();
+      Alert.alert(
+        "Cost saved",
+        "Money Now and Safe to Spend have been updated.",
+      );
     },
     onError: (cause) =>
       Alert.alert(
@@ -100,6 +103,9 @@ export default function Income() {
       />
     );
   const d = query.data.dashboard;
+  const latestSplit = [...d.payoutSplits].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  )[0];
   const valid = Number(amount) > 0 && category.trim();
   return (
     <Screen
@@ -112,20 +118,27 @@ export default function Income() {
     >
       <View style={styles.metrics}>
         <Card style={styles.metric}>
-          <Label>Earned this week</Label>
-          <Money value={d.summary.grossIncomeWeek} />
+          <Label>MONEY NOW</Label>
+          <Money value={d.summary.availableBalance} />
         </Card>
         <Card style={styles.metric}>
-          <Label>Spent to work</Label>
-          <Money value={d.summary.workCostsWeek} />
+          <Label>NET WORK EARNINGS</Label>
+          <Money value={d.summary.trueNetIncomeWeek} />
         </Card>
       </View>
       <Card>
-        <Label>You kept this week</Label>
-        <Money value={d.summary.trueNetIncomeWeek} />
+        <Label>THIS WEEK</Label>
+        <MoneyRow label="Money received" value={d.summary.grossIncomeWeek} />
+        <MoneyRow label="All recorded costs" value={-d.summary.allCostsWeek} />
+        <View style={styles.summaryRule} />
+        <MoneyRow
+          label="Change this week"
+          value={d.summary.cashChangeWeek}
+          strong
+        />
         <Text style={ui.small}>
-          Income left after your recorded fuel, fees, repairs, and other work
-          costs.
+          Includes {money(d.summary.workCostsWeek)} spent on fuel and other work
+          costs. Every saved or deleted entry updates these numbers.
         </Text>
       </Card>
       <View style={styles.actions}>
@@ -190,6 +203,7 @@ export default function Income() {
             label="Date"
             value={date}
             onChange={(value) => value && setDate(value)}
+            maximumDate={new Date()}
           />
           <Button
             title="Save cost"
@@ -250,6 +264,22 @@ export default function Income() {
         ) : (
           d.entries.slice(0, 12).map((entry) => {
             const income = entry.kind === "INCOME";
+            const canUndoPayout = Boolean(
+              entry.payoutSplitId &&
+              entry.payoutSplitId === latestSplit?.id &&
+              (latestSplit?.fundedCommitments ?? []).every((funding) =>
+                d.commitments.some(
+                  (commitment) => commitment.id === funding.id,
+                ),
+              ) &&
+              !d.entries.some(
+                (item) =>
+                  item.id !== entry.id &&
+                  new Date(item.createdAt).getTime() >
+                    new Date(entry.createdAt).getTime(),
+              ),
+            );
+            const canRemove = !entry.payoutSplitId || canUndoPayout;
             return (
               <View key={entry.id} style={styles.entry}>
                 <View style={{ flex: 1 }}>
@@ -262,35 +292,45 @@ export default function Income() {
                   {entry.note && <Text style={ui.small}>{entry.note}</Text>}
                 </View>
                 <View style={{ alignItems: "flex-end" }}>
-                  <Text
-                    style={[styles.amount, income && { color: colors.green }]}
-                  >
+                  <Text style={[styles.amount, income && styles.incomeAmount]}>
                     {income ? "+" : "−"}
                     {money(entry.amount)}
                   </Text>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={`Delete ${entry.category} entry`}
-                    hitSlop={10}
-                    disabled={remove.isPending}
-                    onPress={() =>
-                      Alert.alert(
-                        "Delete entry?",
-                        "Your balance and related pocket will be reversed.",
-                        [
-                          { text: "Cancel", style: "cancel" },
-                          {
-                            text: "Delete",
-                            style: "destructive",
-                            onPress: () => remove.mutate(entry.id),
-                          },
-                        ],
-                      )
-                    }
-                    style={styles.delete}
-                  >
-                    <Text style={styles.deleteText}>Delete</Text>
-                  </Pressable>
+                  {canRemove ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`${entry.payoutSplitId ? "Undo" : "Delete"} ${entry.category} entry`}
+                      hitSlop={10}
+                      disabled={remove.isPending}
+                      onPress={() =>
+                        Alert.alert(
+                          entry.payoutSplitId
+                            ? "Undo this payout?"
+                            : "Delete entry?",
+                          entry.payoutSplitId
+                            ? "This removes the income and updates your balance, pockets, and protected bills together."
+                            : "Your balance and related pocket will be updated.",
+                          [
+                            { text: "Cancel", style: "cancel" },
+                            {
+                              text: entry.payoutSplitId
+                                ? "Undo payout"
+                                : "Delete",
+                              style: "destructive",
+                              onPress: () => remove.mutate(entry.id),
+                            },
+                          ],
+                        )
+                      }
+                      style={styles.delete}
+                    >
+                      <Text style={styles.deleteText}>
+                        {entry.payoutSplitId ? "Undo payout" : "Delete"}
+                      </Text>
+                    </Pressable>
+                  ) : (
+                    <Text style={ui.small}>Recorded payout</Text>
+                  )}
                 </View>
               </View>
             );
@@ -298,6 +338,29 @@ export default function Income() {
         )}
       </Card>
     </Screen>
+  );
+}
+
+function MoneyRow({
+  label,
+  value,
+  strong = false,
+}: {
+  label: string;
+  value: number;
+  strong?: boolean;
+}) {
+  const sign = value > 0 ? "+" : value < 0 ? "−" : "";
+  return (
+    <View style={styles.moneyRow}>
+      <Text style={[styles.moneyRowLabel, strong && styles.moneyRowStrong]}>
+        {label}
+      </Text>
+      <Text style={[styles.moneyRowValue, strong && styles.moneyRowStrong]}>
+        {sign}
+        {money(Math.abs(value))}
+      </Text>
+    </View>
   );
 }
 
@@ -332,6 +395,22 @@ function Choice({
 const styles = StyleSheet.create({
   metrics: { flexDirection: "row", gap: 12 },
   metric: { flex: 1 },
+  moneyRow: {
+    minHeight: 34,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  moneyRowLabel: { flex: 1, color: colors.inkSoft, fontSize: 15 },
+  moneyRowValue: {
+    color: colors.ink,
+    fontSize: 15,
+    fontWeight: "700",
+    fontVariant: ["tabular-nums"],
+  },
+  moneyRowStrong: { color: colors.ink, fontSize: 17, fontWeight: "700" },
+  summaryRule: { height: 1, backgroundColor: colors.border },
   actions: { flexDirection: "row", gap: 10 },
   actionNote: {
     color: colors.muted,
@@ -393,6 +472,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontVariant: ["tabular-nums"],
   },
+  incomeAmount: { color: colors.accent },
   delete: { minHeight: 48, justifyContent: "center" },
   deleteText: { color: colors.red, fontSize: 13, fontWeight: "700" },
 });

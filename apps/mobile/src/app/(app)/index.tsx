@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import {
@@ -8,8 +7,6 @@ import {
   ShieldCheck,
   WalletCards,
 } from "lucide-react-native";
-import type { GigDashboardDto } from "@superfinz/shared";
-import { apiFetch } from "@/lib/api";
 import {
   Button,
   Card,
@@ -21,17 +18,15 @@ import {
   ui,
 } from "@/components/ui";
 import { colors } from "@/constants/theme";
+import { useGigDashboard } from "@/hooks/use-gig-dashboard";
+import { apiFetch } from "@/lib/api";
 
 const money = (value: number) =>
   `₹${Math.round(value).toLocaleString("en-IN")}`;
 
 export default function Today() {
   const [showMath, setShowMath] = useState(false);
-  const query = useQuery({
-    queryKey: ["gig-dashboard"],
-    queryFn: () =>
-      apiFetch<{ dashboard: GigDashboardDto }>("/api/gig/dashboard"),
-  });
+  const query = useGigDashboard();
   if (query.isLoading)
     return <Loading label="Calculating what is safe today…" />;
   if (query.isError || !query.data)
@@ -48,10 +43,29 @@ export default function Today() {
   const nextDay = new Date(s.safeUntil).toLocaleDateString("en-IN", {
     weekday: "long",
   });
+  const safeWindow =
+    s.payoutStatus === "OVERDUE"
+      ? "for the next 7 days while your payout is overdue"
+      : s.payoutStatus === "NO_ACTIVE_SOURCE" ||
+          s.payoutStatus === "UNSCHEDULED"
+        ? "for the next 7 days while no payout date is set"
+        : `until ${nextDay}`;
   const cushionPct = s.cushionTargetDays
     ? (s.protectedDays / s.cushionTargetDays) * 100
     : 0;
   const nextEvents = dashboard.timeline.slice(0, 2);
+  const toggleCalculation = () => {
+    const opening = !showMath;
+    setShowMath(opening);
+    if (opening)
+      void apiFetch("/api/gig/outcomes", {
+        method: "POST",
+        body: JSON.stringify({
+          type: "SAFE_TO_SPEND_CHECKED",
+          value: s.safeToSpend,
+        }),
+      }).catch(() => undefined);
+  };
 
   return (
     <Screen
@@ -83,25 +97,36 @@ export default function Today() {
       <Card style={styles.hero}>
         <Text style={styles.heroLabel}>You can safely use</Text>
         <Text
-          accessibilityLabel={`${money(s.safeToSpend)} safe to use until ${nextDay}`}
+          accessibilityLabel={`${money(s.safeToSpend)} safe to use ${safeWindow}`}
           style={styles.safeMoney}
         >
           {money(s.safeToSpend)}
         </Text>
         <Text style={styles.until}>
-          until {nextDay}, without touching bills or work money
+          {safeWindow}, without touching bills or work money
         </Text>
         <View style={styles.estimate}>
-          <Text style={styles.estimateLabel}>Next payout estimate</Text>
-          <Text style={styles.estimateValue}>
-            {money(s.expectedPayoutMin)}–{money(s.expectedPayoutMax)}
+          <Text style={styles.estimateLabel}>
+            {s.payoutStatus === "OVERDUE"
+              ? "Payout overdue"
+              : "Next payout estimate"}
           </Text>
-          <Text style={styles.estimateHelp}>Not counted until it arrives</Text>
+          <Text style={styles.estimateValue}>
+            {s.payoutStatus === "NO_ACTIVE_SOURCE" ||
+            s.payoutStatus === "UNSCHEDULED"
+              ? "No payout date set"
+              : `${money(s.expectedPayoutMin)}–${money(s.expectedPayoutMax)}`}
+          </Text>
+          <Text style={styles.estimateHelp}>
+            {s.payoutStatus === "OVERDUE"
+              ? "Expected date passed · not counted until it arrives"
+              : "Not counted until it arrives"}
+          </Text>
         </View>
         <Button
           title={showMath ? "Hide calculation" : "How is this calculated?"}
           tone="quiet"
-          onPress={() => setShowMath((value) => !value)}
+          onPress={toggleCalculation}
         />
         {showMath && (
           <View accessibilityLabel="Safe money calculation" style={styles.math}>
@@ -147,10 +172,10 @@ export default function Today() {
             color={colors.accent as string}
             size={21}
           />
-          <Text style={styles.cardLabel}>You kept this week</Text>
+          <Text style={styles.cardLabel}>Net work earnings</Text>
           <Text style={styles.cardValue}>{money(s.trueNetIncomeWeek)}</Text>
           <Text style={ui.small}>
-            After {money(s.workCostsWeek)} in work costs
+            This week, after {money(s.workCostsWeek)} in work costs
           </Text>
         </Card>
         <Card style={styles.halfCard}>
@@ -201,7 +226,11 @@ export default function Today() {
                     day: "numeric",
                     month: "short",
                   })}
-                  {event.type === "INCOME" ? " · expected" : " · due"}
+                  {event.type === "INCOME"
+                    ? event.status === "OVERDUE"
+                      ? " · overdue"
+                      : " · expected"
+                    : " · due"}
                 </Text>
               </View>
               <Text style={styles.eventAmount}>

@@ -1,10 +1,8 @@
 import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
 import { LockKeyhole, ShieldCheck } from "lucide-react-native";
-import type { GigDashboardDto, PocketKind } from "@superfinz/shared";
-import { apiFetch } from "@/lib/api";
+import type { PocketKind } from "@superfinz/shared";
 import {
   Button,
   Card,
@@ -16,6 +14,7 @@ import {
   ui,
 } from "@/components/ui";
 import { colors } from "@/constants/theme";
+import { useGigDashboard } from "@/hooks/use-gig-dashboard";
 
 const pocketNames: Record<PocketKind, string> = {
   ESSENTIALS: "Bills and essentials",
@@ -34,11 +33,7 @@ const money = (value: number) =>
 
 export default function Safety() {
   const [showMore, setShowMore] = useState(false);
-  const query = useQuery({
-    queryKey: ["gig-dashboard"],
-    queryFn: () =>
-      apiFetch<{ dashboard: GigDashboardDto }>("/api/gig/dashboard"),
-  });
+  const query = useGigDashboard();
   if (query.isLoading) return <Loading label="Checking your safety money…" />;
   if (query.isError || !query.data)
     return (

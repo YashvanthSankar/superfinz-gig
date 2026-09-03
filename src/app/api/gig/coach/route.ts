@@ -15,8 +15,19 @@ function deterministicReply(
 ) {
   const text = message.toLowerCase();
   const s = dashboard.summary;
+  const safeWindow =
+    s.payoutStatus === "OVERDUE"
+      ? "for the next 7 days while the expected payout is overdue"
+      : s.payoutStatus === "NO_ACTIVE_SOURCE" ||
+          s.payoutStatus === "UNSCHEDULED"
+        ? "for the next 7 days while no payout date is set"
+        : `until ${new Date(s.safeUntil).toLocaleDateString("en-IN", { weekday: "long" })}`;
+  const payoutEstimate =
+    s.payoutStatus === "NO_ACTIVE_SOURCE" || s.payoutStatus === "UNSCHEDULED"
+      ? "No active dated payout is available, so no future income is counted"
+      : `The expected payout is ${rupees(s.expectedPayoutMin)}–${rupees(s.expectedPayoutMax)} and is not counted until it settles`;
   if (/(safe|spend|afford|buy)/.test(text))
-    return `You can safely use up to ${rupees(s.safeToSpend)} until ${new Date(s.safeUntil).toLocaleDateString("en-IN", { weekday: "long" })}. Known: your settled balance is ${rupees(s.availableBalance)} and ${rupees(s.protectedMoney)} is reserved by the current plan. Estimate: the next payout is ${rupees(s.expectedPayoutMin)}–${rupees(s.expectedPayoutMax)}. Keep new flexible spending inside the safe amount.`;
+    return `You can safely use up to ${rupees(s.safeToSpend)} ${safeWindow}. Known: your settled balance is ${rupees(s.availableBalance)} and ${rupees(s.protectedMoney)} is reserved by the current plan. ${payoutEstimate}. Keep new flexible spending inside the safe amount.`;
   if (/(late|delay|payout)/.test(text))
     return `If the next payout is late, first keep ${rupees(s.dueBeforeNextPayout)} for due commitments and about ${rupees(s.workCostsBeforeNextPayout)} for earning costs. Your current safe amount is ${rupees(s.safeToSpend)}. Do not count the expected ${rupees(s.expectedPayoutMin)}–${rupees(s.expectedPayoutMax)} until it settles; reschedule a flexible bill before using protected money.`;
   if (/(cushion|emergency|buffer)/.test(text))
@@ -25,7 +36,7 @@ function deterministicReply(
     return `Your Resilience Passport is ${s.resilienceScore}/100: ${s.resilienceStatus}. It is a planning indicator, not a bureau credit score and not a loan decision. It uses income range, active source count, commitment coverage, cushion depth, and work-cost ratio. It does not use contacts, messages, or protected traits.`;
   if (/(credit|loan|borrow|repair)/.test(text))
     return `Start with the verified gap, not a loan amount. Your plan currently protects ${rupees(s.protectedMoney)} and shows ${rupees(s.safeToSpend)} safe to use. First reschedule flexible commitments, reduce flexible allocation, set a short earning target, and use only the necessary cushion amount. Any credit shown by SuperFinz must disclose APR, fees, total repayment, schedule, cooling-off, and grievance details.`;
-  return `Direct answer: your current safe-to-spend amount is ${rupees(s.safeToSpend)} until ${new Date(s.safeUntil).toLocaleDateString("en-IN", { weekday: "long" })}. Known balance: ${rupees(s.availableBalance)}. Estimated next payout: ${rupees(s.expectedPayoutMin)}–${rupees(s.expectedPayoutMax)}. Ask about a late payout, cushion, resilience score, or whether a specific spend fits this plan.`;
+  return `Direct answer: your current safe-to-spend amount is ${rupees(s.safeToSpend)} ${safeWindow}. Known balance: ${rupees(s.availableBalance)}. ${payoutEstimate}. Ask about a late payout, cushion, resilience score, or whether a specific spend fits this plan.`;
 }
 
 type OpenAIResponse = {
@@ -79,6 +90,7 @@ export async function POST(request: NextRequest) {
         dueBeforeNextPayout: s.dueBeforeNextPayout,
         workCostsBeforeNextPayout: s.workCostsBeforeNextPayout,
         expectedPayoutRange: [s.expectedPayoutMin, s.expectedPayoutMax],
+        payoutStatus: s.payoutStatus,
         thirtyDayIncomeRange: [s.forecastIncomeLow30d, s.forecastIncomeHigh30d],
         forecastConfidence: s.forecastConfidence,
         protectedDays: s.protectedDays,

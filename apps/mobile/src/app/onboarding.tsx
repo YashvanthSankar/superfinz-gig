@@ -118,13 +118,13 @@ const steps = [
   },
   {
     title: "A week of earnings",
-    subtitle: "Use rough amounts. They do not need to be exact.",
-    help: "A low week is a difficult week. A normal week is most weeks. A good week is one of your better weeks.",
+    subtitle: "Enter what reaches you after app fees.",
+    help: "Use rough take-home amounts. A low week is difficult, a normal week is most weeks, and a good week is one of your better weeks.",
   },
   {
     title: "Cost of working",
     subtitle: "Keep aside money needed to earn again.",
-    help: "Work costs include fuel, travel, data, tools, platform fees, or supplies.",
+    help: "Work costs include fuel, travel, data, tools, repairs, or supplies. App fees are already excluded from the earnings you entered.",
   },
   {
     title: "Money you have now",
@@ -162,7 +162,6 @@ type Draft = {
   good: string;
   payoutDate: string;
   workDays: string;
-  deduction: string;
   workCosts: string;
   balance: string;
   cushion: string;
@@ -184,31 +183,30 @@ const isPositive = (value: string) =>
 export default function Onboarding() {
   const { user, reloadUser } = useAuth();
   const draftKey = useMemo(
-    () => `superfinz:gig-onboarding:v3:${user?.id ?? "pending"}`,
+    () => `superfinz:gig-onboarding:v4:${user?.id ?? "pending"}`,
     [user?.id],
   );
   const [step, setStep] = useState(0);
   const [preferredName, setPreferredName] = useState(
     user?.name?.split(" ")[0] ?? "",
   );
-  const [city, setCity] = useState("Chennai");
-  const [workTypes, setWorkTypes] = useState<GigWorkType[]>(["DELIVERY"]);
+  const [city, setCity] = useState("");
+  const [workTypes, setWorkTypes] = useState<GigWorkType[]>([]);
   const [priority, setPriority] = useState<GigPriority>(
     "STABLE_WEEKLY_SPENDING",
   );
-  const [sourceName, setSourceName] = useState("Primary platform");
-  const [low, setLow] = useState("4000");
-  const [typical, setTypical] = useState("6000");
-  const [good, setGood] = useState("8000");
+  const [sourceName, setSourceName] = useState("");
+  const [low, setLow] = useState("");
+  const [typical, setTypical] = useState("");
+  const [good, setGood] = useState("");
   const [payoutDate, setPayoutDate] = useState(
     () => new Date(Date.now() + 3 * 86_400_000),
   );
-  const [workDays, setWorkDays] = useState("6");
-  const [deduction, setDeduction] = useState("10");
-  const [workCosts, setWorkCosts] = useState("1200");
-  const [balance, setBalance] = useState("6800");
-  const [cushion, setCushion] = useState("600");
-  const [safetyBuffer, setSafetyBuffer] = useState("600");
+  const [workDays, setWorkDays] = useState("");
+  const [workCosts, setWorkCosts] = useState("");
+  const [balance, setBalance] = useState("");
+  const [cushion, setCushion] = useState("");
+  const [safetyBuffer, setSafetyBuffer] = useState("");
   const [bills, setBills] = useState<BillDraft[]>([]);
   const [billName, setBillName] = useState("");
   const [billAmount, setBillAmount] = useState("");
@@ -228,11 +226,7 @@ export default function Onboarding() {
     Number(low) <= Number(typical) &&
     Number(typical) <= Number(good);
   const workCostsValid =
-    isPositive(workDays) &&
-    Number(workDays) <= 7 &&
-    isNonNegative(deduction) &&
-    Number(deduction) <= 100 &&
-    isNonNegative(workCosts);
+    isPositive(workDays) && Number(workDays) <= 7 && isNonNegative(workCosts);
   const moneyNowValid =
     isNonNegative(balance) &&
     isNonNegative(cushion) &&
@@ -245,7 +239,7 @@ export default function Onboarding() {
     weeklyOrderValid,
     workCostsValid,
     moneyNowValid,
-    bills.length > 0,
+    true,
     confirmed,
   ][step];
   const meta = steps[step];
@@ -262,7 +256,6 @@ export default function Onboarding() {
       good,
       payoutDate: payoutDate.toISOString(),
       workDays,
-      deduction,
       workCosts,
       balance,
       cushion,
@@ -285,7 +278,6 @@ export default function Onboarding() {
       good,
       payoutDate,
       workDays,
-      deduction,
       workCosts,
       balance,
       cushion,
@@ -315,7 +307,6 @@ export default function Onboarding() {
         setGood(saved.good);
         setPayoutDate(new Date(saved.payoutDate));
         setWorkDays(saved.workDays);
-        setDeduction(saved.deduction);
         setWorkCosts(saved.workCosts);
         setBalance(saved.balance);
         setCushion(saved.cushion);
@@ -401,7 +392,7 @@ export default function Onboarding() {
           typicalWeekIncome: Number(typical),
           goodWeekIncome: Number(good),
           workDaysPerWeek: Number(workDays),
-          platformDeductionRate: Number(deduction),
+          platformDeductionRate: 0,
           weeklyWorkCosts: Number(workCosts),
           openingBalance: Number(balance),
           currentCushion: Number(cushion),
@@ -533,19 +524,19 @@ export default function Onboarding() {
       {step === 4 && (
         <Card>
           <Field
-            label="Low week (₹)"
+            label="Low week received (₹)"
             value={low}
             onChangeText={setLow}
             keyboardType="decimal-pad"
           />
           <Field
-            label="Normal week (₹)"
+            label="Normal week received (₹)"
             value={typical}
             onChangeText={setTypical}
             keyboardType="decimal-pad"
           />
           <Field
-            label="Good week (₹)"
+            label="Good week received (₹)"
             value={good}
             onChangeText={setGood}
             keyboardType="decimal-pad"
@@ -567,12 +558,6 @@ export default function Onboarding() {
             keyboardType="number-pad"
           />
           <Field
-            label="Platform fees or deductions (%)"
-            value={deduction}
-            onChangeText={setDeduction}
-            keyboardType="decimal-pad"
-          />
-          <Field
             label="Fuel and other weekly work costs (₹)"
             value={workCosts}
             onChangeText={setWorkCosts}
@@ -580,7 +565,7 @@ export default function Onboarding() {
           />
           {!workCostsValid && (
             <Text accessibilityRole="alert" style={styles.error}>
-              Work days must be 1–7. Fees must be 0–100%.
+              Work days must be from 1 to 7. Enter ₹0 or more for work costs.
             </Text>
           )}
         </Card>
@@ -706,7 +691,7 @@ export default function Onboarding() {
           </Card>
           {bills.length === 0 && (
             <Text style={styles.centerHint}>
-              Add at least one important payment to continue.
+              No bill to add now? Continue and add one later from Plan.
             </Text>
           )}
         </>

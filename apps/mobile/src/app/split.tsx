@@ -1,11 +1,10 @@
 import { useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
 import {
   projectPayoutSplit,
   recommendAdaptiveSplit,
-  type GigDashboardDto,
   type SplitPercentages,
 } from "@superfinz/shared";
 import { apiFetch } from "@/lib/api";
@@ -22,6 +21,10 @@ import {
 } from "@/components/ui";
 import { DateField } from "@/components/date-field";
 import { colors } from "@/constants/theme";
+import {
+  refreshGigDashboard,
+  useGigDashboard,
+} from "@/hooks/use-gig-dashboard";
 
 const fields: Array<
   [
@@ -41,11 +44,7 @@ const money = (value: number) =>
 
 export default function PayoutSplit() {
   const client = useQueryClient();
-  const query = useQuery({
-    queryKey: ["gig-dashboard"],
-    queryFn: () =>
-      apiFetch<{ dashboard: GigDashboardDto }>("/api/gig/dashboard"),
-  });
+  const query = useGigDashboard();
   const [amount, setAmount] = useState("");
   const [sourceId, setSourceId] = useState<string | null>(null);
   const [receivedAt, setReceivedAt] = useState(new Date());
@@ -61,6 +60,8 @@ export default function PayoutSplit() {
     d?.sources.filter((source) => source.status === "ACTIVE") ?? [];
   const selectedSource =
     activeSources.find((source) => source.id === sourceId) ?? activeSources[0];
+  const manualIncome =
+    sourceId === "MANUAL_INCOME" || activeSources.length === 0;
   const payout = Number(amount) || 0;
   const defaultValues = d
     ? {
@@ -110,8 +111,10 @@ export default function PayoutSplit() {
       apiFetch("/api/gig/split", {
         method: "POST",
         body: JSON.stringify({
-          sourceId: selectedSource?.id ?? null,
-          sourceName: selectedSource?.name ?? "Manual income",
+          sourceId: manualIncome ? null : (selectedSource?.id ?? null),
+          sourceName: manualIncome
+            ? "Other or cash income"
+            : (selectedSource?.name ?? "Manual income"),
           amount: payout,
           receivedAt: receivedAt.toISOString(),
           note: note.trim() || null,
@@ -120,7 +123,7 @@ export default function PayoutSplit() {
         }),
       }),
     onSuccess: async () => {
-      await client.invalidateQueries({ queryKey: ["gig-dashboard"] });
+      await refreshGigDashboard(client);
       Alert.alert(
         "Payout saved",
         "Your balance and five planning pockets were updated together. No bank transfer occurred.",
@@ -163,7 +166,18 @@ export default function PayoutSplit() {
               onPress={() => setSourceId(source.id)}
             />
           ))}
+          <Choice
+            label="Other or cash income"
+            selected={manualIncome}
+            onPress={() => setSourceId("MANUAL_INCOME")}
+          />
         </View>
+        {!activeSources.length && (
+          <Text style={ui.small}>
+            No active source is connected. You can still record cash or client
+            income here.
+          </Text>
+        )}
         <Field
           label="Money received"
           value={amount}
@@ -178,6 +192,7 @@ export default function PayoutSplit() {
           label="Date received"
           value={receivedAt}
           onChange={(value) => value && setReceivedAt(value)}
+          maximumDate={new Date()}
         />
         <Field label="Note (optional)" value={note} onChangeText={setNote} />
       </Card>
@@ -304,7 +319,11 @@ export default function PayoutSplit() {
           <Button
             title="Save payout plan"
             loading={mutation.isPending}
-            disabled={totalPct !== 100 || !confirmed || !selectedSource}
+            disabled={
+              totalPct !== 100 ||
+              !confirmed ||
+              (!manualIncome && !selectedSource)
+            }
             onPress={() => mutation.mutate()}
           />
         </>

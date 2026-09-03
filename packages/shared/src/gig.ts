@@ -197,6 +197,7 @@ export type PayoutSplitDto = {
   beforeProtectedDays?: number | null;
   afterProtectedDays?: number | null;
   fundedCommitmentIds?: string[];
+  fundedCommitments?: Array<{ id: string; amount: number }>;
   recommendationReason?: string | null;
   createdAt: string;
 };
@@ -376,6 +377,8 @@ export type GigDashboardDto = GigBundleDto & {
     expectedPayoutMax: number;
     grossIncomeWeek: number;
     workCostsWeek: number;
+    allCostsWeek: number;
+    cashChangeWeek: number;
     trueNetIncomeWeek: number;
     typicalWeekDeltaPct: number;
     protectedDays: number;
@@ -389,6 +392,8 @@ export type GigDashboardDto = GigBundleDto & {
     forecastConfidence: "LOW" | "MEDIUM" | "HIGH";
     todayGrossIncome: number;
     activeSourceCount: number;
+    payoutStatus: "UPCOMING" | "OVERDUE" | "UNSCHEDULED" | "NO_ACTIVE_SOURCE";
+    nextPayoutAt: string | null;
     dataFreshnessAt: string;
     workCostRatioPct: number;
     lowestProjectedBalanceLow: number;
@@ -512,19 +517,31 @@ export const gigOnboardingSchema = z
     },
   );
 
-export const cashEntryInputSchema = z.object({
-  kind: z.enum(CASH_ENTRY_KINDS),
-  amount: money.refine((value) => value > 0, "Amount must be positive"),
-  sourceId: z.string().nullable().optional(),
-  sourceName: z.string().trim().max(80).nullable().optional(),
-  category: z.string().trim().min(1).max(60),
-  paymentMethod: z.string().trim().min(1).max(40),
-  note: z.string().trim().max(300).nullable().optional(),
-  workRelated: z.boolean().default(false),
-  recurring: z.boolean().default(false),
-  status: z.enum(["SETTLED", "EXPECTED", "PLANNED", "PAID"]).default("SETTLED"),
-  date: z.string().datetime(),
-});
+export const cashEntryInputSchema = z
+  .object({
+    kind: z.enum(CASH_ENTRY_KINDS),
+    amount: money.refine((value) => value > 0, "Amount must be positive"),
+    sourceId: z.string().nullable().optional(),
+    sourceName: z.string().trim().max(80).nullable().optional(),
+    category: z.string().trim().min(1).max(60),
+    paymentMethod: z.string().trim().min(1).max(40),
+    note: z.string().trim().max(300).nullable().optional(),
+    workRelated: z.boolean().default(false),
+    recurring: z.boolean().default(false),
+    status: z
+      .enum(["SETTLED", "EXPECTED", "PLANNED", "PAID"])
+      .default("SETTLED"),
+    date: z.string().datetime(),
+  })
+  .refine(
+    (value) =>
+      !["SETTLED", "PAID"].includes(value.status) ||
+      new Date(value.date).getTime() <= Date.now() + 60_000,
+    {
+      message: "Settled money and costs cannot use a future date",
+      path: ["date"],
+    },
+  );
 
 export const gigPreferencesInputSchema = z.object({
   inAppEnabled: z.boolean(),
@@ -553,26 +570,34 @@ export const gigNotificationActionSchema = z
     path: ["snoozedUntil"],
   });
 
-export const payoutSplitInputSchema = z.object({
-  sourceId: z.string().nullable().optional(),
-  sourceName: z.string().trim().min(1).max(80),
-  amount: money.refine((value) => value > 0, "Amount must be positive"),
-  receivedAt: z.string().datetime(),
-  note: z.string().trim().max(300).nullable().optional(),
-  allocationMode: z.enum(["ADAPTIVE", "CUSTOM"]).default("ADAPTIVE"),
-  percentages: splitPercentagesSchema.refine(
-    (value) =>
-      Math.abs(
-        value.essentialsPct +
-          value.workCostsPct +
-          value.emergencyPct +
-          value.longTermPct +
-          value.flexiblePct -
-          100,
-      ) < 0.001,
-    { message: "Smart Split percentages must total 100" },
-  ),
-});
+export const payoutSplitInputSchema = z
+  .object({
+    sourceId: z.string().nullable().optional(),
+    sourceName: z.string().trim().min(1).max(80),
+    amount: money.refine((value) => value > 0, "Amount must be positive"),
+    receivedAt: z.string().datetime(),
+    note: z.string().trim().max(300).nullable().optional(),
+    allocationMode: z.enum(["ADAPTIVE", "CUSTOM"]).default("ADAPTIVE"),
+    percentages: splitPercentagesSchema.refine(
+      (value) =>
+        Math.abs(
+          value.essentialsPct +
+            value.workCostsPct +
+            value.emergencyPct +
+            value.longTermPct +
+            value.flexiblePct -
+            100,
+        ) < 0.001,
+      { message: "Smart Split percentages must total 100" },
+    ),
+  })
+  .refine(
+    (value) => new Date(value.receivedAt).getTime() <= Date.now() + 60_000,
+    {
+      message: "Record a payout only after the money reaches you",
+      path: ["receivedAt"],
+    },
+  );
 
 const clamp = (value: number, min = 0, max = 100) =>
   Math.min(max, Math.max(min, Number.isFinite(value) ? value : min));
@@ -609,18 +634,27 @@ export function calculateGigDashboard(
     (source) => source.status === "ACTIVE",
   );
   const nextSource = [...activeSources]
-    .filter(
-      (source) => source.nextPayoutAt && new Date(source.nextPayoutAt) >= now,
-    )
+    .filter((source) => source.nextPayoutAt)
     .sort(
       (a, b) =>
         new Date(a.nextPayoutAt!).getTime() -
         new Date(b.nextPayoutAt!).getTime(),
     )[0];
-  const nextPayout = nextSource?.nextPayoutAt
+  const nextPayoutAt = nextSource?.nextPayoutAt
     ? new Date(nextSource.nextPayoutAt)
-    : new Date(now.getTime() + 7 * 86_400_000);
-  const daysToPayout = daysBetween(now, nextPayout);
+    : null;
+  const payoutStatus = !activeSources.length
+    ? "NO_ACTIVE_SOURCE"
+    : !nextPayoutAt
+      ? "UNSCHEDULED"
+      : nextPayoutAt < now
+        ? "OVERDUE"
+        : "UPCOMING";
+  const planningHorizon =
+    payoutStatus === "UPCOMING" && nextPayoutAt
+      ? nextPayoutAt
+      : new Date(now.getTime() + 7 * 86_400_000);
+  const daysToPayout = daysBetween(now, planningHorizon);
   const pockets = new Map(
     bundle.pockets.map((pocket) => [pocket.kind, pocket]),
   );
@@ -628,21 +662,37 @@ export function calculateGigDashboard(
     pockets.get(kind)?.currentAmount ?? 0;
   const dueCommitments = bundle.commitments.filter(
     (commitment) =>
+      commitment.essential &&
       commitment.status !== "PAID" &&
-      new Date(commitment.dueDate) <= nextPayout,
+      new Date(commitment.dueDate) <= planningHorizon,
   );
   const dueBeforeNextPayout = dueCommitments.reduce(
     (sum, commitment) =>
       sum + Math.max(0, commitment.amount - commitment.fundedAmount),
     0,
   );
+  const assignedEssentialMoney = dueCommitments.reduce(
+    (sum, commitment) =>
+      sum + Math.min(commitment.amount, commitment.fundedAmount),
+    0,
+  );
+  const unassignedEssentialMoney = Math.max(
+    0,
+    pocketAmount("ESSENTIALS") - assignedEssentialMoney,
+  );
+  const fullWorkWeeks = Math.floor(daysToPayout / 7);
+  const partialWeekWorkDays = Math.min(
+    bundle.profile.workDaysPerWeek,
+    daysToPayout % 7,
+  );
   const expectedWorkCosts =
+    bundle.profile.weeklyWorkCosts * fullWorkWeeks +
     (bundle.profile.weeklyWorkCosts /
       Math.max(1, bundle.profile.workDaysPerWeek)) *
-    Math.min(bundle.profile.workDaysPerWeek, daysToPayout);
+      partialWeekWorkDays;
   const unfundedCommitments = Math.max(
     0,
-    dueBeforeNextPayout - pocketAmount("ESSENTIALS"),
+    dueBeforeNextPayout - unassignedEssentialMoney,
   );
   const unfundedWorkCosts = Math.max(
     0,
@@ -681,6 +731,17 @@ export function calculateGigDashboard(
   const workCostsWeek = weekEntries
     .filter((entry) => entry.kind === "WORK_EXPENSE")
     .reduce((sum, entry) => sum + entry.amount, 0);
+  const allCostsWeek = weekEntries
+    .filter((entry) =>
+      [
+        "WORK_EXPENSE",
+        "ESSENTIAL_EXPENSE",
+        "FLEXIBLE_EXPENSE",
+        "COMMITMENT_PAYMENT",
+      ].includes(entry.kind),
+    )
+    .reduce((sum, entry) => sum + entry.amount, 0);
+  const cashChangeWeek = grossIncomeWeek - allCostsWeek;
   const trueNetIncomeWeek = grossIncomeWeek - workCostsWeek;
   const typicalWeekDeltaPct =
     bundle.profile.typicalWeekIncome > 0
@@ -784,7 +845,7 @@ export function calculateGigDashboard(
     safeToSpend === 0
       ? {
           title: "Protect the next payout",
-          body: `Your current balance is fully needed for commitments, work costs, or the safety buffer until ${nextPayout.toLocaleDateString("en-IN", { weekday: "long" })}.`,
+          body: `Your current balance is fully needed for commitments, work costs, or the safety buffer until ${planningHorizon.toLocaleDateString("en-IN", { weekday: "long" })}.`,
           action: "Review alternatives",
         }
       : protectedDays < bundle.profile.cushionTargetDays
@@ -818,7 +879,7 @@ export function calculateGigDashboard(
       title: `${item.name} payout`,
       amountMin: item.typicalMin,
       amountMax: item.typicalMax,
-      status: "EXPECTED",
+      status: new Date(item.nextPayoutAt!) < now ? "OVERDUE" : "EXPECTED",
     }));
   const timeline = [...commitmentEvents, ...payoutEvents]
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
@@ -941,16 +1002,17 @@ export function calculateGigDashboard(
     summary: {
       availableBalance: bundle.profile.currentBalance,
       safeToSpend,
-      safeUntil: nextPayout.toISOString(),
+      safeUntil: planningHorizon.toISOString(),
       protectedMoney,
       dueBeforeNextPayout,
       workCostsBeforeNextPayout: expectedWorkCosts,
       safetyBufferGap,
-      expectedPayoutMin: nextSource?.typicalMin ?? bundle.profile.lowWeekIncome,
-      expectedPayoutMax:
-        nextSource?.typicalMax ?? bundle.profile.goodWeekIncome,
+      expectedPayoutMin: nextSource?.typicalMin ?? 0,
+      expectedPayoutMax: nextSource?.typicalMax ?? 0,
       grossIncomeWeek,
       workCostsWeek,
+      allCostsWeek,
+      cashChangeWeek,
       trueNetIncomeWeek,
       typicalWeekDeltaPct,
       protectedDays,
@@ -964,6 +1026,8 @@ export function calculateGigDashboard(
       forecastConfidence,
       todayGrossIncome,
       activeSourceCount: activeSources.length,
+      payoutStatus,
+      nextPayoutAt: nextPayoutAt?.toISOString() ?? null,
       dataFreshnessAt,
       workCostRatioPct,
       lowestProjectedBalanceLow,
@@ -1042,19 +1106,30 @@ export function recommendAdaptiveSplit(
   const cushionPocket = pocketBalance(bundle, "EMERGENCY_CUSHION");
   const due = bundle.commitments
     .filter(
-      (item) => item.status !== "PAID" && new Date(item.dueDate) <= nextPayout,
+      (item) =>
+        item.essential &&
+        item.status !== "PAID" &&
+        new Date(item.dueDate) <= nextPayout,
     )
     .sort(
       (a, b) =>
         a.priority - b.priority ||
         new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime(),
     );
+  const assignedEssentialMoney = due.reduce(
+    (sum, item) => sum + Math.min(item.amount, item.fundedAmount),
+    0,
+  );
+  const unassignedEssentialMoney = Math.max(
+    0,
+    essentialsPocket - assignedEssentialMoney,
+  );
   const dueGap = Math.max(
     0,
     due.reduce(
       (sum, item) => sum + Math.max(0, item.amount - item.fundedAmount),
       0,
-    ) - essentialsPocket,
+    ) - unassignedEssentialMoney,
   );
   const workGap = Math.max(
     0,
@@ -1219,10 +1294,29 @@ export function simulateGigScenario(
     (dashboard.profile.weeklyWorkCosts /
       Math.max(1, dashboard.profile.workDaysPerWeek)) *
     Math.max(0, input.payoutDelayDays);
+  const originalPayout = new Date(dashboard.summary.safeUntil);
+  const delayedPayout = new Date(
+    originalPayout.getTime() + Math.max(0, input.payoutDelayDays) * 86_400_000,
+  );
+  const extraBillsDuringDelay = dashboard.commitments
+    .filter(
+      (item) =>
+        item.essential &&
+        item.status !== "PAID" &&
+        new Date(item.dueDate) > originalPayout &&
+        new Date(item.dueDate) <= delayedPayout,
+    )
+    .reduce(
+      (sum, item) => sum + Math.max(0, item.amount - item.fundedAmount),
+      0,
+    );
   const surpriseCost = Math.max(0, input.surpriseCost);
   const safeToSpend = Math.max(
     0,
-    dashboard.summary.safeToSpend - delayReserve - surpriseCost,
+    dashboard.summary.safeToSpend -
+      delayReserve -
+      extraBillsDuringDelay -
+      surpriseCost,
   );
   const cushion = pocketBalance(dashboard, "EMERGENCY_CUSHION");
   const cushionUsed = Math.max(0, surpriseCost - dashboard.summary.safeToSpend);
@@ -1240,6 +1334,7 @@ export function simulateGigScenario(
     dashboard.profile.currentBalance -
     dashboard.summary.dueBeforeNextPayout -
     dashboard.summary.workCostsBeforeNextPayout -
+    extraBillsDuringDelay -
     surpriseCost -
     delayReserve;
   const lowestProjectedBalance = Math.min(endOfMonthLow, beforeNextPayoutLow);

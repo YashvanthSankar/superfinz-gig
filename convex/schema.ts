@@ -160,6 +160,7 @@ export default defineSchema({
     payoutSplitId: v.optional(v.string()),
     commitmentId: v.optional(v.string()),
     commitmentDueDate: v.optional(v.number()),
+    commitmentPreviousPaidAt: v.optional(v.number()),
     date: v.number(),
     createdAt: v.number(),
     updatedAt: v.optional(v.number()),
@@ -177,6 +178,7 @@ export default defineSchema({
     autopay: v.boolean(),
     fundedAmount: v.number(),
     status: v.string(),
+    lastPaidAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_user_due", ["userId", "dueDate"]),
@@ -218,6 +220,17 @@ export default defineSchema({
     beforeProtectedDays: v.optional(v.number()),
     afterProtectedDays: v.optional(v.number()),
     fundedCommitmentIds: v.optional(v.array(v.string())),
+    fundedCommitments: v.optional(
+      v.array(
+        v.object({
+          id: v.string(),
+          amount: v.number(),
+        }),
+      ),
+    ),
+    sourceScheduleCaptured: v.optional(v.boolean()),
+    previousNextPayoutAt: v.optional(v.number()),
+    previousLastSyncAt: v.optional(v.number()),
     recommendationReason: v.optional(v.string()),
     createdAt: v.number(),
   }).index("by_user_received", ["userId", "receivedAt"]),

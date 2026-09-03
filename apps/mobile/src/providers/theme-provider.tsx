@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Appearance, useColorScheme } from "react-native";
+import { Appearance, Platform, useColorScheme } from "react-native";
 import {
   createContext,
   useCallback,
@@ -19,16 +19,16 @@ const ThemeContext = createContext<ThemeContextValue | null>(null);
 export function ThemeProvider({ children }: PropsWithChildren) {
   const systemTheme = useColorScheme();
   const [theme, setTheme] = useState<AppTheme>(
-    systemTheme === "dark" ? "dark" : "light",
+    Platform.OS === "ios" && systemTheme === "dark" ? "dark" : "light",
   );
 
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY)
       .then((saved) => {
         const next =
-          saved === "dark" || saved === "light"
+          Platform.OS === "ios" && (saved === "dark" || saved === "light")
             ? saved
-            : systemTheme === "dark"
+            : Platform.OS === "ios" && systemTheme === "dark"
               ? "dark"
               : "light";
         Appearance.setColorScheme(next);
@@ -38,6 +38,7 @@ export function ThemeProvider({ children }: PropsWithChildren) {
   }, [systemTheme]);
 
   const toggleTheme = useCallback(() => {
+    if (Platform.OS !== "ios") return;
     setTheme((current) => {
       const next = current === "dark" ? "light" : "dark";
       Appearance.setColorScheme(next);

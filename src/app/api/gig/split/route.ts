@@ -58,11 +58,12 @@ export async function POST(request: NextRequest) {
         : [],
     recommendationReason: adaptive.reasons.join(" "),
   });
-  await recordGigOutcome(session.userId, {
-    type: "RECOMMENDED_ACTION_COMPLETED",
-    value: parsed.data.amount,
-    metadata: parsed.data.allocationMode,
-  });
+  if (parsed.data.allocationMode === "ADAPTIVE")
+    await recordGigOutcome(session.userId, {
+      type: "RECOMMENDED_ACTION_COMPLETED",
+      value: parsed.data.amount,
+      metadata: parsed.data.allocationMode,
+    });
   return NextResponse.json(
     {
       split,

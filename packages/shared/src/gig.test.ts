@@ -107,6 +107,66 @@ test("safe-to-spend protects commitments, work costs, and the safety buffer", ()
   assert.equal(dashboard.summary.expectedPayoutMax, 3_400);
 });
 
+test("flexible bills do not reduce protected safe-to-spend money", () => {
+  const flexibleBill = {
+    ...bundle.commitments[0],
+    id: "streaming",
+    title: "Streaming",
+    amount: 1_000,
+    essential: false,
+  };
+  const dashboard = calculateGigDashboard(
+    { ...bundle, commitments: [...bundle.commitments, flexibleBill] },
+    now,
+  );
+  const recommendation = recommendAdaptiveSplit(
+    { ...bundle, commitments: [...bundle.commitments, flexibleBill] },
+    5_000,
+    now,
+  );
+  assert.equal(dashboard.summary.dueBeforeNextPayout, 4_000);
+  assert.ok(
+    recommendation.fundedCommitments.every((item) => item.id !== "streaming"),
+  );
+});
+
+test("work costs are protected across a fortnightly payout gap", () => {
+  const dashboard = calculateGigDashboard(
+    {
+      ...bundle,
+      sources: bundle.sources.map((source) => ({
+        ...source,
+        frequency: "FORTNIGHTLY",
+        nextPayoutAt: "2026-09-17T06:00:00.000Z",
+      })),
+    },
+    now,
+  );
+  assert.equal(dashboard.summary.workCostsBeforeNextPayout, 2_400);
+});
+
+test("a delayed payout scenario protects bills that become due in the delay", () => {
+  const billDuringDelay = {
+    ...bundle.commitments[0],
+    id: "school-fee",
+    title: "School fee",
+    amount: 1_000,
+    dueDate: "2026-09-06T06:00:00.000Z",
+  };
+  const dashboard = calculateGigDashboard(
+    { ...bundle, commitments: [...bundle.commitments, billDuringDelay] },
+    now,
+  );
+  const delayed = simulateGigScenario(dashboard, {
+    incomeChangePct: 0,
+    payoutDelayDays: 2,
+    surpriseCost: 0,
+    workDaysOff: 0,
+    workCostChangePct: 0,
+  });
+  assert.equal(delayed.safeToSpend, 400);
+});
+
 test("protected pocket funding is not deducted twice", () => {
   const dashboard = calculateGigDashboard(
     {
@@ -142,6 +202,94 @@ test("protected pocket funding is not deducted twice", () => {
   );
   assert.equal(dashboard.summary.protectedMoney, 5_000);
   assert.equal(dashboard.summary.safeToSpend, 1_800);
+});
+
+test("partially funded bills still protect their remaining amount", () => {
+  const dashboard = calculateGigDashboard(
+    {
+      ...bundle,
+      commitments: bundle.commitments.map((commitment) => ({
+        ...commitment,
+        fundedAmount: 3_200,
+      })),
+      pockets: [
+        {
+          id: "essentials",
+          userId: "user",
+          kind: "ESSENTIALS",
+          currentAmount: 3_200,
+          targetAmount: 4_000,
+          updatedAt: now.toISOString(),
+        },
+        ...bundle.pockets,
+      ],
+    },
+    now,
+  );
+  assert.equal(dashboard.summary.dueBeforeNextPayout, 800);
+  assert.equal(dashboard.summary.protectedMoney, 5_000);
+  assert.equal(dashboard.summary.safeToSpend, 1_800);
+});
+
+test("weekly totals include every recorded cost without changing net work earnings", () => {
+  const dashboard = calculateGigDashboard(
+    {
+      ...bundle,
+      entries: [
+        {
+          id: "income",
+          userId: "user",
+          kind: "INCOME",
+          amount: 3_000,
+          sourceId: null,
+          sourceName: "Platform",
+          category: "Payout",
+          paymentMethod: "PLATFORM",
+          note: null,
+          workRelated: false,
+          status: "SETTLED",
+          date: now.toISOString(),
+          createdAt: now.toISOString(),
+        },
+        {
+          id: "fuel",
+          userId: "user",
+          kind: "WORK_EXPENSE",
+          amount: 300,
+          sourceId: null,
+          sourceName: null,
+          category: "Fuel",
+          paymentMethod: "UPI",
+          note: null,
+          workRelated: true,
+          status: "PAID",
+          date: now.toISOString(),
+          createdAt: now.toISOString(),
+        },
+        {
+          id: "groceries",
+          userId: "user",
+          kind: "ESSENTIAL_EXPENSE",
+          amount: 500,
+          sourceId: null,
+          sourceName: null,
+          category: "Groceries",
+          paymentMethod: "CASH",
+          note: null,
+          workRelated: false,
+          status: "PAID",
+          date: now.toISOString(),
+          createdAt: now.toISOString(),
+        },
+      ],
+    },
+    now,
+  );
+  assert.equal(dashboard.summary.grossIncomeWeek, 3_000);
+  assert.equal(dashboard.summary.workCostsWeek, 300);
+  assert.equal(dashboard.summary.allCostsWeek, 800);
+  assert.equal(dashboard.summary.cashChangeWeek, 2_200);
+  assert.equal(dashboard.summary.trueNetIncomeWeek, 2_700);
 });
 
 test("adaptive split fills urgent commitments before flexible spending", () => {

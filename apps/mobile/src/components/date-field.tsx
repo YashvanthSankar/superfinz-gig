@@ -11,15 +11,19 @@ export function DateField({
   value,
   onChange,
   optional = false,
+  maximumDate,
+  minimumDate,
 }: {
   label: string;
   value: Date | null;
   onChange: (date: Date | null) => void;
   optional?: boolean;
+  maximumDate?: Date;
+  minimumDate?: Date;
 }) {
   const [open, setOpen] = useState(false);
   const handleChange = (event: DateTimePickerEvent, date?: Date) => {
-    if (Platform.OS === "android") setOpen(false);
+    setOpen(false);
     if (event.type === "set" && date) onChange(date);
   };
   const formatted = value
@@ -59,7 +63,9 @@ export function DateField({
           accessibilityLabel={label}
           value={value ?? new Date()}
           mode="date"
-          display={Platform.OS === "ios" ? "inline" : "default"}
+          display={Platform.OS === "ios" ? "compact" : "default"}
+          maximumDate={maximumDate}
+          minimumDate={minimumDate}
           onChange={handleChange}
         />
       )}

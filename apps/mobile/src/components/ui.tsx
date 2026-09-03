@@ -2,6 +2,7 @@ import type { PropsWithChildren, ReactNode } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -228,6 +229,7 @@ export function Button({
 
 export function ThemeToggle() {
   const { theme, toggleTheme } = useAppTheme();
+  if (Platform.OS !== "ios") return null;
   const dark = theme === "dark";
   const Icon = dark ? Sun : Moon;
   const label = dark ? "Use light mode" : "Use dark mode";

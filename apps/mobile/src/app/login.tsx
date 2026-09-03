@@ -1,55 +1,70 @@
 import { useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Button } from "@/components/ui";
 import { colors } from "@/constants/theme";
 import { useAuth } from "@/providers/auth-provider";
 
 export default function Login() {
-  const { signInWithGoogle, loading, error } = useAuth();
+  const { signInWithGoogle, reloadUser, loading, error } = useAuth();
   const [localError, setLocalError] = useState<string | null>(null);
   return (
     <SafeAreaView style={styles.page}>
-      <View style={styles.brand}>
-        <View accessible accessibilityLabel="SuperFinz" style={styles.mark}>
-          <Text style={styles.markText}>SF</Text>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.brand}>
+          <View accessible accessibilityLabel="SuperFinz" style={styles.mark}>
+            <Text style={styles.markText}>SF</Text>
+          </View>
+          <Text style={styles.logo}>SUPERFINZ</Text>
         </View>
-        <Text style={styles.logo}>SUPERFINZ</Text>
-      </View>
-      <View style={styles.hero}>
-        <Text style={styles.kicker}>MONEY, WITHOUT THE LECTURE</Text>
-        <Text accessibilityRole="header" style={styles.title}>
-          Know where it goes.{"\n"}
-          <Text style={{ color: colors.accent }}>Build what’s next.</Text>
-        </Text>
-        <Text style={styles.body}>
-          A clear spending plan, savings goals, and a finance companion built
-          for real life and irregular income.
-        </Text>
-      </View>
-      <View style={styles.login}>
-        <Button
-          title="Continue with Google"
-          loading={loading}
-          accessibilityHint="Signs in securely with your Google account"
-          onPress={() =>
-            signInWithGoogle().catch((cause) =>
-              setLocalError(
-                cause instanceof Error ? cause.message : "Sign-in failed",
-              ),
-            )
-          }
-        />
-        {(localError ?? error) && (
-          <Text accessibilityRole="alert" style={styles.error}>
-            {localError ?? error}
+        <View style={styles.hero}>
+          <Text style={styles.kicker}>MONEY, WITHOUT THE LECTURE</Text>
+          <Text accessibilityRole="header" style={styles.title}>
+            Know where it goes.{"\n"}
+            <Text style={{ color: colors.accent }}>Build what’s next.</Text>
           </Text>
-        )}
-        <Text style={styles.note}>
-          Google sign-in requires the SuperFinz development build. Expo Go is
-          not supported.
-        </Text>
-      </View>
+          <Text style={styles.body}>
+            A clear spending plan, savings goals, and a finance companion built
+            for real life and irregular income.
+          </Text>
+        </View>
+        <View style={styles.login}>
+          <Button
+            title="Continue with Google"
+            loading={loading}
+            accessibilityHint="Signs in securely with your Google account"
+            onPress={() =>
+              signInWithGoogle().catch((cause) =>
+                setLocalError(
+                  cause instanceof Error ? cause.message : "Sign-in failed",
+                ),
+              )
+            }
+          />
+          {(localError ?? error) && (
+            <>
+              <Text accessibilityRole="alert" style={styles.error}>
+                {localError ?? error}
+              </Text>
+              {error && (
+                <Button
+                  title="Try loading my account again"
+                  tone="quiet"
+                  onPress={() => reloadUser()}
+                />
+              )}
+            </>
+          )}
+          <Text style={styles.note}>
+            Google sign-in requires the SuperFinz development build. Expo Go is
+            not supported.
+          </Text>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -57,8 +72,12 @@ const styles = StyleSheet.create({
   page: {
     flex: 1,
     backgroundColor: colors.paper,
+  },
+  content: {
+    flexGrow: 1,
     padding: 24,
     justifyContent: "space-between",
+    gap: 32,
   },
   brand: { flexDirection: "row", alignItems: "center", gap: 10 },
   mark: {

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Alert, StyleSheet, Text, View } from "react-native";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { GigDashboardDto, GigIncomeSourceDto } from "@superfinz/shared";
 import { apiFetch } from "@/lib/api";
 import {
@@ -16,6 +16,10 @@ import {
 } from "@/components/ui";
 import { colors } from "@/constants/theme";
 import { useAuth } from "@/providers/auth-provider";
+import {
+  refreshGigDashboard,
+  useGigDashboard,
+} from "@/hooks/use-gig-dashboard";
 
 const splitFields = [
   ["essentialsPct", "Essentials"],
@@ -25,11 +29,7 @@ const splitFields = [
   ["flexiblePct", "Flexible spending"],
 ] as const;
 export default function Settings() {
-  const query = useQuery({
-    queryKey: ["gig-dashboard"],
-    queryFn: () =>
-      apiFetch<{ dashboard: GigDashboardDto }>("/api/gig/dashboard"),
-  });
+  const query = useGigDashboard();
   if (query.isLoading) return <Loading label="Loading settings…" />;
   if (query.isError || !query.data)
     return (
@@ -55,7 +55,6 @@ function SettingsForm({ dashboard }: { dashboard: GigDashboardDto }) {
   >(null);
   const [name, setName] = useState(dashboard.profile.preferredName);
   const [city, setCity] = useState(dashboard.profile.city);
-  const [language, setLanguage] = useState(dashboard.profile.preferredLanguage);
   const [buffer, setBuffer] = useState(String(dashboard.profile.safetyBuffer));
   const [days, setDays] = useState(String(dashboard.profile.cushionTargetDays));
   const [split, setSplit] = useState({
@@ -76,7 +75,7 @@ function SettingsForm({ dashboard }: { dashboard: GigDashboardDto }) {
         body: JSON.stringify({
           preferredName: name.trim(),
           city: city.trim(),
-          preferredLanguage: language.trim(),
+          preferredLanguage: dashboard.profile.preferredLanguage,
           safetyBuffer: Number(buffer),
           cushionTargetDays: Number(days),
           splitRule: {
@@ -90,7 +89,7 @@ function SettingsForm({ dashboard }: { dashboard: GigDashboardDto }) {
         }),
       }),
     onSuccess: async () => {
-      await client.invalidateQueries({ queryKey: ["gig-dashboard"] });
+      await refreshGigDashboard(client);
       Alert.alert("Saved", "Your protection settings are up to date.");
     },
     onError: (cause) =>
@@ -111,7 +110,7 @@ function SettingsForm({ dashboard }: { dashboard: GigDashboardDto }) {
         method: "PATCH",
         body: JSON.stringify({ id, status }),
       }),
-    onSuccess: () => client.invalidateQueries({ queryKey: ["gig-dashboard"] }),
+    onSuccess: () => refreshGigDashboard(client),
     onError: (cause) =>
       Alert.alert(
         "Couldn’t update connection",
@@ -150,11 +149,6 @@ function SettingsForm({ dashboard }: { dashboard: GigDashboardDto }) {
         <Card>
           <Field label="Preferred name" value={name} onChangeText={setName} />
           <Field label="City" value={city} onChangeText={setCity} />
-          <Field
-            label="Preferred language"
-            value={language}
-            onChangeText={setLanguage}
-          />
           <Field
             label="Money to always keep safe (₹)"
             value={buffer}
@@ -329,7 +323,14 @@ function SourceControl({
             disabled={busy}
             onPress={() => onUpdate("ACTIVE")}
           />
-        ) : null}
+        ) : (
+          <Button
+            title="Reconnect"
+            tone="quiet"
+            disabled={busy}
+            onPress={() => onUpdate("ACTIVE")}
+          />
+        )}
         <Button
           title="Revoke"
           tone="quiet"

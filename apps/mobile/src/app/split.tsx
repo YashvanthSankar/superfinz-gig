@@ -143,14 +143,15 @@ export default function PayoutSplit() {
       />
     );
   return (
-    <Screen>
-      <Text accessibilityRole="header" style={ui.h1}>
-        A job for every rupee.
-      </Text>
-      <Text style={ui.body}>
-        Enter money only after it reaches you. We’ll protect bills and work
-        costs first.
-      </Text>
+    <Screen
+      title="Plan a payout"
+      subtitle="Enter money only after it reaches you."
+      back
+      help={{
+        title: "Plan a payout",
+        body: "SuperFinz suggests how much to keep for bills, work, savings, and safe spending. Review it before saving. No real money is moved.",
+      }}
+    >
       <Card>
         <Label>Where did it come from?</Label>
         <View style={styles.wrap}>
@@ -180,136 +181,138 @@ export default function PayoutSplit() {
         />
         <Field label="Note (optional)" value={note} onChangeText={setNote} />
       </Card>
-      <Card>
-        <Label>How should we protect it?</Label>
-        <View style={styles.modes}>
-          <View style={{ flex: 1 }}>
-            <Choice
-              label="Recommended"
-              selected={mode === "ADAPTIVE"}
-              onPress={() => {
-                setMode("ADAPTIVE");
-                setConfirmed(false);
-              }}
-            />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Choice
-              label="Choose myself"
-              selected={mode === "CUSTOM"}
-              onPress={() => {
-                setMode("CUSTOM");
-                setConfirmed(false);
-              }}
-            />
-          </View>
-        </View>
-        {mode === "ADAPTIVE" && (
-          <Text style={ui.small}>
-            Changes with your next bills, work costs, and cushion—not a fixed
-            rule.
-          </Text>
-        )}
-        {mode === "CUSTOM" && (
-          <>
-            {fields.map(([key, label]) => (
-              <Field
-                key={key}
-                label={`${label} (%)`}
-                value={values[key]}
-                onChangeText={(value) =>
-                  setPercentages((current) => ({
-                    ...(current ?? values),
-                    [key]: value,
-                  }))
-                }
-                keyboardType="decimal-pad"
-              />
-            ))}
-            <Text
-              style={[
-                styles.total,
-                customTotal !== 100 && { color: colors.red },
-              ]}
-            >
-              Total {customTotal}%
-            </Text>
-            {customTotal !== 100 && (
-              <Text accessibilityRole="alert" style={styles.error}>
-                Make the total exactly 100%.
+      {payout > 0 ? (
+        <>
+          <Card>
+            <Label>How should we protect it?</Label>
+            <View style={styles.modes}>
+              <View style={{ flex: 1 }}>
+                <Choice
+                  label="Recommended"
+                  selected={mode === "ADAPTIVE"}
+                  onPress={() => {
+                    setMode("ADAPTIVE");
+                    setConfirmed(false);
+                  }}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Choice
+                  label="Choose myself"
+                  selected={mode === "CUSTOM"}
+                  onPress={() => {
+                    setMode("CUSTOM");
+                    setConfirmed(false);
+                  }}
+                />
+              </View>
+            </View>
+            {mode === "ADAPTIVE" && (
+              <Text style={ui.small}>
+                Uses your next bills, work costs, and safety goal.
               </Text>
             )}
-            <Button
-              title="Reset"
-              tone="quiet"
-              onPress={() => setPercentages(null)}
-            />
-          </>
-        )}
-      </Card>
-      {payout > 0 && used && totalPct === 100 && (
-        <Card style={{ backgroundColor: colors.greenSoft }}>
-          <View style={ui.between}>
-            <Label>Review before saving</Label>
-            <Text style={styles.total}>{money(payout)}</Text>
-          </View>
-          {fields.map(([key, label, amountKey]) => (
-            <View key={key} style={styles.row}>
-              <Text style={styles.rowLabel}>
-                {label} · {used.percentages[key].toFixed(1)}%
-              </Text>
-              <Text style={styles.rowAmount}>
-                {money(used.amounts[amountKey])}
-              </Text>
-            </View>
-          ))}
-          <View style={styles.beforeAfter}>
-            <View>
-              <Label>Safe now</Label>
-              <Money value={used.beforeSafeAmount} />
-            </View>
-            <Text style={styles.arrow}>→</Text>
-            <View>
-              <Label>Safe after</Label>
-              <Money value={used.afterSafeAmount} />
-            </View>
-          </View>
-          <Text style={ui.body}>{used.reasons.join(" ")}</Text>
+            {mode === "CUSTOM" && (
+              <>
+                {fields.map(([key, label]) => (
+                  <Field
+                    key={key}
+                    label={`${label} (%)`}
+                    value={values[key]}
+                    onChangeText={(value) =>
+                      setPercentages((current) => ({
+                        ...(current ?? values),
+                        [key]: value,
+                      }))
+                    }
+                    keyboardType="decimal-pad"
+                  />
+                ))}
+                <Text
+                  style={[
+                    styles.total,
+                    customTotal !== 100 && { color: colors.red },
+                  ]}
+                >
+                  Total {customTotal}%
+                </Text>
+                {customTotal !== 100 && (
+                  <Text accessibilityRole="alert" style={styles.error}>
+                    Make the total exactly 100%.
+                  </Text>
+                )}
+                <Button
+                  title="Reset"
+                  tone="quiet"
+                  onPress={() => setPercentages(null)}
+                />
+              </>
+            )}
+          </Card>
+
+          {used && totalPct === 100 && (
+            <Card style={{ backgroundColor: colors.greenSoft }}>
+              <View style={ui.between}>
+                <Label>Review before saving</Label>
+                <Text style={styles.total}>{money(payout)}</Text>
+              </View>
+              {fields.map(([key, label, amountKey]) => (
+                <View key={key} style={styles.row}>
+                  <Text style={styles.rowLabel}>
+                    {label} · {used.percentages[key].toFixed(1)}%
+                  </Text>
+                  <Text style={styles.rowAmount}>
+                    {money(used.amounts[amountKey])}
+                  </Text>
+                </View>
+              ))}
+              <View style={styles.beforeAfter}>
+                <View>
+                  <Label>Safe now</Label>
+                  <Money value={used.beforeSafeAmount} />
+                </View>
+                <Text style={styles.arrow}>→</Text>
+                <View>
+                  <Label>Safe after</Label>
+                  <Money value={used.afterSafeAmount} />
+                </View>
+              </View>
+              <Text style={ui.body}>{used.reasons.join(" ")}</Text>
+            </Card>
+          )}
+
+          <Pressable
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: confirmed }}
+            accessibilityLabel="Confirm planned allocation"
+            onPress={() => setConfirmed((value) => !value)}
+            style={({ pressed }) => [
+              styles.confirm,
+              confirmed && styles.confirmed,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Text
+              style={[styles.confirmText, confirmed && { color: colors.white }]}
+            >
+              {confirmed ? "✓ " : ""}I reviewed this payout plan
+            </Text>
+          </Pressable>
           <Text style={ui.small}>
-            Protected days: {used.beforeProtectedDays.toFixed(1)} →{" "}
-            {used.afterProtectedDays.toFixed(1)}
+            SuperFinz records a plan. It never moves real money.
           </Text>
-        </Card>
-      )}
-      <Pressable
-        accessibilityRole="checkbox"
-        accessibilityState={{ checked: confirmed }}
-        accessibilityLabel="Confirm planned allocation"
-        onPress={() => setConfirmed((value) => !value)}
-        style={({ pressed }) => [
-          styles.confirm,
-          confirmed && styles.confirmed,
-          pressed && styles.pressed,
-        ]}
-      >
-        <Text
-          style={[styles.confirmText, confirmed && { color: colors.white }]}
-        >
-          {confirmed ? "✓ " : ""}I reviewed this payout plan
+          <Button
+            title="Save payout plan"
+            loading={mutation.isPending}
+            disabled={totalPct !== 100 || !confirmed || !selectedSource}
+            onPress={() => mutation.mutate()}
+          />
+        </>
+      ) : (
+        <Text style={styles.hint}>
+          Enter the money you received to see a simple payout plan.
         </Text>
-      </Pressable>
-      <Text style={ui.small}>
-        SuperFinz records a plan. It does not connect to a bank or move real
-        money in this prototype.
-      </Text>
-      <Button
-        title="Save payout plan"
-        loading={mutation.isPending}
-        disabled={
-          payout <= 0 || totalPct !== 100 || !confirmed || !selectedSource
-        }
-        onPress={() => mutation.mutate()}
-      />
+      )}
     </Screen>
   );
 }
@@ -335,7 +338,7 @@ function Choice({
         pressed && styles.pressed,
       ]}
     >
-      <Text style={[styles.choiceText, selected && { color: colors.white }]}>
+      <Text style={styles.choiceText}>
         {selected ? "✓ " : ""}
         {label}
       </Text>
@@ -354,8 +357,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  choiceActive: { backgroundColor: colors.actionStrong },
-  choiceText: { color: colors.ink, fontSize: 12, fontWeight: "800" },
+  choiceActive: {
+    borderColor: colors.action,
+    backgroundColor: colors.accentSoft,
+  },
+  choiceText: { color: colors.ink, fontSize: 14, fontWeight: "700" },
   pressed: { opacity: 0.65 },
   total: {
     color: colors.green,
@@ -364,6 +370,12 @@ const styles = StyleSheet.create({
     fontVariant: ["tabular-nums"],
   },
   error: { color: colors.red, fontWeight: "800", lineHeight: 20 },
+  hint: {
+    color: colors.muted,
+    fontSize: 14,
+    lineHeight: 21,
+    textAlign: "center",
+  },
   row: {
     minHeight: 44,
     flexDirection: "row",

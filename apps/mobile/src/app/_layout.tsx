@@ -33,7 +33,7 @@ function Routes() {
         <Stack.Screen name="(app)" options={{ headerShown: false }} />
         <Stack.Screen
           name="split"
-          options={{ presentation: "modal", title: "Smart Split" }}
+          options={{ presentation: "modal", headerShown: false }}
         />
       </Stack.Protected>
     </Stack>

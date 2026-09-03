@@ -8,7 +8,7 @@ import {
   Text,
   View,
 } from "react-native";
-import { Button, Card, Field, Label, Screen, ui } from "@/components/ui";
+import { Button, Card, Field, Screen } from "@/components/ui";
 import { apiFetch } from "@/lib/api";
 import { colors } from "@/constants/theme";
 
@@ -26,7 +26,7 @@ export default function Coach() {
     {
       role: "assistant",
       content:
-        "Ask about today’s safe amount, a delayed payout, your cushion, or a possible shortfall. I explain the plan’s numbers; I do not invent balances or approve credit.",
+        "Hello! Choose a question below, or ask me about your money plan.",
     },
   ]);
   const [text, setText] = useState("");
@@ -63,7 +63,15 @@ export default function Coach() {
     }
   };
   return (
-    <Screen title="Coach" scroll={false}>
+    <Screen
+      title="Coach"
+      subtitle="Ask a money question in your own words."
+      help={{
+        title: "Your Coach",
+        body: "Coach explains numbers already in your SuperFinz plan. It does not approve loans or move money. Important decisions should still be checked by you.",
+      }}
+      scroll={false}
+    >
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         keyboardVerticalOffset={140}
@@ -77,13 +85,6 @@ export default function Coach() {
             list.current?.scrollToEnd({ animated: true })
           }
         >
-          <Card style={{ backgroundColor: colors.accentSoft }}>
-            <Label>Dashboard numbers stay in charge</Label>
-            <Text style={ui.body}>
-              Coach responses use your current calculated plan. Estimates are
-              labeled and can still be wrong.
-            </Text>
-          </Card>
           {messages.map((message, index) => (
             <View
               accessible
@@ -195,7 +196,7 @@ const styles = StyleSheet.create({
   error: { color: colors.red, fontWeight: "700", lineHeight: 20 },
   suggestions: { paddingHorizontal: 12, paddingBottom: 8, gap: 8 },
   suggestion: {
-    minHeight: 44,
+    minHeight: 48,
     maxWidth: 220,
     borderWidth: 1,
     borderColor: colors.border,

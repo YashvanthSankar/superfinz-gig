@@ -108,8 +108,14 @@ export default function Income() {
   const d = query.data.dashboard;
   const valid = Number(amount) > 0 && category.trim();
   return (
-    <Screen title="Money">
-      <Text style={ui.body}>Record what came in and what work cost you.</Text>
+    <Screen
+      title="Money"
+      subtitle="Add what you earned or spent for work."
+      help={{
+        title: "Money entries",
+        body: "Add income when money reaches you. Add work costs such as fuel, repairs, data, or platform fees so your safe amount stays honest.",
+      }}
+    >
       <View style={styles.metrics}>
         <Card style={styles.metric}>
           <Label>Earned this week</Label>
@@ -342,7 +348,7 @@ const styles = StyleSheet.create({
   actions: { flexDirection: "row", gap: 10 },
   wrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   choice: {
-    minHeight: 44,
+    minHeight: 48,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 12,
@@ -351,8 +357,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  choiceActive: { backgroundColor: colors.actionStrong },
-  choiceText: { color: colors.ink, fontSize: 11, fontWeight: "700" },
+  choiceActive: {
+    borderColor: colors.action,
+    backgroundColor: colors.accentSoft,
+  },
+  choiceText: { color: colors.ink, fontSize: 14, fontWeight: "700" },
   pressed: { opacity: 0.6 },
   range: {
     color: colors.accent,
@@ -390,6 +399,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontVariant: ["tabular-nums"],
   },
-  delete: { minHeight: 36, justifyContent: "center" },
-  deleteText: { color: colors.red, fontSize: 9, fontWeight: "700" },
+  delete: { minHeight: 48, justifyContent: "center" },
+  deleteText: { color: colors.red, fontSize: 13, fontWeight: "700" },
 });

@@ -50,6 +50,9 @@ export default function Settings() {
 function SettingsForm({ dashboard }: { dashboard: GigDashboardDto }) {
   const { user, signOut } = useAuth();
   const client = useQueryClient();
+  const [openSection, setOpenSection] = useState<
+    "PROFILE" | "SPLIT" | "SOURCES" | null
+  >(null);
   const [name, setName] = useState(dashboard.profile.preferredName);
   const [city, setCity] = useState(dashboard.profile.city);
   const [language, setLanguage] = useState(dashboard.profile.preferredLanguage);
@@ -116,102 +119,177 @@ function SettingsForm({ dashboard }: { dashboard: GigDashboardDto }) {
       ),
   });
   return (
-    <Screen title="Settings" action={<ThemeToggle />}>
+    <Screen
+      title="Settings"
+      subtitle="Change your profile and money rules."
+      back
+      action={<ThemeToggle />}
+      help={{
+        title: "Settings",
+        body: "Change only what you need. Your safety buffer is money you always want kept away from Safe to spend.",
+      }}
+    >
       <Card>
         <Label>Account</Label>
         <Text style={ui.h2}>{user?.name}</Text>
         <Text style={ui.body}>{user?.email}</Text>
-        <Text style={ui.small}>
-          Google identity is used for sign-in only. Financial planning data is
-          stored separately.
-        </Text>
       </Card>
-      <Card>
-        <Label>Worker profile</Label>
-        <Field label="Preferred name" value={name} onChangeText={setName} />
-        <Field label="City" value={city} onChangeText={setCity} />
-        <Field
-          label="Preferred language"
-          value={language}
-          onChangeText={setLanguage}
-        />
-        <Field
-          label="Minimum safety buffer"
-          value={buffer}
-          onChangeText={setBuffer}
-          keyboardType="decimal-pad"
-        />
-        <Field
-          label="Cushion target (days)"
-          value={days}
-          onChangeText={setDays}
-          keyboardType="number-pad"
-        />
-      </Card>
-      <Card>
-        <Label>Default payout rule</Label>
-        {splitFields.map(([key, label]) => (
+
+      <Button
+        title={
+          openSection === "PROFILE"
+            ? "Close personal settings"
+            : "Personal and safety settings"
+        }
+        tone="quiet"
+        onPress={() =>
+          setOpenSection((value) => (value === "PROFILE" ? null : "PROFILE"))
+        }
+      />
+      {openSection === "PROFILE" && (
+        <Card>
+          <Field label="Preferred name" value={name} onChangeText={setName} />
+          <Field label="City" value={city} onChangeText={setCity} />
           <Field
-            key={key}
-            label={`${label} (%)`}
-            value={split[key]}
-            onChangeText={(value) =>
-              setSplit((current) => ({ ...current, [key]: value }))
-            }
+            label="Preferred language"
+            value={language}
+            onChangeText={setLanguage}
+          />
+          <Field
+            label="Money to always keep safe (₹)"
+            value={buffer}
+            onChangeText={setBuffer}
             keyboardType="decimal-pad"
           />
-        ))}
-        <View style={styles.total}>
-          <Label>Total</Label>
-          <Text
-            style={[styles.totalValue, total !== 100 && { color: colors.red }]}
-          >
-            {total}%
-          </Text>
-        </View>
-        <Text style={ui.small}>
-          This is a planning rule. No money moves unless a future regulated
-          integration is separately consented to.
-        </Text>
-        <Button
-          title="Save settings"
-          loading={save.isPending}
-          disabled={
-            !name.trim() ||
-            !city.trim() ||
-            Number(buffer) < 0 ||
-            Number(days) < 7 ||
-            total !== 100
-          }
-          onPress={() => save.mutate()}
-        />
-      </Card>
-      <Card>
-        <Label>Connections and consent</Label>
-        {dashboard.sources.map((source) => (
-          <SourceControl
-            key={source.id}
-            source={source}
-            busy={sourceUpdate.isPending}
-            onUpdate={(status) =>
-              sourceUpdate.mutate({ id: source.id, status })
-            }
+          <Field
+            label="Emergency cover goal (days)"
+            value={days}
+            onChangeText={setDays}
+            keyboardType="number-pad"
           />
-        ))}
-        <Text style={ui.small}>
-          A revoked source is excluded from forecasts. Prototype connections
-          never access a real bank or platform account.
-        </Text>
-      </Card>
+          <SaveButton
+            loading={save.isPending}
+            disabled={
+              !name.trim() ||
+              !city.trim() ||
+              Number(buffer) < 0 ||
+              Number(days) < 7 ||
+              total !== 100
+            }
+            onPress={() => save.mutate()}
+          />
+        </Card>
+      )}
+
+      <Button
+        title={
+          openSection === "SPLIT"
+            ? "Close payout settings"
+            : "Payout percentages"
+        }
+        tone="quiet"
+        onPress={() =>
+          setOpenSection((value) => (value === "SPLIT" ? null : "SPLIT"))
+        }
+      />
+      {openSection === "SPLIT" && (
+        <Card>
+          <Text style={ui.body}>
+            Choose where each ₹100 of a payout should go.
+          </Text>
+          {splitFields.map(([key, label]) => (
+            <Field
+              key={key}
+              label={`${label} (%)`}
+              value={split[key]}
+              onChangeText={(value) =>
+                setSplit((current) => ({ ...current, [key]: value }))
+              }
+              keyboardType="decimal-pad"
+            />
+          ))}
+          <View style={styles.total}>
+            <Label>Total</Label>
+            <Text
+              style={[
+                styles.totalValue,
+                total !== 100 && { color: colors.red },
+              ]}
+            >
+              {total}%
+            </Text>
+          </View>
+          {total !== 100 && (
+            <Text accessibilityRole="alert" style={styles.error}>
+              Make the total exactly 100%.
+            </Text>
+          )}
+          <SaveButton
+            loading={save.isPending}
+            disabled={
+              !name.trim() ||
+              !city.trim() ||
+              Number(buffer) < 0 ||
+              Number(days) < 7 ||
+              total !== 100
+            }
+            onPress={() => save.mutate()}
+          />
+        </Card>
+      )}
+
+      <Button
+        title={
+          openSection === "SOURCES" ? "Close income sources" : "Income sources"
+        }
+        tone="quiet"
+        onPress={() =>
+          setOpenSection((value) => (value === "SOURCES" ? null : "SOURCES"))
+        }
+      />
+      {openSection === "SOURCES" && (
+        <Card>
+          {dashboard.sources.map((source) => (
+            <SourceControl
+              key={source.id}
+              source={source}
+              busy={sourceUpdate.isPending}
+              onUpdate={(status) =>
+                sourceUpdate.mutate({ id: source.id, status })
+              }
+            />
+          ))}
+          <Text style={ui.small}>
+            Prototype sources do not access a real bank or work platform.
+          </Text>
+        </Card>
+      )}
+
       <Card>
-        <Label>Security</Label>
-        <Text style={ui.body}>
-          Access tokens expire after 15 minutes. Refresh tokens rotate and only
-          their SHA-256 hashes are stored on the server.
-        </Text>
+        <Label>Account access</Label>
+        <Text style={ui.body}>Sign out on this device.</Text>
         <Button title="Sign out" tone="quiet" onPress={() => signOut()} />
       </Card>
     </Screen>
+  );
+}
+
+function SaveButton({
+  loading,
+  disabled,
+  onPress,
+}: {
+  loading: boolean;
+  disabled: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Button
+      title="Save changes"
+      loading={loading}
+      disabled={disabled}
+      onPress={onPress}
+    />
   );
 }
 
@@ -287,6 +365,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontVariant: ["tabular-nums"],
   },
+  error: { color: colors.red, fontWeight: "700", lineHeight: 20 },
   source: {
     gap: 10,
     paddingTop: 12,

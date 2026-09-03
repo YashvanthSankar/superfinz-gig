@@ -62,7 +62,14 @@ export default function Safety() {
   )[0];
 
   return (
-    <Screen title="Safety">
+    <Screen
+      title="Safety"
+      subtitle="Money kept away from everyday spending."
+      help={{
+        title: "Safety money",
+        body: "These amounts are protected for important bills, work costs, and emergencies. They are part of your plan and are not moved by SuperFinz.",
+      }}
+    >
       <Card style={styles.hero}>
         <ShieldCheck
           accessible={false}

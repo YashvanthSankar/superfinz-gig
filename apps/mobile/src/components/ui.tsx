@@ -1,6 +1,7 @@
 import type { PropsWithChildren, ReactNode } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -11,7 +12,8 @@ import {
   type TextInputProps,
   type ViewProps,
 } from "react-native";
-import { Moon, Sun } from "lucide-react-native";
+import { useRouter } from "expo-router";
+import { ArrowLeft, CircleHelp, Moon, Sun } from "lucide-react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { colors, shadow } from "@/constants/theme";
 import { useAppTheme } from "@/providers/theme-provider";
@@ -19,21 +21,85 @@ import { useAppTheme } from "@/providers/theme-provider";
 export function Screen({
   children,
   title,
+  subtitle,
   action,
+  back = false,
+  onBack,
+  help,
   scroll = true,
 }: PropsWithChildren<{
   title?: string;
+  subtitle?: string;
   action?: ReactNode;
+  back?: boolean;
+  onBack?: () => void;
+  help?: { title: string; body: string };
   scroll?: boolean;
 }>) {
+  const router = useRouter();
+  const showHeader = Boolean(title || back || action || help);
   const content = (
     <View style={[styles.content, !scroll && styles.contentFixed]}>
-      {title && (
-        <View style={styles.heading}>
-          <Text accessibilityRole="header" style={styles.title}>
-            {title}
-          </Text>
-          {action}
+      {showHeader && (
+        <View style={styles.pageHeader}>
+          <View style={styles.heading}>
+            {back ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Go back"
+                hitSlop={8}
+                onPress={onBack ?? (() => router.back())}
+                style={({ pressed }) => [
+                  styles.headerButton,
+                  pressed && styles.buttonPressed,
+                ]}
+              >
+                <ArrowLeft
+                  accessible={false}
+                  color={colors.ink as string}
+                  size={21}
+                />
+                <Text style={styles.headerButtonText}>Back</Text>
+              </Pressable>
+            ) : title ? (
+              <Text accessibilityRole="header" style={styles.title}>
+                {title}
+              </Text>
+            ) : (
+              <View />
+            )}
+            <View style={styles.headerActions}>
+              {help && (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Help with ${help.title}`}
+                  accessibilityHint="Opens a short explanation"
+                  hitSlop={8}
+                  onPress={() =>
+                    Alert.alert(help.title, help.body, [{ text: "Got it" }])
+                  }
+                  style={({ pressed }) => [
+                    styles.headerButton,
+                    pressed && styles.buttonPressed,
+                  ]}
+                >
+                  <CircleHelp
+                    accessible={false}
+                    color={colors.ink as string}
+                    size={20}
+                  />
+                  <Text style={styles.headerButtonText}>Help</Text>
+                </Pressable>
+              )}
+              {action}
+            </View>
+          </View>
+          {back && title && (
+            <Text accessibilityRole="header" style={styles.title}>
+              {title}
+            </Text>
+          )}
+          {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
         </View>
       )}
       {children}
@@ -297,14 +363,29 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   contentFixed: { flex: 1, paddingBottom: 10 },
+  pageHeader: { gap: 7, marginBottom: 4 },
   heading: {
     minHeight: 48,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: 12,
-    marginBottom: 4,
   },
+  headerActions: { flexDirection: "row", alignItems: "center", gap: 8 },
+  headerButton: {
+    minHeight: 48,
+    minWidth: 76,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 13,
+    backgroundColor: colors.surface,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+  },
+  headerButtonText: { color: colors.ink, fontSize: 15, fontWeight: "700" },
   title: {
     flexShrink: 1,
     fontSize: 30,
@@ -312,6 +393,12 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: colors.ink,
     letterSpacing: -0.8,
+  },
+  subtitle: {
+    maxWidth: 620,
+    color: colors.inkSoft,
+    fontSize: 16,
+    lineHeight: 23,
   },
   card: {
     borderWidth: 1,
@@ -376,7 +463,7 @@ const styles = StyleSheet.create({
   },
   buttonTextQuiet: { color: colors.ink },
   themeButton: {
-    minHeight: 44,
+    minHeight: 48,
     minWidth: 76,
     borderWidth: 1,
     borderColor: colors.border,

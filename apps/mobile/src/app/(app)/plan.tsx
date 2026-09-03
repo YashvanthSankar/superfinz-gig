@@ -3,6 +3,7 @@ import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   simulateGigScenario,
+  type CommitmentRecurrence,
   type GigDashboardDto,
   type GigScenarioInput,
 } from "@superfinz/shared";
@@ -86,16 +87,35 @@ const scenarios: Array<{
 ];
 const money = (value: number) =>
   `₹${Math.round(value).toLocaleString("en-IN")}`;
+const recurrenceOptions: Array<{
+  value: CommitmentRecurrence;
+  label: string;
+}> = [
+  { value: "MONTHLY", label: "Monthly" },
+  { value: "QUARTERLY", label: "Every 3 months" },
+  { value: "YEARLY", label: "Yearly" },
+  { value: "ONE_TIME", label: "One time" },
+];
+const recurrenceLabels: Record<CommitmentRecurrence, string> = {
+  WEEKLY: "weekly",
+  FORTNIGHTLY: "every 2 weeks",
+  MONTHLY: "monthly",
+  QUARTERLY: "every 3 months",
+  YEARLY: "yearly",
+  ONE_TIME: "one time",
+};
 
 export default function Plan() {
   const client = useQueryClient();
   const [showForm, setShowForm] = useState(false);
+  const [showWhatIf, setShowWhatIf] = useState(false);
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
   const [dueDate, setDueDate] = useState(
     () => new Date(Date.now() + 7 * 86_400_000),
   );
   const [essential, setEssential] = useState(true);
+  const [recurrence, setRecurrence] = useState<CommitmentRecurrence>("MONTHLY");
   const [scenario, setScenario] = useState<Scenario>("BASELINE");
   const query = useQuery({
     queryKey: ["gig-dashboard"],
@@ -113,7 +133,7 @@ export default function Plan() {
           category: title.trim(),
           amount: Number(amount),
           dueDate: dueDate.toISOString(),
-          recurrence: "MONTHLY",
+          recurrence,
           essential,
           priority: essential ? 1 : 3,
           autopay: false,
@@ -177,77 +197,14 @@ export default function Plan() {
   const hasGap = result.earningTarget > 0;
 
   return (
-    <Screen title="Plan">
-      <Text style={ui.body}>
-        Check whether your bills stay safe when work or payout timing changes.
-      </Text>
-
-      <Card>
-        <Label>Try a change</Label>
-        <View style={styles.choices}>
-          {scenarios.map((item) => (
-            <Choice
-              key={item.value}
-              label={item.label}
-              selected={scenario === item.value}
-              onPress={() => setScenario(item.value)}
-            />
-          ))}
-        </View>
-        <View
-          accessibilityLiveRegion="polite"
-          style={[
-            styles.result,
-            hasGap ? styles.resultWarning : styles.resultGood,
-          ]}
-        >
-          <Label>
-            {scenario === "BASELINE" ? "Today’s plan" : "After this change"}
-          </Label>
-          <Text style={styles.safeValue}>{money(result.safeToSpend)}</Text>
-          <Text style={styles.safeLabel}>safe to use</Text>
-          <Text style={ui.body}>{result.recommendedAction}</Text>
-          {hasGap && (
-            <Text style={styles.target}>
-              Try to earn {money(result.targetPerRemainingWorkday)} net per
-              remaining workday.
-            </Text>
-          )}
-        </View>
-      </Card>
-
-      {hasGap && (
-        <Card style={styles.options}>
-          <Label>Try these before borrowing</Label>
-          {result.nonCreditAlternatives.map((item, index) => (
-            <View key={item} style={styles.optionRow}>
-              <Text style={styles.optionNumber}>{index + 1}</Text>
-              <Text style={styles.optionText}>{item}</Text>
-            </View>
-          ))}
-        </Card>
-      )}
-
-      <Card>
-        <View style={ui.between}>
-          <View>
-            <Label>Next 30 days</Label>
-            <Text style={ui.h2}>
-              {money(result.forecastIncomeLow30d)}–
-              {money(result.forecastIncomeHigh30d)}
-            </Text>
-          </View>
-          <Text style={styles.estimate}>estimate</Text>
-        </View>
-        <View style={styles.metrics}>
-          <Metric label="Bills" value={money(s.committedOutflow30d)} />
-          <Metric label="Work costs" value={money(s.estimatedWorkCosts30d)} />
-        </View>
-        <Text style={ui.small}>
-          Expected money is not counted as money you already have.
-        </Text>
-      </Card>
-
+    <Screen
+      title="Plan"
+      subtitle="Keep important bills visible and protected."
+      help={{
+        title: "Your bill plan",
+        body: "Add payments you cannot miss. When you mark a repeating bill as paid, SuperFinz creates its next due date automatically.",
+      }}
+    >
       <Button
         title={showForm ? "Close bill form" : "Add a bill"}
         tone={showForm ? "quiet" : "accent"}
@@ -273,10 +230,21 @@ export default function Plan() {
             value={dueDate}
             onChange={(value) => value && setDueDate(value)}
           />
+          <Label>How often?</Label>
+          <View style={styles.choices}>
+            {recurrenceOptions.map((option) => (
+              <Choice
+                key={option.value}
+                label={option.label}
+                selected={recurrence === option.value}
+                onPress={() => setRecurrence(option.value)}
+              />
+            ))}
+          </View>
           <Pressable
             accessibilityRole="checkbox"
             accessibilityState={{ checked: essential }}
-            accessibilityLabel="This bill is essential"
+            accessibilityLabel="Protect this bill first"
             onPress={() => setEssential((value) => !value)}
             style={({ pressed }) => [
               styles.check,
@@ -287,7 +255,7 @@ export default function Plan() {
             <Text
               style={[styles.checkText, essential && styles.checkTextActive]}
             >
-              {essential ? "✓ " : ""}This bill is essential
+              {essential ? "✓ " : ""}Protect this bill first
             </Text>
           </Pressable>
           <Button
@@ -317,6 +285,7 @@ export default function Plan() {
                     day: "numeric",
                     month: "short",
                   })}
+                  {` · ${recurrenceLabels[item.recurrence]}`}
                   {item.essential ? " · important" : " · flexible"}
                 </Text>
                 <Text style={styles.billAmount}>{money(item.amount)}</Text>
@@ -369,6 +338,85 @@ export default function Plan() {
           ))
         )}
       </Card>
+
+      <Button
+        title={showWhatIf ? "Hide what-if check" : "What if income changes?"}
+        tone="quiet"
+        onPress={() => setShowWhatIf((value) => !value)}
+      />
+
+      {showWhatIf && (
+        <>
+          <Card>
+            <Label>Try one change</Label>
+            <View style={styles.choices}>
+              {scenarios.map((item) => (
+                <Choice
+                  key={item.value}
+                  label={item.label}
+                  selected={scenario === item.value}
+                  onPress={() => setScenario(item.value)}
+                />
+              ))}
+            </View>
+            <View
+              accessibilityLiveRegion="polite"
+              style={[
+                styles.result,
+                hasGap ? styles.resultWarning : styles.resultGood,
+              ]}
+            >
+              <Label>
+                {scenario === "BASELINE" ? "Today’s plan" : "After this change"}
+              </Label>
+              <Text style={styles.safeValue}>{money(result.safeToSpend)}</Text>
+              <Text style={styles.safeLabel}>safe to use</Text>
+              <Text style={ui.body}>{result.recommendedAction}</Text>
+              {hasGap && (
+                <Text style={styles.target}>
+                  Try to earn {money(result.targetPerRemainingWorkday)} net per
+                  remaining workday.
+                </Text>
+              )}
+            </View>
+          </Card>
+
+          {hasGap && (
+            <Card style={styles.options}>
+              <Label>Try these before borrowing</Label>
+              {result.nonCreditAlternatives.map((item, index) => (
+                <View key={item} style={styles.optionRow}>
+                  <Text style={styles.optionNumber}>{index + 1}</Text>
+                  <Text style={styles.optionText}>{item}</Text>
+                </View>
+              ))}
+            </Card>
+          )}
+
+          <Card>
+            <View style={ui.between}>
+              <View>
+                <Label>Next 30 days</Label>
+                <Text style={ui.h2}>
+                  {money(result.forecastIncomeLow30d)}–
+                  {money(result.forecastIncomeHigh30d)}
+                </Text>
+              </View>
+              <Text style={styles.estimate}>estimate</Text>
+            </View>
+            <View style={styles.metrics}>
+              <Metric label="Bills" value={money(s.committedOutflow30d)} />
+              <Metric
+                label="Work costs"
+                value={money(s.estimatedWorkCosts30d)}
+              />
+            </View>
+            <Text style={ui.small}>
+              Expected money is not counted as money you already have.
+            </Text>
+          </Card>
+        </>
+      )}
     </Screen>
   );
 }
@@ -413,7 +461,7 @@ function Choice({
 const styles = StyleSheet.create({
   choices: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   choice: {
-    minHeight: 44,
+    minHeight: 48,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 999,
@@ -422,9 +470,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  choiceActive: { borderColor: colors.action, backgroundColor: colors.action },
+  choiceActive: {
+    borderColor: colors.action,
+    backgroundColor: colors.accentSoft,
+  },
   choiceText: { color: colors.ink, fontWeight: "600", fontSize: 13 },
-  choiceTextActive: { color: colors.white },
+  choiceTextActive: { color: colors.ink },
   pressed: { opacity: 0.7 },
   result: { borderRadius: 15, padding: 15, gap: 6 },
   resultGood: { backgroundColor: colors.greenSoft },
@@ -497,6 +548,6 @@ const styles = StyleSheet.create({
     fontVariant: ["tabular-nums"],
   },
   billActions: { width: 82, gap: 5 },
-  delete: { minHeight: 34, alignItems: "center", justifyContent: "center" },
-  deleteText: { color: colors.red, fontSize: 12, fontWeight: "600" },
+  delete: { minHeight: 48, alignItems: "center", justifyContent: "center" },
+  deleteText: { color: colors.red, fontSize: 13, fontWeight: "700" },
 });

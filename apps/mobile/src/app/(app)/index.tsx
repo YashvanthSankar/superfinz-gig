@@ -1,7 +1,13 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
-import { StyleSheet, Text, View } from "react-native";
-import { CalendarClock, ShieldCheck, WalletCards } from "lucide-react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  CalendarClock,
+  Settings2,
+  ShieldCheck,
+  WalletCards,
+} from "lucide-react-native";
 import type { GigDashboardDto } from "@superfinz/shared";
 import { apiFetch } from "@/lib/api";
 import {
@@ -12,7 +18,6 @@ import {
   Loading,
   Progress,
   Screen,
-  ThemeToggle,
   ui,
 } from "@/components/ui";
 import { colors } from "@/constants/theme";
@@ -21,6 +26,7 @@ const money = (value: number) =>
   `₹${Math.round(value).toLocaleString("en-IN")}`;
 
 export default function Today() {
+  const [showMath, setShowMath] = useState(false);
   const query = useQuery({
     queryKey: ["gig-dashboard"],
     queryFn: () =>
@@ -48,24 +54,32 @@ export default function Today() {
   const nextEvents = dashboard.timeline.slice(0, 2);
 
   return (
-    <Screen>
-      <View>
-        <View style={styles.topRow}>
-          <Text style={styles.date}>
-            {new Date().toLocaleDateString("en-IN", {
-              weekday: "long",
-              day: "numeric",
-              month: "long",
-            })}
-          </Text>
-          <ThemeToggle />
-        </View>
-        <Text accessibilityRole="header" style={ui.h1}>
-          Hello, {dashboard.profile.preferredName}
-        </Text>
-        <Text style={ui.body}>Here is today&apos;s simple money plan.</Text>
-      </View>
-
+    <Screen
+      title="Today"
+      subtitle={`Hello, ${dashboard.profile.preferredName}. Here is your simple money plan.`}
+      action={
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Open settings"
+          onPress={() => router.push("/(app)/profile")}
+          style={({ pressed }) => [
+            styles.settingsButton,
+            pressed && styles.pressed,
+          ]}
+        >
+          <Settings2
+            accessible={false}
+            color={colors.ink as string}
+            size={19}
+          />
+          <Text style={styles.settingsText}>Settings</Text>
+        </Pressable>
+      }
+      help={{
+        title: "Your Today page",
+        body: "Start with Safe to spend. It is money left after protecting your bills, work costs, and safety savings.",
+      }}
+    >
       <Card style={styles.hero}>
         <Text style={styles.heroLabel}>You can safely use</Text>
         <Text
@@ -84,16 +98,22 @@ export default function Today() {
           </Text>
           <Text style={styles.estimateHelp}>Not counted until it arrives</Text>
         </View>
-        <View accessibilityLabel="Safe money calculation" style={styles.math}>
-          <Text style={styles.mathTitle}>How we got this amount</Text>
-          <MoneyLine label="Total money now" value={s.availableBalance} />
-          <MoneyLine
-            label="Bills, work and savings"
-            value={-s.protectedMoney}
-          />
-          <View style={styles.rule} />
-          <MoneyLine label="Safe to spend" value={s.safeToSpend} strong />
-        </View>
+        <Button
+          title={showMath ? "Hide calculation" : "How is this calculated?"}
+          tone="quiet"
+          onPress={() => setShowMath((value) => !value)}
+        />
+        {showMath && (
+          <View accessibilityLabel="Safe money calculation" style={styles.math}>
+            <MoneyLine label="Total money now" value={s.availableBalance} />
+            <MoneyLine
+              label="Bills, work and savings"
+              value={-s.protectedMoney}
+            />
+            <View style={styles.rule} />
+            <MoneyLine label="Safe to spend" value={s.safeToSpend} strong />
+          </View>
+        )}
       </Card>
 
       <View style={styles.actions}>
@@ -229,18 +249,20 @@ function MoneyLine({
 }
 
 const styles = StyleSheet.create({
-  topRow: {
+  settingsButton: {
+    minHeight: 48,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 13,
+    backgroundColor: colors.surface,
+    paddingHorizontal: 11,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
+    justifyContent: "center",
+    gap: 6,
   },
-  date: {
-    color: colors.muted,
-    fontSize: 13,
-    fontWeight: "600",
-    marginBottom: 4,
-  },
+  settingsText: { color: colors.ink, fontSize: 13, fontWeight: "700" },
+  pressed: { opacity: 0.72 },
   hero: {
     backgroundColor: colors.actionStrong,
     borderColor: colors.actionStrong,
@@ -290,7 +312,6 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     gap: 8,
   },
-  mathTitle: { color: colors.white, fontSize: 14, fontWeight: "700" },
   moneyLine: {
     flexDirection: "row",
     alignItems: "center",

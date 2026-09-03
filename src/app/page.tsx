@@ -1,72 +1,89 @@
 import Link from "next/link";
 import {
+  Apple,
   ArrowRight,
+  Bike,
   BriefcaseBusiness,
   CalendarCheck,
   Check,
+  Car,
   CircleGauge,
   IndianRupee,
   LockKeyhole,
+  Package,
   ReceiptText,
   ShieldCheck,
+  Smartphone,
+  Sparkles,
+  TrendingDown,
+  Utensils,
   WalletCards,
+  Zap,
 } from "lucide-react";
 import styles from "./page.module.css";
 
 const problems = [
   {
-    icon: WalletCards,
-    title: "Income arrives unevenly",
-    body: "Platform payouts, UPI, bank transfers, and cash all arrive on different days.",
+    icon: TrendingDown,
+    stat: "₹0 → ₹1,800",
+    title: "Income swings every day",
+    body: "A rainy Tuesday pays nothing. A festival weekend pays triple. Platform payouts, UPI, and cash all land on different days.",
   },
   {
     icon: CalendarCheck,
-    title: "Bills stay fixed",
-    body: "Rent, electricity, gas, school fees, and EMIs do not wait for a good week.",
+    stat: "Due on the 5th",
+    title: "Bills never swing",
+    body: "Rent, EMI, electricity, school fees. They arrive on a fixed date whether the week was good or not.",
   },
   {
     icon: BriefcaseBusiness,
-    title: "Work has daily costs",
-    body: "Fuel, platform fees, repairs, and supplies must be protected to keep earning.",
+    stat: "Fuel, fees, repairs",
+    title: "Earning costs money",
+    body: "A flat tyre or an empty tank means no income tomorrow. Work costs get mixed with personal spending and vanish.",
   },
 ];
 
-const features = [
+const solution = [
   {
     icon: CircleGauge,
-    title: "Safe to spend",
-    body: "One clear amount for today, after protecting what you must pay.",
-  },
-  {
-    icon: ReceiptText,
-    title: "Bill protection",
-    body: "See upcoming essentials together and reserve money before each due date.",
-  },
-  {
-    icon: BriefcaseBusiness,
-    title: "Work-cost protection",
-    body: "Keep fuel, fees, and maintenance separate from personal spending.",
+    title: "One safe-to-spend number",
+    body: "Open the app, see exactly what you can spend today after every bill and work cost is protected. No spreadsheets. No guessing.",
   },
   {
     icon: IndianRupee,
-    title: "Payout planning",
-    body: "Split each settled payout across bills, work, safety, savings, and spending.",
+    title: "Auto-split every payout",
+    body: "Each settlement is divided across bills, work costs, a safety buffer, savings, and spending. Set once, runs forever.",
+  },
+  {
+    icon: ReceiptText,
+    title: "Bill shield",
+    body: "Upcoming essentials are reserved before their due date. Money for rent is locked away before it can leak.",
+  },
+  {
+    icon: Sparkles,
+    title: "A coach that knows gig work",
+    body: "Ask in plain language. Get straight answers built on your actual income pattern, not generic advice.",
   },
 ];
 
-const steps = [
-  {
-    title: "Add income and bills",
-    body: "Enter earnings, payout dates, and the essentials your household depends on.",
-  },
-  {
-    title: "SuperFinz protects the basics",
-    body: "The plan sets aside bills, work costs, and your chosen safety buffer first.",
-  },
-  {
-    title: "Use one safe number",
-    body: "Check what is safe today and plan the next payout without complex budgeting.",
-  },
+const workers = [
+  { icon: Bike, label: "Delivery riders" },
+  { icon: Car, label: "Cab drivers" },
+  { icon: Package, label: "Couriers" },
+  { icon: Utensils, label: "Food partners" },
+  { icon: Smartphone, label: "Freelancers" },
+  { icon: Zap, label: "Daily-wage pros" },
+];
+
+const marquee = [
+  "Safe to spend",
+  "Bill shield",
+  "Payout split",
+  "Work-cost pocket",
+  "Safety buffer",
+  "Gig coach",
+  "iOS",
+  "Android",
 ];
 
 export default function LandingPage() {
@@ -76,310 +93,351 @@ export default function LandingPage() {
         Skip to main content
       </a>
 
+      <div className={styles.bgGlowA} aria-hidden="true" />
+      <div className={styles.bgGlowB} aria-hidden="true" />
+      <div className={styles.bgGrid} aria-hidden="true" />
+
       <header className={styles.header}>
         <nav className={styles.nav} aria-label="Main navigation">
           <Link href="/" className={styles.brand} aria-label="SuperFinz home">
-            <span className={styles.brandMark} aria-hidden="true">
-              S
-            </span>
+            <span className={styles.brandMark}>S</span>
             <span>SuperFinz</span>
           </Link>
-
           <div className={styles.navLinks}>
+            <a href="#problem">Problem</a>
             <a href="#solution">Solution</a>
-            <a href="#how-it-works">How it works</a>
-            <a href="#trust">Trust</a>
+            <a href="#app">The app</a>
           </div>
-
           <div className={styles.navActions}>
             <Link href="/login" className={styles.signInLink}>
               Sign in
             </Link>
             <Link href="/demo" className={styles.navCta}>
               Try the demo
-              <ArrowRight aria-hidden="true" size={17} strokeWidth={2.2} />
+              <ArrowRight size={16} aria-hidden="true" />
             </Link>
           </div>
         </nav>
       </header>
 
       <div id="main-content">
-        <section className={styles.hero} aria-labelledby="hero-title">
+        {/* HERO */}
+        <section className={styles.hero}>
           <div className={styles.heroCopy}>
-            <p className={styles.eyebrow}>Built for gig and informal workers</p>
-            <h1 id="hero-title">
-              Know what you can safely spend, even when income changes.
+            <div className={styles.pill}>
+              <span className={styles.pillDot} />
+              Now on iOS &amp; Android
+            </div>
+            <h1 className={styles.heroTitle}>
+              A salary layer
+              <br />
+              for people
+              <br />
+              <span className={styles.heroGradient}>without salaries.</span>
             </h1>
-            <p className={styles.heroText}>
-              SuperFinz turns irregular earnings, household bills, and work
-              costs into one simple daily money plan.
+            <p className={styles.heroLead}>
+              SuperFinz turns unpredictable gig income into one calm number you
+              can trust every morning. Bills protected. Work costs covered. Spend
+              the rest without fear.
             </p>
-
             <div className={styles.heroActions}>
-              <Link href="/demo" className={styles.primaryButton}>
-                Open the demo
-                <ArrowRight aria-hidden="true" size={19} strokeWidth={2.2} />
-              </Link>
-              <a href="#how-it-works" className={styles.secondaryButton}>
-                See how it works
-              </a>
-            </div>
-
-            <div className={styles.heroNote}>
-              <ShieldCheck aria-hidden="true" size={19} strokeWidth={2} />
-              <span>
-                Hackathon prototype. No real money moves and no loan is created.
-              </span>
-            </div>
-          </div>
-
-          <DashboardPreview />
-        </section>
-
-        <section
-          className={styles.problemSection}
-          aria-labelledby="problem-title"
-        >
-          <div className={styles.sectionHeading}>
-            <p className={styles.eyebrow}>The problem</p>
-            <h2 id="problem-title">
-              A bank balance does not show what is already spoken for.
-            </h2>
-            <p>
-              When income changes every week, a normal monthly budget can
-              quickly become outdated.
-            </p>
-          </div>
-
-          <div className={styles.problemGrid}>
-            {problems.map(({ icon: Icon, title, body }) => (
-              <article className={styles.problemCard} key={title}>
-                <span className={styles.iconTile} aria-hidden="true">
-                  <Icon size={23} strokeWidth={1.9} />
+              <a href="#app" className={styles.storeButton}>
+                <Apple size={22} aria-hidden="true" />
+                <span>
+                  <small>Download on the</small>
+                  App Store
                 </span>
-                <h3>{title}</h3>
-                <p>{body}</p>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section
-          id="solution"
-          className={styles.solutionSection}
-          aria-labelledby="solution-title"
-        >
-          <div className={styles.solutionIntro}>
-            <div>
-              <p className={styles.eyebrow}>One-stop dashboard</p>
-              <h2 id="solution-title">
-                One place to decide what to do with every rupee.
-              </h2>
+              </a>
+              <a href="#app" className={styles.storeButton}>
+                <PlayIcon />
+                <span>
+                  <small>Get it on</small>
+                  Google Play
+                </span>
+              </a>
+              <Link href="/demo" className={styles.ghostButton}>
+                Open web demo
+                <ArrowRight size={16} aria-hidden="true" />
+              </Link>
             </div>
-            <p>
-              SuperFinz starts with money that has actually arrived. It protects
-              the essentials, then shows the amount left to use.
-            </p>
+            <ul className={styles.heroProof}>
+              <li>
+                <Check size={14} aria-hidden="true" /> Built for Indian gig
+                workers
+              </li>
+              <li>
+                <Check size={14} aria-hidden="true" /> Works with UPI, cash &amp;
+                platform payouts
+              </li>
+              <li>
+                <Check size={14} aria-hidden="true" /> Free to start
+              </li>
+            </ul>
           </div>
 
-          <div className={styles.featureGrid}>
-            {features.map(({ icon: Icon, title, body }) => (
-              <article className={styles.featureCard} key={title}>
-                <Icon aria-hidden="true" size={25} strokeWidth={1.8} />
-                <h3>{title}</h3>
-                <p>{body}</p>
-              </article>
-            ))}
-          </div>
-
-          <div className={styles.formulaCard}>
-            <div>
-              <p className={styles.formulaLabel}>Simple and explainable</p>
-              <h3>Safe to spend is not a mystery score.</h3>
-            </div>
-            <div className={styles.formula} aria-label="Safe to spend formula">
-              <span>Settled money</span>
-              <span aria-hidden="true">−</span>
-              <span>Bills</span>
-              <span aria-hidden="true">−</span>
-              <span>Work costs</span>
-              <span aria-hidden="true">−</span>
-              <span>Safety buffer</span>
-              <span aria-hidden="true">=</span>
-              <strong>Safe to spend</strong>
-            </div>
-          </div>
-        </section>
-
-        <section
-          id="how-it-works"
-          className={styles.howSection}
-          aria-labelledby="how-title"
-        >
-          <div className={styles.sectionHeading}>
-            <p className={styles.eyebrow}>How it works</p>
-            <h2 id="how-title">A useful plan in three simple steps.</h2>
-          </div>
-
-          <ol className={styles.steps}>
-            {steps.map((step, index) => (
-              <li key={step.title}>
-                <span className={styles.stepNumber}>{index + 1}</span>
-                <div>
-                  <h3>{step.title}</h3>
-                  <p>{step.body}</p>
+          <div className={styles.heroVisual} aria-hidden="true">
+            <div className={styles.phone}>
+              <div className={styles.phoneNotch} />
+              <div className={styles.phoneScreen}>
+                <div className={styles.screenTop}>
+                  <span>Good morning, Ravi</span>
+                  <span className={styles.screenBadge}>Tue</span>
                 </div>
+                <div className={styles.screenSafe}>
+                  <small>Safe to spend today</small>
+                  <strong>₹640</strong>
+                  <em>after ₹3,200 protected</em>
+                </div>
+                <div className={styles.screenRow}>
+                  <span>Rent · 5 Sep</span>
+                  <b className={styles.ok}>Reserved</b>
+                </div>
+                <div className={styles.screenRow}>
+                  <span>Bike EMI · 8 Sep</span>
+                  <b className={styles.ok}>Reserved</b>
+                </div>
+                <div className={styles.screenRow}>
+                  <span>Fuel pocket</span>
+                  <b>₹1,100</b>
+                </div>
+                <div className={styles.screenRow}>
+                  <span>Safety buffer</span>
+                  <b>₹2,450</b>
+                </div>
+                <div className={styles.screenBar}>
+                  <i style={{ width: "62%" }} />
+                </div>
+                <div className={styles.screenCoach}>
+                  <Sparkles size={12} aria-hidden="true" />
+                  Payout of ₹2,900 landed. Split it?
+                </div>
+              </div>
+            </div>
+            <div className={`${styles.floatCard} ${styles.floatA}`}>
+              <ShieldCheck size={16} aria-hidden="true" />
+              Rent locked in
+            </div>
+            <div className={`${styles.floatCard} ${styles.floatB}`}>
+              <IndianRupee size={16} aria-hidden="true" />
+              Payout split in 1 tap
+            </div>
+            <div className={`${styles.floatCard} ${styles.floatC}`}>
+              <CircleGauge size={16} aria-hidden="true" />
+              Safe number updated
+            </div>
+          </div>
+        </section>
+
+        {/* MARQUEE */}
+        <div className={styles.marquee} aria-hidden="true">
+          <div className={styles.marqueeTrack}>
+            {[...marquee, ...marquee].map((item, i) => (
+              <span key={`${item}-${i}`}>
+                {item}
+                <i>✦</i>
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* WHO */}
+        <section className={styles.who}>
+          <p className={styles.whoTitle}>Made for the people who keep India moving</p>
+          <ul className={styles.whoList}>
+            {workers.map(({ icon: Icon, label }) => (
+              <li key={label}>
+                <Icon size={18} aria-hidden="true" />
+                {label}
               </li>
             ))}
-          </ol>
-        </section>
-
-        <section
-          id="trust"
-          className={styles.trustSection}
-          aria-labelledby="trust-title"
-        >
-          <div className={styles.trustCopy}>
-            <span className={styles.trustIcon} aria-hidden="true">
-              <LockKeyhole size={26} strokeWidth={1.8} />
-            </span>
-            <p className={styles.eyebrow}>Responsible by design</p>
-            <h2 id="trust-title">Clear guidance without hidden decisions.</h2>
-            <p>
-              The prototype keeps expected income separate, explains every
-              calculation, and puts non-credit actions before borrowing.
-            </p>
-          </div>
-
-          <ul className={styles.trustList}>
-            <li>
-              <Check aria-hidden="true" size={18} />
-              Settled and expected income are clearly separated
-            </li>
-            <li>
-              <Check aria-hidden="true" size={18} />
-              Users choose and can change their protected amounts
-            </li>
-            <li>
-              <Check aria-hidden="true" size={18} />
-              No guaranteed income, hidden credit score, or automatic loan
-            </li>
-            <li>
-              <Check aria-hidden="true" size={18} />
-              Prototype data is labeled everywhere it appears
-            </li>
           </ul>
         </section>
 
-        <section className={styles.finalCta} aria-labelledby="cta-title">
-          <p className={styles.eyebrow}>See SuperFinz in action</p>
-          <h2 id="cta-title">Make the next payout easier to plan.</h2>
-          <p>Explore a complete sample dashboard with no sign-in or setup.</p>
-          <Link href="/demo" className={styles.primaryButton}>
-            Explore the demo
-            <ArrowRight aria-hidden="true" size={19} strokeWidth={2.2} />
-          </Link>
+        {/* PROBLEM */}
+        <section id="problem" className={styles.section}>
+          <div className={styles.sectionHead}>
+            <span className={styles.eyebrow}>The problem</span>
+            <h2>
+              Irregular income. <span className={styles.strike}>Regular</span>{" "}
+              <span className={styles.heroGradient}>relentless</span> bills.
+            </h2>
+            <p>
+              Over 12 million gig workers in India earn a different amount every
+              single day. Every budgeting app assumes a salary. So none of them
+              work.
+            </p>
+          </div>
+          <div className={styles.grid3}>
+            {problems.map(({ icon: Icon, stat, title, body }) => (
+              <article key={title} className={styles.problemCard}>
+                <div className={styles.cardIcon}>
+                  <Icon size={20} aria-hidden="true" />
+                </div>
+                <span className={styles.cardStat}>{stat}</span>
+                <h3>{title}</h3>
+                <p>{body}</p>
+              </article>
+            ))}
+          </div>
+          <div className={styles.problemPunch}>
+            <WalletCards size={20} aria-hidden="true" />
+            <p>
+              The result: a good week gets spent, a bad week borrows, and rent is
+              always a surprise. <strong>That is the problem we kill.</strong>
+            </p>
+          </div>
+        </section>
+
+        {/* SOLUTION */}
+        <section id="solution" className={`${styles.section} ${styles.sectionSolution}`}>
+          <div className={styles.sectionHead}>
+            <span className={styles.eyebrow}>The solution</span>
+            <h2>
+              We turn every payout into a{" "}
+              <span className={styles.heroGradient}>paycheck.</span>
+            </h2>
+            <p>
+              SuperFinz sits between your earnings and your spending. Money comes
+              in messy. It goes out planned.
+            </p>
+          </div>
+          <div className={styles.grid4}>
+            {solution.map(({ icon: Icon, title, body }, i) => (
+              <article key={title} className={styles.solutionCard}>
+                <span className={styles.stepNum}>0{i + 1}</span>
+                <div className={styles.cardIcon}>
+                  <Icon size={20} aria-hidden="true" />
+                </div>
+                <h3>{title}</h3>
+                <p>{body}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        {/* APP */}
+        <section id="app" className={styles.appSection}>
+          <div className={styles.appInner}>
+            <div className={styles.appCopy}>
+              <span className={styles.eyebrow}>Native iOS &amp; Android app</span>
+              <h2>
+                Sleek. Fast.
+                <br />
+                Built for one-handed use
+                <br />
+                between rides.
+              </h2>
+              <ul className={styles.appList}>
+                <li>
+                  <Check size={16} aria-hidden="true" />
+                  Log a payout in under 5 seconds
+                </li>
+                <li>
+                  <Check size={16} aria-hidden="true" />
+                  Dark mode, offline-first, low-data
+                </li>
+                <li>
+                  <Check size={16} aria-hidden="true" />
+                  Reminders before every due date
+                </li>
+                <li>
+                  <Check size={16} aria-hidden="true" />
+                  Plain-language coach, no jargon
+                </li>
+              </ul>
+              <div className={styles.heroActions}>
+                <a href="#app" className={styles.storeButton}>
+                  <Apple size={22} aria-hidden="true" />
+                  <span>
+                    <small>Download on the</small>
+                    App Store
+                  </span>
+                </a>
+                <a href="#app" className={styles.storeButton}>
+                  <PlayIcon />
+                  <span>
+                    <small>Get it on</small>
+                    Google Play
+                  </span>
+                </a>
+              </div>
+              <p className={styles.appNote}>
+                <LockKeyhole size={14} aria-hidden="true" />
+                Your data stays yours. No lending, no selling, no spam.
+              </p>
+            </div>
+            <div className={styles.appPhones} aria-hidden="true">
+              <div className={`${styles.miniPhone} ${styles.miniA}`}>
+                <div className={styles.miniHead}>Split payout</div>
+                <div className={styles.miniAmount}>₹2,900</div>
+                <div className={styles.miniRow}><span>Bills</span><b>₹1,200</b></div>
+                <div className={styles.miniRow}><span>Work</span><b>₹500</b></div>
+                <div className={styles.miniRow}><span>Safety</span><b>₹400</b></div>
+                <div className={styles.miniRow}><span>Savings</span><b>₹300</b></div>
+                <div className={styles.miniRow}><span>Spend</span><b>₹500</b></div>
+                <div className={styles.miniBtn}>Confirm split</div>
+              </div>
+              <div className={`${styles.miniPhone} ${styles.miniB}`}>
+                <div className={styles.miniHead}>This week</div>
+                <div className={styles.miniBars}>
+                  {[40, 70, 30, 90, 55, 80, 65].map((h, i) => (
+                    <i key={i} style={{ height: `${h}%` }} />
+                  ))}
+                </div>
+                <div className={styles.miniRow}><span>Earned</span><b>₹6,340</b></div>
+                <div className={styles.miniRow}><span>Protected</span><b className={styles.ok}>₹3,200</b></div>
+                <div className={styles.miniRow}><span>Safe</span><b>₹640/day</b></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* CTA */}
+        <section className={styles.cta}>
+          <h2>
+            Stop guessing.
+            <br />
+            Start every day with one safe number.
+          </h2>
+          <div className={styles.heroActions}>
+            <Link href="/demo" className={styles.primaryButton}>
+              Try the live demo
+              <ArrowRight size={18} aria-hidden="true" />
+            </Link>
+            <a href="#app" className={styles.ghostButton}>
+              Get the app
+            </a>
+          </div>
         </section>
       </div>
 
       <footer className={styles.footer}>
         <div className={styles.footerInner}>
-          <div>
-            <Link href="/" className={styles.brand} aria-label="SuperFinz home">
-              <span className={styles.brandMark} aria-hidden="true">
-                S
-              </span>
-              <span>SuperFinz</span>
-            </Link>
-            <p>Financial resilience for people with irregular incomes.</p>
-          </div>
+          <Link href="/" className={styles.brand} aria-label="SuperFinz home">
+            <span className={styles.brandMark}>S</span>
+            <span>SuperFinz</span>
+          </Link>
           <div className={styles.footerLinks}>
+            <a href="#problem">Problem</a>
             <a href="#solution">Solution</a>
-            <a href="#how-it-works">How it works</a>
+            <a href="#app">App</a>
             <Link href="/demo">Demo</Link>
-            <span>Innovation Unbound prototype</span>
+            <Link href="/login">Sign in</Link>
           </div>
+          <p>© {new Date().getFullYear()} SuperFinz. Financial resilience for irregular earners.</p>
         </div>
       </footer>
     </main>
   );
 }
 
-function DashboardPreview() {
+function PlayIcon() {
   return (
-    <aside
-      className={styles.dashboard}
-      aria-label="Example SuperFinz dashboard"
-    >
-      <div className={styles.dashboardTopbar}>
-        <div>
-          <p>Today&apos;s plan</p>
-          <span>Example dashboard · Ravi</span>
-        </div>
-        <span className={styles.prototypeBadge}>Prototype</span>
-      </div>
-
-      <div className={styles.safeCard}>
-        <span>Safe to spend today</span>
-        <strong>₹620</strong>
-        <p>Protected until Friday</p>
-      </div>
-
-      <div className={styles.moneySummary}>
-        <div>
-          <span>Money available</span>
-          <strong>₹6,800</strong>
-        </div>
-        <div>
-          <span>Next expected payout</span>
-          <strong>₹2,100–₹3,400</strong>
-          <small>Not included yet</small>
-        </div>
-      </div>
-
-      <div className={styles.protectedBlock}>
-        <div className={styles.protectedHeading}>
-          <span>Already protected</span>
-          <strong>₹6,180</strong>
-        </div>
-        <div className={styles.protectionBar} aria-hidden="true">
-          <span className={styles.billBar} />
-          <span className={styles.workBar} />
-          <span className={styles.bufferBar} />
-          <span className={styles.safeBar} />
-        </div>
-        <ul className={styles.protectionList}>
-          <li>
-            <span>
-              <i className={styles.billDot} />
-              Bills due
-            </span>
-            <strong>₹3,950</strong>
-          </li>
-          <li>
-            <span>
-              <i className={styles.workDot} />
-              Work costs
-            </span>
-            <strong>₹1,230</strong>
-          </li>
-          <li>
-            <span>
-              <i className={styles.bufferDot} />
-              Safety buffer
-            </span>
-            <strong>₹1,000</strong>
-          </li>
-        </ul>
-      </div>
-
-      <div className={styles.nextAction}>
-        <ShieldCheck aria-hidden="true" size={20} />
-        <div>
-          <strong>Your bills and work are covered.</strong>
-          <span>₹620 is available for flexible spending.</span>
-        </div>
-      </div>
-    </aside>
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M4 3.5v17l9.5-8.5L4 3.5z" fill="#34a853" />
+      <path d="M4 3.5l9.5 8.5 3-2.7L5.5 3.2A1.2 1.2 0 0 0 4 3.5z" fill="#4285f4" />
+      <path d="M4 20.5l9.5-8.5 3 2.7-11 6.1A1.2 1.2 0 0 1 4 20.5z" fill="#ea4335" />
+      <path d="M13.5 12l3-2.7 3.2 1.8c.9.5.9 1.3 0 1.8l-3.2 1.8-3-2.7z" fill="#fbbc04" />
+    </svg>
   );
 }

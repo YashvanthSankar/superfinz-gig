@@ -415,6 +415,8 @@ The implementation clamps protected money to the current balance, avoids double-
 
 ## Architecture
 
+**Visual architecture:** [editable Excalidraw](docs/architecture/superfinz-full-architecture.excalidraw) · [SVG for decks](docs/architecture/superfinz-full-architecture.svg) · [PNG preview](docs/architecture/superfinz-full-architecture.png)
+
 ```mermaid
 flowchart TB
     subgraph Clients

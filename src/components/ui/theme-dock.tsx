@@ -5,7 +5,7 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 export function ThemeDock() {
   const pathname = usePathname();
-  if (!pathname || !["/", "/login", "/demo"].includes(pathname)) return null;
+  if (!pathname || !["/login", "/demo"].includes(pathname)) return null;
   return (
     <ThemeToggle
       compact

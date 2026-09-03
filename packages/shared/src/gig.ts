@@ -76,6 +76,10 @@ export type GigVirtualTabDto = {
   userId: string;
   tabName: string;
   balance: number;
+  targetAmount?: number | null;
+  priority?: number;
+  isEssential?: boolean;
+  purpose?: string | null;
   isLocked: boolean;
   isSystem: boolean;
   archivedAt: string | null;
@@ -103,6 +107,10 @@ export function validateTabTransaction(
 export const virtualTabInputSchema = z.object({
   tabName: z.string().trim().min(1).max(60),
   balance: z.number().finite().nonnegative().max(100_000_000),
+  targetAmount: z.number().finite().nonnegative().max(100_000_000).nullable().optional(),
+  priority: z.number().int().min(1).max(100).optional(),
+  isEssential: z.boolean().optional(),
+  purpose: z.string().trim().max(160).nullable().optional(),
 });
 
 export const virtualTabExpenseInputSchema = z.object({
@@ -131,6 +139,12 @@ export type GigProfileDto = {
   currentBalance: number;
   safetyBuffer: number;
   cushionTargetDays: number;
+  trackingMode?: "START_NOW" | "OBSERVE_LEARN";
+  spendingProfile?: {
+    essentialCategories: string[];
+    flexibleCategories: string[];
+    hardestToProtect?: string | null;
+  };
   createdAt: string;
   updatedAt: string;
 };
@@ -549,6 +563,14 @@ export const gigOnboardingSchema = z
     sources: z.array(gigSourceInputSchema).min(1).max(20),
     commitments: z.array(commitmentInputSchema).max(50),
     splitRule: splitRuleInputSchema,
+    trackingMode: z.enum(["START_NOW", "OBSERVE_LEARN"]).default("START_NOW"),
+    spendingProfile: z
+      .object({
+        essentialCategories: z.array(z.string().trim().min(1).max(40)).max(12),
+        flexibleCategories: z.array(z.string().trim().min(1).max(40)).max(12),
+        hardestToProtect: z.string().trim().max(40).nullable().optional(),
+      })
+      .default({ essentialCategories: [], flexibleCategories: [] }),
   })
   .refine(
     (value) =>

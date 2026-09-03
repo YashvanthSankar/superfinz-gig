@@ -144,6 +144,8 @@ function toProfile(doc: Doc<"gigProfiles">) {
     currentBalance: doc.currentBalance,
     safetyBuffer: doc.safetyBuffer,
     cushionTargetDays: doc.cushionTargetDays,
+    ...(doc.trackingMode ? { trackingMode: doc.trackingMode } : {}),
+    ...(doc.spendingProfile ? { spendingProfile: doc.spendingProfile } : {}),
     createdAt: new Date(doc.createdAt).toISOString(),
     updatedAt: new Date(doc.updatedAt).toISOString(),
   };
@@ -231,6 +233,10 @@ function toVirtualTab(doc: Doc<"gigVirtualTabs">) {
     userId: doc.userId,
     tabName: doc.tabName,
     balance: doc.balance,
+    ...(doc.targetAmount !== undefined ? { targetAmount: doc.targetAmount } : {}),
+    ...(doc.priority !== undefined ? { priority: doc.priority } : {}),
+    ...(doc.isEssential !== undefined ? { isEssential: doc.isEssential } : {}),
+    ...(doc.purpose !== undefined ? { purpose: doc.purpose } : {}),
     isLocked: doc.isLocked,
     isSystem: doc.isSystem ?? false,
     archivedAt: iso(doc.archivedAt),
@@ -417,6 +423,10 @@ export const createVirtualTab = mutation({
     userId: v.string(),
     tabName: v.string(),
     balance: v.number(),
+    targetAmount: v.optional(v.number()),
+    priority: v.optional(v.number()),
+    isEssential: v.optional(v.boolean()),
+    purpose: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     assertServerKey(args.serverKey);
@@ -440,6 +450,10 @@ export const createVirtualTab = mutation({
       userId: args.userId,
       tabName: args.tabName.trim(),
       balance: args.balance,
+      ...(args.targetAmount !== undefined ? { targetAmount: args.targetAmount } : {}),
+      ...(args.priority !== undefined ? { priority: args.priority } : {}),
+      ...(args.isEssential !== undefined ? { isEssential: args.isEssential } : {}),
+      ...(args.purpose !== undefined ? { purpose: args.purpose.trim() } : {}),
       isLocked: false,
       isSystem: false,
       createdAt: now,
@@ -458,6 +472,10 @@ export const updateVirtualTab = mutation({
     tabId: v.string(),
     tabName: v.optional(v.string()),
     isLocked: v.optional(v.boolean()),
+    targetAmount: v.optional(v.number()),
+    priority: v.optional(v.number()),
+    isEssential: v.optional(v.boolean()),
+    purpose: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     assertServerKey(args.serverKey);
@@ -474,6 +492,10 @@ export const updateVirtualTab = mutation({
     await ctx.db.patch(tab._id, {
       ...(args.tabName !== undefined ? { tabName: args.tabName.trim() } : {}),
       ...(args.isLocked !== undefined ? { isLocked: args.isLocked } : {}),
+      ...(args.targetAmount !== undefined ? { targetAmount: args.targetAmount } : {}),
+      ...(args.priority !== undefined ? { priority: args.priority } : {}),
+      ...(args.isEssential !== undefined ? { isEssential: args.isEssential } : {}),
+      ...(args.purpose !== undefined ? { purpose: args.purpose.trim() } : {}),
       updatedAt: Date.now(),
     });
     const updated = await ctx.db.get(tab._id);
@@ -556,6 +578,12 @@ export const completeOnboarding = mutation({
     sources: v.array(sourceValidator),
     commitments: v.array(commitmentValidator),
     splitRule: splitRuleValidator,
+    trackingMode: v.union(v.literal("START_NOW"), v.literal("OBSERVE_LEARN")),
+    spendingProfile: v.object({
+      essentialCategories: v.array(v.string()),
+      flexibleCategories: v.array(v.string()),
+      hardestToProtect: v.optional(v.string()),
+    }),
   },
   handler: async (ctx, args) => {
     assertServerKey(args.serverKey);
@@ -619,6 +647,8 @@ export const completeOnboarding = mutation({
       currentBalance: args.openingBalance,
       safetyBuffer: args.safetyBuffer,
       cushionTargetDays: args.cushionTargetDays,
+      trackingMode: args.trackingMode,
+      spendingProfile: args.spendingProfile,
       createdAt: now,
       updatedAt: now,
     });
@@ -1609,21 +1639,22 @@ export const applyPayoutSplit = mutation({
       });
     }
     if (longTermAmount > 0 && userVirtualTabs.length > 0) {
-      const totalExisting = userVirtualTabs.reduce(
-        (sum, tab) => sum + tab.balance,
-        0,
+      const prioritizedTabs = [...userVirtualTabs].sort(
+        (left, right) =>
+          (left.priority ?? Number.MAX_SAFE_INTEGER) -
+            (right.priority ?? Number.MAX_SAFE_INTEGER) ||
+          left.createdAt - right.createdAt,
       );
-      let allocated = 0;
-      for (const [index, tab] of userVirtualTabs.entries()) {
-        const amount =
-          index === userVirtualTabs.length - 1
-            ? roundMoney(longTermAmount - allocated)
-            : roundMoney(
-                totalExisting > 0
-                  ? (longTermAmount * tab.balance) / totalExisting
-                  : longTermAmount / userVirtualTabs.length,
-              );
-        allocated = roundMoney(allocated + amount);
+      let remaining = longTermAmount;
+      for (const tab of prioritizedTabs) {
+        if (remaining <= 0) break;
+        const targetGap =
+          tab.targetAmount === undefined
+            ? remaining
+            : Math.max(0, tab.targetAmount - tab.balance);
+        const amount = roundMoney(Math.min(remaining, targetGap));
+        if (amount <= 0) continue;
+        remaining = roundMoney(remaining - amount);
         const balanceAfter = roundMoney(tab.balance + amount);
         virtualTabAllocations.push({ tabId: String(tab._id), amount });
         await ctx.db.patch(tab._id, { balance: balanceAfter, updatedAt: now });
@@ -1633,6 +1664,27 @@ export const applyPayoutSplit = mutation({
           kind: "ALLOCATION",
           amount,
           balanceBefore: tab.balance,
+          balanceAfter,
+          category: "Payout savings allocation",
+          createdAt: now,
+        });
+      }
+      if (remaining > 0) {
+        const tab = prioritizedTabs[0];
+        const amount = roundMoney(remaining);
+        const priorAllocation = virtualTabAllocations
+          .filter((allocation) => allocation.tabId === String(tab._id))
+          .reduce((sum, allocation) => sum + allocation.amount, 0);
+        const balanceBefore = roundMoney(tab.balance + priorAllocation);
+        const balanceAfter = roundMoney(balanceBefore + amount);
+        virtualTabAllocations.push({ tabId: String(tab._id), amount });
+        await ctx.db.patch(tab._id, { balance: balanceAfter, updatedAt: now });
+        await ctx.db.insert("gigVirtualTabTransactions", {
+          userId: args.userId,
+          tabId: String(tab._id),
+          kind: "ALLOCATION",
+          amount,
+          balanceBefore,
           balanceAfter,
           category: "Payout savings allocation",
           createdAt: now,

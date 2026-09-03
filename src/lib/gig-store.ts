@@ -37,7 +37,14 @@ export async function ensureGigSafetyTab(userId: string) {
 
 export async function createGigVirtualTab(
   userId: string,
-  input: { tabName: string; balance: number },
+  input: {
+    tabName: string;
+    balance: number;
+    targetAmount?: number | null;
+    priority?: number;
+    isEssential?: boolean;
+    purpose?: string | null;
+  },
 ): Promise<GigVirtualTabDto> {
   return (await fetchMutation(api.gig.createVirtualTab, {
     serverKey: serverKey(),
@@ -48,7 +55,15 @@ export async function createGigVirtualTab(
 
 export async function updateGigVirtualTab(
   userId: string,
-  input: { tabId: string; tabName?: string; isLocked?: boolean },
+  input: {
+    tabId: string;
+    tabName?: string;
+    isLocked?: boolean;
+    targetAmount?: number | null;
+    priority?: number;
+    isEssential?: boolean;
+    purpose?: string | null;
+  },
 ): Promise<GigVirtualTabDto> {
   return (await fetchMutation(api.gig.updateVirtualTab, {
     serverKey: serverKey(),
@@ -105,6 +120,12 @@ export async function completeGigOnboarding(
     currentCushion: number;
     safetyBuffer: number;
     cushionTargetDays: number;
+    trackingMode: "START_NOW" | "OBSERVE_LEARN";
+    spendingProfile: {
+      essentialCategories: string[];
+      flexibleCategories: string[];
+      hardestToProtect?: string | null;
+    };
     sources: Array<{
       name: string;
       type: string;

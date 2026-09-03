@@ -1,9 +1,15 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { verifyAccessToken } from "@/lib/mobile-auth";
 
 // Always reads onboarded from DB. Falls back to email lookup if
 // session.user.id is the Google OAuth sub (not our cuid).
-export async function getSession() {
+export async function getSession(request?: Request) {
+  const authorization = request?.headers.get("authorization");
+  if (authorization?.startsWith("Bearer ")) {
+    return verifyAccessToken(authorization.slice(7).trim());
+  }
+
   const session = await auth();
   if (!session?.user) return null;
 

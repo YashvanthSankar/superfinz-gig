@@ -10,6 +10,7 @@ const PROTECTED_API = [
   "/api/heatmap",
   "/api/profile",
   "/api/news",
+  "/api/dashboard",
 ];
 
 export const proxy = auth((req) => {
@@ -20,6 +21,10 @@ export const proxy = auth((req) => {
 
   // API routes: return 401 JSON, never redirect
   if (isProtectedApi) {
+    if (req.headers.get("authorization")?.startsWith("Bearer ")) {
+      // Route handlers validate bearer tokens close to their data access.
+      return NextResponse.next();
+    }
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -57,5 +62,6 @@ export const config = {
     "/api/heatmap/:path*",
     "/api/profile/:path*",
     "/api/news/:path*",
+    "/api/dashboard/:path*",
   ],
 };

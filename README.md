@@ -2,6 +2,8 @@
 
 # SuperFinz
 
+> Native Android and iOS app: Expo SDK 57 in `apps/mobile`. See [MOBILE_SETUP.md](MOBILE_SETUP.md) for Google OAuth, development-build, and EAS setup.
+
 ## Demo Assets
 
 **Demo Video (Google Drive):** https://drive.google.com/file/d/1PlJKa4x0RGQbOKFUqJNWYxYmiQfH3yRr/view?usp=sharing  

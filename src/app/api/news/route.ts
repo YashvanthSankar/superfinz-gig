@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getSession } from "@/lib/auth";
 
 const API_KEY = process.env.NEWS_API_KEY;
 const BASE_URL = "https://newsdata.io/api/1/news";
@@ -60,7 +61,9 @@ const MOCK_NEWS = [
   },
 ];
 
-export async function GET() {
+export async function GET(request: Request) {
+  const session = await getSession(request);
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!API_KEY) {
     return NextResponse.json({ articles: MOCK_NEWS, source: "mock" });
   }

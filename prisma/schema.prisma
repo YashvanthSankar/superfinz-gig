@@ -38,8 +38,25 @@ model User {
   transactions Transaction[]
   budgets      Budget[]
   goals        Goal[]
+  mobileSessions MobileSession[]
 
   @@map("users")
+}
+
+model MobileSession {
+  id               String    @id @default(cuid())
+  userId           String
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshTokenHash String    @unique
+  deviceLabel      String?
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("mobile_sessions")
 }
 
 model Profile {

@@ -32,6 +32,8 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
+!apps/mobile/.env.example
 
 # vercel
 .vercel
@@ -48,3 +50,14 @@ pg14.zip
 pg_new.zip
 /pgdata/
 /pgsql/
+# Expo
+apps/mobile/.expo/
+apps/mobile/android/
+apps/mobile/ios/
+apps/mobile/dist/
+apps/mobile/dist-test*/
+apps/mobile/google-services.json
+apps/mobile/GoogleService-Info.plist
+*.jks
+*.keystore
+*.p8

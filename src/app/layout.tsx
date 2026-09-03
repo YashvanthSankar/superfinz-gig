@@ -47,8 +47,8 @@ const gatwick = localFont({
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#F4F8F7" },
-    { media: "(prefers-color-scheme: dark)", color: "#081416" },
+    { media: "(prefers-color-scheme: light)", color: "#F7F9FC" },
+    { media: "(prefers-color-scheme: dark)", color: "#08111F" },
   ],
   width: "device-width",
   initialScale: 1,

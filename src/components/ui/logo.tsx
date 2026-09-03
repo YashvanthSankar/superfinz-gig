@@ -1,27 +1,23 @@
-import Image from "next/image";
-
 interface LogoProps {
   size?: "sm" | "md" | "lg" | "xl";
   className?: string;
 }
 
 const SIZE_MAP = {
-  sm: { h: 32,  w: 32  },
-  md: { h: 44,  w: 44  },
-  lg: { h: 72,  w: 72  },
-  xl: { h: 60,  w: 60  },
-};
+  sm: "h-8 w-8 rounded-[0.6rem] text-[0.68rem]",
+  md: "h-11 w-11 rounded-xl text-sm",
+  lg: "h-[4.5rem] w-[4.5rem] rounded-[1.25rem] text-xl",
+  xl: "h-[3.75rem] w-[3.75rem] rounded-2xl text-lg",
+} as const;
 
 export function Logo({ size = "md", className = "" }: LogoProps) {
-  const { h, w } = SIZE_MAP[size];
   return (
-    <Image
-      src="/superfinz.webp"
-      alt="SuperFinz"
-      width={w}
-      height={h}
-      className={`object-contain ${className}`}
-      priority
-    />
+    <span
+      aria-hidden="true"
+      className={`relative inline-flex shrink-0 items-center justify-center bg-ink font-bold tracking-[-0.06em] text-paper shadow-[var(--shadow-sm)] ${SIZE_MAP[size]} ${className}`}
+    >
+      SF
+      <span className="absolute right-[12%] top-[12%] h-[18%] w-[18%] rounded-full bg-accent" />
+    </span>
   );
 }

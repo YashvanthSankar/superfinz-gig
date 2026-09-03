@@ -30,7 +30,7 @@ const expoConfig = ({ config }: ConfigContext): ExpoConfig => ({
     package: "com.superfinz.app",
     adaptiveIcon: {
       foregroundImage: "./assets/images/android-icon-foreground.png",
-      backgroundColor: "#F4F8F7",
+      backgroundColor: "#F7F9FC",
     },
     predictiveBackGestureEnabled: false,
     ...(process.env.GOOGLE_SERVICES_JSON
@@ -48,8 +48,8 @@ const expoConfig = ({ config }: ConfigContext): ExpoConfig => ({
         image: "./assets/images/splash-icon.png",
         imageWidth: 180,
         resizeMode: "contain",
-        backgroundColor: "#F4F8F7",
-        dark: { backgroundColor: "#081416" },
+        backgroundColor: "#F7F9FC",
+        dark: { backgroundColor: "#08111F" },
       },
     ],
     ...(googlePlugin ? [googlePlugin] : []),

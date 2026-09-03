@@ -1,7 +1,6 @@
-import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { CalendarClock, ShieldCheck, WalletCards } from "lucide-react-native";
 import type { GigDashboardDto } from "@superfinz/shared";
 import { apiFetch } from "@/lib/api";
@@ -22,7 +21,6 @@ const money = (value: number) =>
   `₹${Math.round(value).toLocaleString("en-IN")}`;
 
 export default function Today() {
-  const [showMath, setShowMath] = useState(false);
   const query = useQuery({
     queryKey: ["gig-dashboard"],
     queryFn: () =>
@@ -86,28 +84,16 @@ export default function Today() {
           </Text>
           <Text style={styles.estimateHelp}>Not counted until it arrives</Text>
         </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={
-            showMath
-              ? "Hide safe money calculation"
-              : "See safe money calculation"
-          }
-          onPress={() => setShowMath((value) => !value)}
-          style={({ pressed }) => [styles.explain, pressed && styles.pressed]}
-        >
-          <Text style={styles.explainText}>
-            {showMath ? "Hide calculation" : "See how this was calculated"}
-          </Text>
-        </Pressable>
-        {showMath && (
-          <View accessibilityLiveRegion="polite" style={styles.math}>
-            <MoneyLine label="Money available" value={s.availableBalance} />
-            <MoneyLine label="Kept aside" value={-s.protectedMoney} />
-            <View style={styles.rule} />
-            <MoneyLine label="Safe to use now" value={s.safeToSpend} strong />
-          </View>
-        )}
+        <View accessibilityLabel="Safe money calculation" style={styles.math}>
+          <Text style={styles.mathTitle}>How we got this amount</Text>
+          <MoneyLine label="Total money now" value={s.availableBalance} />
+          <MoneyLine
+            label="Bills, work and savings"
+            value={-s.protectedMoney}
+          />
+          <View style={styles.rule} />
+          <MoneyLine label="Safe to spend" value={s.safeToSpend} strong />
+        </View>
       </Card>
 
       <View style={styles.actions}>
@@ -297,20 +283,14 @@ const styles = StyleSheet.create({
     fontVariant: ["tabular-nums"],
   },
   estimateHelp: { color: colors.inverseMuted, fontSize: 12 },
-  explain: { minHeight: 46, alignItems: "center", justifyContent: "center" },
-  explainText: {
-    color: colors.white,
-    fontSize: 14,
-    fontWeight: "600",
-    textDecorationLine: "underline",
-  },
-  pressed: { opacity: 0.7 },
   math: {
+    marginTop: 6,
     borderTopWidth: 1,
     borderColor: colors.inverseBorder,
     paddingTop: 12,
     gap: 8,
   },
+  mathTitle: { color: colors.white, fontSize: 14, fontWeight: "700" },
   moneyLine: {
     flexDirection: "row",
     alignItems: "center",

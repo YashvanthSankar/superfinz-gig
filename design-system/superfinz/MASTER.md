@@ -12,27 +12,29 @@ SuperFinz is a calm, high-contrast financial resilience dashboard for people wit
 
 ## Visual direction
 
-Warm neo-brutalism: cream paper, black structure, orange action color, green confirmation, mustard warning, and red only for destructive/error states. No gradients, glass effects, generic banking blue, excessive pills, or decorative chart clutter.
+Cool, professional fintech: crisp neutral surfaces, deep navy structure, and a focused sapphire action color. Blue creates the brand, but most of each screen stays neutral so the interface never becomes a flat wall of blue. Green and red are reserved for meaningful success and error states, never used as brand decoration. No purple, competing green/red branding, gradients, neon colors, glass effects, neo-brutalism, excessive pills, or decorative chart clutter.
 
-| Role | Value |
-| --- | --- |
-| Paper | `#F5F0E4` |
-| Paper 2 | `#EDE6D3` |
-| Ink | `#1A1612` |
-| Ink soft | `#3A322A` |
-| Accent | `#FF5A1F` |
-| Accent soft | `#FFE0CC` |
-| Good | `#0A6B3B` |
-| Good soft | `#D6EADD` |
-| Warning | `#B8860B` |
-| Warning soft | `#F4E4BC` |
-| Destructive | `#C4281B` |
+| Role         | Value     |
+| ------------ | --------- |
+| Paper        | `#F7F9FC` |
+| Paper 2      | `#EEF3F8` |
+| Surface      | `#FFFFFF` |
+| Ink          | `#122033` |
+| Ink soft     | `#46566C` |
+| Brand navy   | `#102A43` |
+| Action blue  | `#2563EB` |
+| Accent soft  | `#EAF2FF` |
+| Good         | `#087A55` |
+| Good soft    | `#E2F3EB` |
+| Warning      | `#8A6200` |
+| Warning soft | `#FFF3D6` |
+| Destructive  | `#B42318` |
 
-Typography uses the repository's Geist Sans for interface copy and Gatwick/Georgia for editorial display headings. Money uses tabular numerals.
+Typography uses the repository's Geist Sans for both interface copy and clear display headings. Money uses tabular numerals.
 
 ## Components
 
-- Cards: 2px ink border, hard 2–6px shadow, square corners.
+- Cards: 1px neutral border, 20px rounded corners, and a soft low-elevation shadow.
 - Buttons and touch targets: minimum 44px web and 48px native. Every icon-only action has an accessible label.
 - Inputs: 16px or larger, persistent visible label, 2px ink border, high-contrast focus ring, inline validation.
 - Status: communicate with text and icon as well as color.

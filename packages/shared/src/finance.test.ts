@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { calculateFd, calculateFire, calculateSip } from "./calculators";
+import { calculateEmi, calculateFd, calculateFire, calculateRetirement, calculateSip } from "./calculators";
 import { financePlanError, summarizeFinancePlan } from "./finance";
 import { budgetInputSchema, transactionInputSchema } from "./schemas";
 
@@ -18,6 +18,11 @@ test("SIP, FD, and FIRE calculations retain their financial invariants", () => {
   const fd = calculateFd(100_000, 7, 5);
   assert.ok(fd.value > fd.invested);
   assert.equal(calculateFire(40_000), 12_000_000);
+  const emi = calculateEmi(500_000, 10, 5);
+  assert.ok(emi.emi > 10_000 && emi.total > 500_000);
+  const retirement = calculateRetirement({ currentAge: 25, retirementAge: 50, monthlyInvestment: 15_000, monthlyExpenses: 30_000, currentSavings: 100_000, annualReturn: 12, inflation: 6 });
+  assert.ok(retirement.targetCorpus > calculateFire(30_000));
+  assert.ok(retirement.projectedCorpus > 100_000);
 });
 
 test("shared request contracts reject unsafe values", () => {

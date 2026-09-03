@@ -30,6 +30,7 @@ const expoConfig = ({ config }: ConfigContext): ExpoConfig => ({
   plugins: [
     "expo-router",
     "expo-secure-store",
+    "@react-native-community/datetimepicker",
     ["expo-splash-screen", { image: "./assets/images/splash-icon.png", imageWidth: 180, resizeMode: "contain", backgroundColor: "#F3EBDD", dark: { backgroundColor: "#171713" } }],
     ...(googlePlugin ? [googlePlugin] : []),
   ],

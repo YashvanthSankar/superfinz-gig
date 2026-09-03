@@ -119,7 +119,7 @@ export default function Today() {
       <View style={styles.actions}>
         <View style={styles.actionButton}>
           <Button
-            title="Add income or cost"
+            title="Add a cost"
             tone="quiet"
             onPress={() => router.push("/(app)/income")}
           />

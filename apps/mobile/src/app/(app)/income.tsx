@@ -20,7 +20,6 @@ import { DateField } from "@/components/date-field";
 import { colors } from "@/constants/theme";
 
 const kinds: Array<{ value: CashEntryKind; label: string }> = [
-  { value: "INCOME", label: "Income" },
   { value: "WORK_EXPENSE", label: "Work cost" },
   { value: "ESSENTIAL_EXPENSE", label: "Home or bill cost" },
   { value: "FLEXIBLE_EXPENSE", label: "Personal cost" },
@@ -41,9 +40,9 @@ export default function Income() {
   const client = useQueryClient();
   const [show, setShow] = useState(false);
   const [showSources, setShowSources] = useState(false);
-  const [kind, setKind] = useState<CashEntryKind>("INCOME");
+  const [kind, setKind] = useState<CashEntryKind>("WORK_EXPENSE");
   const [amount, setAmount] = useState("");
-  const [category, setCategory] = useState("Payout");
+  const [category, setCategory] = useState("Fuel");
   const [note, setNote] = useState("");
   const [method, setMethod] = useState("UPI");
   const [date, setDate] = useState(new Date());
@@ -55,16 +54,12 @@ export default function Income() {
   const refresh = () =>
     client.invalidateQueries({ queryKey: ["gig-dashboard"] });
   const create = useMutation({
-    mutationFn: () => {
-      const source = query.data?.dashboard.sources[0];
-      return apiFetch("/api/gig/entries", {
+    mutationFn: () =>
+      apiFetch("/api/gig/entries", {
         method: "POST",
         body: JSON.stringify({
           kind,
           amount: Number(amount),
-          ...(kind === "INCOME" && source
-            ? { sourceId: source.id, sourceName: source.name }
-            : {}),
           category: category.trim(),
           paymentMethod: method,
           note: note.trim() || null,
@@ -72,8 +67,7 @@ export default function Income() {
           status: "SETTLED",
           date: date.toISOString(),
         }),
-      });
-    },
+      }),
     onSuccess: async () => {
       setAmount("");
       setNote("");
@@ -110,10 +104,10 @@ export default function Income() {
   return (
     <Screen
       title="Money"
-      subtitle="Add what you earned or spent for work."
+      subtitle="Record costs and plan each new payout."
       help={{
-        title: "Money entries",
-        body: "Add income when money reaches you. Add work costs such as fuel, repairs, data, or platform fees so your safe amount stays honest.",
+        title: "Which action should I use?",
+        body: "Add a cost subtracts money you spent. Plan a payout adds newly received income and divides it between bills, work, savings, and safe spending. Do not enter the same payout twice.",
       }}
     >
       <View style={styles.metrics}>
@@ -126,7 +120,7 @@ export default function Income() {
           <Money value={d.summary.workCostsWeek} />
         </Card>
       </View>
-      <Card style={{ backgroundColor: colors.greenSoft }}>
+      <Card>
         <Label>You kept this week</Label>
         <Money value={d.summary.trueNetIncomeWeek} />
         <Text style={ui.small}>
@@ -137,19 +131,19 @@ export default function Income() {
       <View style={styles.actions}>
         <View style={{ flex: 1 }}>
           <Button
-            title={show ? "Close form" : "Add income or cost"}
-            tone={show ? "quiet" : "accent"}
+            title={show ? "Close form" : "Add a cost"}
+            tone="quiet"
             onPress={() => setShow((value) => !value)}
           />
         </View>
         <View style={{ flex: 1 }}>
-          <Button
-            title="Split payout"
-            tone="ink"
-            onPress={() => router.push("/split")}
-          />
+          <Button title="Plan a payout" onPress={() => router.push("/split")} />
         </View>
       </View>
+      <Text style={styles.actionNote}>
+        New earnings? Plan the payout—it records the income and protects it in
+        one step.
+      </Text>
       {show && (
         <Card>
           <Label>Entry type</Label>
@@ -162,13 +156,11 @@ export default function Income() {
                 onPress={() => {
                   setKind(item.value);
                   setCategory(
-                    item.value === "INCOME"
-                      ? "Payout"
-                      : item.value === "WORK_EXPENSE"
-                        ? "Fuel"
-                        : item.value === "ESSENTIAL_EXPENSE"
-                          ? "Groceries"
-                          : "Personal",
+                    item.value === "WORK_EXPENSE"
+                      ? "Fuel"
+                      : item.value === "ESSENTIAL_EXPENSE"
+                        ? "Groceries"
+                        : "Personal",
                   );
                 }}
               />
@@ -199,14 +191,8 @@ export default function Income() {
             value={date}
             onChange={(value) => value && setDate(value)}
           />
-          {kind === "INCOME" && (
-            <Text style={ui.small}>
-              This adds income to your balance. Use Plan a payout when you want
-              SuperFinz to protect bills and work money first.
-            </Text>
-          )}
           <Button
-            title="Save entry"
+            title="Save cost"
             loading={create.isPending}
             disabled={!valid}
             onPress={() => create.mutate()}
@@ -259,7 +245,7 @@ export default function Income() {
         {!d.entries.length ? (
           <Empty
             title="No entries yet"
-            body="Add settled income or a cost to start your cashbook."
+            body="Plan a payout or add a cost to start your money history."
           />
         ) : (
           d.entries.slice(0, 12).map((entry) => {
@@ -336,7 +322,8 @@ function Choice({
         pressed && styles.pressed,
       ]}
     >
-      <Text style={[styles.choiceText, selected && { color: colors.white }]}>
+      <Text style={styles.choiceText}>
+        {selected ? "✓ " : ""}
         {label}
       </Text>
     </Pressable>
@@ -346,6 +333,13 @@ const styles = StyleSheet.create({
   metrics: { flexDirection: "row", gap: 12 },
   metric: { flex: 1 },
   actions: { flexDirection: "row", gap: 10 },
+  actionNote: {
+    color: colors.muted,
+    fontSize: 13,
+    lineHeight: 19,
+    textAlign: "center",
+    paddingHorizontal: 8,
+  },
   wrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   choice: {
     minHeight: 48,

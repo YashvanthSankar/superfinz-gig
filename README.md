@@ -415,7 +415,26 @@ The implementation clamps protected money to the current balance, avoids double-
 
 ## Architecture
 
-**Visual architecture:** [editable Excalidraw](docs/architecture/superfinz-full-architecture.excalidraw) · [SVG for decks](docs/architecture/superfinz-full-architecture.svg) · [PNG preview](docs/architecture/superfinz-full-architecture.png)
+<p align="center">
+  <a href="docs/architecture/superfinz-full-architecture.png">
+    <img src="docs/architecture/superfinz-full-architecture.png" width="100%" alt="SuperFinz full product architecture showing the web and mobile clients, Vercel and Next.js server boundary, shared decision engine, authentication, Convex database, OpenAI coach, partner integrations, and closed resilience loop" />
+  </a>
+</p>
+
+<p align="center"><sub>Click the diagram to open the full-resolution version.</sub></p>
+
+### How to read the system
+
+1. **Experience layer:** workers use the same simple product through Next.js web, native iOS, or native Android. Manual cash and payout entry works today; consented Account Aggregator and platform feeds are the planned scale path.
+2. **Server trust boundary:** authenticated Next.js routes validate requests, enforce ownership, and call one shared TypeScript and Zod decision engine. No database or AI secret is shipped to a client.
+3. **Decision core:** the deterministic engine calculates safe-to-spend, adaptive payout protection, forecasts, shock scenarios, resilience factors, and the next non-credit action. Web, mobile, APIs, and tests use the same contracts.
+4. **Managed services:** Convex stores user-owned financial records and sessions. Google verifies identity. OpenAI can explain a bounded plan in plain language, but it cannot access the database or create financial figures; a deterministic fallback always remains available.
+5. **Closed resilience loop:** each settled payout or cost triggers the same sequence—observe, protect, calculate, prepare, explain, confirm, and learn—so every product surface stays synchronized.
+
+**Use the diagram:** [edit in Excalidraw](docs/architecture/superfinz-full-architecture.excalidraw) · [download SVG for decks](docs/architecture/superfinz-full-architecture.svg) · [download PNG](docs/architecture/superfinz-full-architecture.png)
+
+<details>
+<summary><strong>Compact text version</strong></summary>
 
 ```mermaid
 flowchart TB
@@ -438,6 +457,8 @@ flowchart TB
     ENGINE --> API
     AUTH --> API
 ```
+
+</details>
 
 | Layer | Technology | Responsibility |
 | --- | --- | --- |

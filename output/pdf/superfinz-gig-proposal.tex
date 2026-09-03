@@ -1,0 +1,431 @@
+\documentclass[10pt,a4paper]{article}
+
+\usepackage[margin=16mm,top=18mm,bottom=18mm]{geometry}
+\usepackage{fontspec}
+\usepackage{microtype}
+\usepackage{xcolor}
+\usepackage{pagecolor}
+\usepackage{graphicx}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage[most]{tcolorbox}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{ragged2e}
+\usepackage{lastpage}
+\usepackage{needspace}
+
+\setmainfont{Avenir Next}
+\setsansfont{Avenir Next}
+\setmonofont{Menlo}
+
+\definecolor{Paper}{HTML}{F7F1E5}
+\definecolor{PaperTwo}{HTML}{EDE4D1}
+\definecolor{Ink}{HTML}{1A1612}
+\definecolor{InkSoft}{HTML}{493F35}
+\definecolor{Accent}{HTML}{F4511E}
+\definecolor{AccentSoft}{HTML}{FFDCC8}
+\definecolor{Good}{HTML}{087443}
+\definecolor{GoodSoft}{HTML}{D5EDDE}
+\definecolor{Warn}{HTML}{A87500}
+\definecolor{WarnSoft}{HTML}{F4E4B7}
+\definecolor{Bad}{HTML}{B52B20}
+
+\pagecolor{Paper}
+\color{Ink}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=Accent,
+  urlcolor=Good,
+  citecolor=Good,
+  pdftitle={SuperFinz Gig - Product Transformation Proposal},
+  pdfauthor={Innovation Unbound Hackathon Team},
+  pdfsubject={Financial resilience for gig and informal workers}
+}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{5pt}
+\setlist[itemize]{leftmargin=5mm,itemsep=2pt,topsep=3pt}
+\setlist[enumerate]{leftmargin=6mm,itemsep=2pt,topsep=3pt}
+\renewcommand{\arraystretch}{1.28}
+
+\titleformat{\section}
+  {\Large\bfseries\color{Ink}}
+  {}{0pt}{}[\vspace{2pt}\color{Ink}\titlerule]
+\titleformat{\subsection}
+  {\large\bfseries\color{Accent}}
+  {}{0pt}{}
+\titlespacing*{\section}{0pt}{15pt}{8pt}
+\titlespacing*{\subsection}{0pt}{10pt}{4pt}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\bfseries SUPERFINZ GIG}
+\fancyhead[R]{\small\color{InkSoft}INNOVATION UNBOUND}
+\fancyfoot[L]{\small\color{InkSoft}Financial resilience for irregular incomes}
+\fancyfoot[R]{\small\bfseries\thepage/\pageref{LastPage}}
+\renewcommand{\headrulewidth}{1.2pt}
+\renewcommand{\footrulewidth}{0pt}
+
+\newtcolorbox{herobox}{
+  enhanced,
+  colback=Ink,
+  colframe=Ink,
+  coltext=Paper,
+  boxrule=0pt,
+  arc=0pt,
+  left=8mm,right=8mm,top=8mm,bottom=8mm
+}
+
+\newtcolorbox{accentbox}[1][]{
+  enhanced,
+  colback=AccentSoft,
+  colframe=Ink,
+  coltext=Ink,
+  boxrule=1.2pt,
+  arc=0pt,
+  left=5mm,right=5mm,top=4mm,bottom=4mm,
+  #1
+}
+
+\newtcolorbox{goodbox}[1][]{
+  enhanced,
+  colback=GoodSoft,
+  colframe=Good,
+  coltext=Ink,
+  boxrule=1.2pt,
+  arc=0pt,
+  left=5mm,right=5mm,top=4mm,bottom=4mm,
+  #1
+}
+
+\newcommand{\pill}[1]{\tcbox[colback=Accent,colframe=Ink,coltext=white,boxrule=0.8pt,arc=0pt,left=2mm,right=2mm,top=1mm,bottom=1mm,nobeforeafter]{\scriptsize\bfseries #1}}
+\newcommand{\codepath}[1]{\texttt{\small\detokenize{#1}}}
+
+\begin{document}
+
+\thispagestyle{empty}
+\vspace*{8mm}
+
+{\Large\bfseries\color{Accent} INNOVATION UNBOUND \hfill HACKATHON PROPOSAL}
+
+\vspace{20mm}
+
+{\fontsize{37}{39}\selectfont\bfseries SUPERFINZ\par}
+{\fontsize{37}{39}\selectfont\bfseries\color{Accent} GIG.\par}
+
+\vspace{8mm}
+{\Large\bfseries Turn irregular earnings into a predictable money plan.}
+
+\vspace{14mm}
+
+\begin{herobox}
+{\large\bfseries Product thesis}\par
+\vspace{3mm}
+SuperFinz Gig converts every payout into a stable weekly spending plan, automatically builds an emergency cushion, and creates a fair, explainable cash-flow profile for responsible access to credit.
+\end{herobox}
+
+\vfill
+
+\begin{tabularx}{\textwidth}{>{\bfseries}p{34mm} X}
+Problem statement & Financial Resilience for Gig and Informal Workers \\
+Primary audience & Delivery partners, ride-hailing drivers, freelancers, service workers and cash earners \\
+Product role & A bank-powered income shock absorber, not another expense tracker \\
+Repository & \url{https://github.com/YashvanthSankar/superfinz-gig} \\
+\end{tabularx}
+
+\vspace{8mm}
+{\small\color{InkSoft}Prepared for product scoping and hackathon implementation. September 2026.}
+
+\newpage
+
+\section{Executive recommendation}
+
+The existing application has a strong reusable foundation: Next.js server-rendered dashboards, authenticated APIs, Prisma models, transaction tracking, goals, category budgets, charts and an AI assistant. The product assumptions, however, are designed for students and salaried young professionals.
+
+The redesign should revolve around one question:
+
+\begin{accentbox}
+\centering
+{\LARGE\bfseries ``How much can I safely use before my next payout?''}
+\end{accentbox}
+
+Everything that does not help answer that question, build a safety buffer, or improve responsible access to credit should leave the primary experience.
+
+\subsection{Why this direction fits the challenge}
+
+\begin{itemize}
+  \item Gig income is irregular, but often has observable payout patterns that a bank can help stabilize.
+  \item The user needs protection from cash-flow gaps before they need long-term wealth projections.
+  \item A bank can combine consented financial data, protected savings pockets and responsible underwriting in one journey.
+  \item The differentiated outcome is resilience: fewer missed bills, more buffer days and less dependence on predatory emergency credit.
+\end{itemize}
+
+NITI Aayog recommends expanding institutional credit for platform workers, moving from asset-based to cash-flow-based lending, and creating products for workers with intermittent but predictable income.\footnote{NITI Aayog, \href{https://www.niti.gov.in/sites/default/files/2023-02/25th_June_Final_Report_27062022.pdf}{India's Booming Gig and Platform Economy}, 2022.}
+
+\section{Current repository diagnosis}
+
+\begin{tabularx}{\textwidth}{>{\bfseries}p{40mm} X}
+Current assumption & Why it blocks the gig-worker proposition \\
+\toprule
+Student or professional & There is no gig-worker identity, occupation, platform or payout cadence. \\
+Monthly salary or allowance & A single monthly number hides income volatility and multiple earning streams. \\
+Expense-only transaction & The system cannot model payouts, cash earnings, platform fees, deductions, refunds or transfers. \\
+Calendar-month budget & Planning should follow payout and obligation dates, not only month boundaries. \\
+Retirement readiness & FIRE scores and fixed 12\% return assumptions distract from immediate resilience. \\
+AI purchase verdicts & ``Necessary'' labels and roasts can feel judgmental without understanding income shocks. \\
+Calculated auto-save & Unspent budget is presented as saved even though no allocation or transfer occurred. \\
+Hardcoded portfolio & Fake stock holdings weaken trust in a banking-focused demonstration. \\
+\bottomrule
+\end{tabularx}
+
+\subsection{Product conversion map}
+
+\begin{tabularx}{\textwidth}{>{\bfseries}p{43mm} >{\bfseries\color{Accent}}p{7mm} X}
+Monthly salary/allowance & $\rightarrow$ & Multiple earning streams and payout schedules \\
+Expense log & $\rightarrow$ & Cashbook with income, expenses, fees and transfers \\
+Monthly budget & $\rightarrow$ & Rolling 7/14/30-day cash-flow plan \\
+Money remaining & $\rightarrow$ & Safe to spend until the next payout \\
+Savings target & $\rightarrow$ & Emergency cushion measured in essential-expense days \\
+Retirement score & $\rightarrow$ & Explainable Financial Resilience Score \\
+Leftover Smart Split & $\rightarrow$ & Split every incoming payout into protected pockets \\
+Spending heatmap & $\rightarrow$ & Earnings consistency calendar \\
+AI roast & $\rightarrow$ & Supportive income and shortfall coach \\
+\end{tabularx}
+
+\section{The focused product experience}
+
+\subsection{1. Income Pulse}
+
+Capture earnings from delivery and ride-hailing platforms, freelance clients, service work, daily wages and cash jobs. The experience should show gross earnings, platform fees, work expenses, net take-home income, payout cadence and an expected income range.
+
+For the hackathon, provide a clearly labelled simulated bank or Account Aggregator feed, CSV import and manual entry. The production architecture should use explicit, revocable consent. RBI's consumer guidance states that Account Aggregators share information only on clear customer instructions and do not see or store the financial information.\footnote{Reserve Bank of India, \href{https://rbikehtahai.rbi.org.in/AccountAggregatorFacility.html}{Account Aggregator Facility}.}
+
+\subsection{2. Safe-to-spend}
+
+This becomes the dominant number on the Today screen.
+
+\begin{goodbox}
+{\Large\bfseries You can safely spend \textcolor{Good}{Rs. 620} until Friday.}\par
+\small Expected payout: Rs. 2,100--3,400 \quad | \quad Rent due in 6 days
+\end{goodbox}
+
+\textbf{Core calculation}
+
+\begin{accentbox}
+Available balance + confirmed inflows before the next payout - essential bills due - protected pocket balances - minimum safety floor
+\end{accentbox}
+
+Use a conservative income estimate, such as the lower quartile of recent comparable weeks, and clearly label forecasts as ranges. Never show model uncertainty as a guaranteed payout.
+
+\Needspace{14\baselineskip}
+\subsection{3. Payout Smart Split}
+
+When income arrives, propose an editable allocation across:
+
+\begin{itemize}
+  \item essential spending;
+  \item emergency cushion;
+  \item vehicle, phone or tool maintenance;
+  \item tax and insurance reserves; and
+  \item flexible spending.
+\end{itemize}
+
+The worker approves every split. The app may say ``planned'' after a ledger allocation and ``saved'' only after an actual pocket transfer. A future bank implementation can use internal sweeps or customer-controlled recurring mandates. NPCI's UPI AutoPay supports pause, resume and pre-debit notifications.\footnote{National Payments Corporation of India, \href{https://www.npci.org.in/product/autopay}{UPI AutoPay}.}
+
+\subsection{4. Financial Resilience Score}
+
+Replace retirement readiness with an explainable score composed of:
+
+\begin{itemize}
+  \item essential-expense coverage;
+  \item emergency-buffer days;
+  \item income consistency and diversification; and
+  \item existing repayment burden.
+\end{itemize}
+
+Every change must have a reason: \emph{``Your score rose by 4 because your cushion now covers 12 essential-expense days.''} This customer-facing score should guide behavior, not act as an opaque loan approval model.
+
+\subsection{5. Responsible credit}
+
+Credit appears only when a forecast finds a genuine, unavoidable shortfall after safer interventions. Affordability should be based on conservative net income and current obligations.
+
+Before acceptance, show the regulated lender, disbursed amount, APR, every fee, total repayment, instalment schedule, impact on future safe-to-spend, Key Fact Statement, cooling-off period and grievance channel. RBI emphasizes simple all-in-cost disclosure and comparison of willing lenders without dark patterns.\footnote{Reserve Bank of India, \href{https://www.rbi.org.in/scripts/AnnualReportPublications.aspx?Id=1436}{Annual Report 2024--25}, sections on digital lending and Key Fact Statements.}
+
+\newpage
+\section{Information architecture and dashboard}
+
+\subsection{Primary navigation}
+
+\begin{tabularx}{\textwidth}{>{\bfseries\color{Accent}}p{29mm} X}
+Today & Safe-to-spend, bills, expected payout and immediate actions \\
+Income & Earning streams, payout history, net earnings and consistency \\
+Plan & Commitments and rolling 7/14/30-day cash-flow forecast \\
+Safety & Cushion, protected pockets, insurance and responsible credit \\
+Coach & Personalized guidance grounded in actual cash flow \\
+\end{tabularx}
+
+Profile, consent, connections and language settings should sit under Settings rather than compete in the primary navigation.
+
+\subsection{Today screen hierarchy}
+
+\begin{enumerate}
+  \item \textbf{Safe to spend until next payout} - the single hero metric.
+  \item \textbf{Upcoming timeline} - expected payouts and essential obligations in date order.
+  \item \textbf{30-day balance forecast} - actual history, dashed projection and a visible uncertainty band.
+  \item \textbf{Latest payout split} - where the most recent income was allocated.
+  \item \textbf{Cushion coverage} - current emergency buffer expressed as days, not only rupees.
+  \item \textbf{One recommended action} - the smallest useful next step, with its calculated impact.
+\end{enumerate}
+
+\subsection{New onboarding}
+
+Replace age-first student/professional segmentation with a short, progressive setup:
+
+\begin{enumerate}
+  \item type of work and preferred language;
+  \item earning platforms, clients or cash-income sources;
+  \item typical payout frequency and recent income history;
+  \item essential recurring commitments and work-related costs;
+  \item current cushion, debt obligations and desired protection level; and
+  \item clear consent for each connected data source.
+\end{enumerate}
+
+The app must remain useful with manual inputs so informal workers are not excluded when platform or bank connections are unavailable.
+
+\newpage
+\section{Repository implementation map}
+
+\begin{tabularx}{\textwidth}{>{\ttfamily\small}p{43mm} X}
+schema.prisma & Add worker types, earning streams, income/expense direction, commitments, pockets, allocation rules and consent records. \\
+onboarding/page.tsx & Rebuild around work type, earning sources, payout cadence, obligations and recent income. \\
+dashboard/page.tsx & Replace retirement and portfolio content with safe-to-spend, forecast, cushion days and upcoming commitments. \\
+transactions/ & Rename to Cashbook and support income, expense, fee, refund and transfer entries. \\
+budgets/ & Convert to Plan with essential commitments and flexible rolling limits. \\
+goals/ & Prioritize emergency cushion, maintenance and income-enabling assets. \\
+smart-split-modal.tsx & Trigger on payouts and create balanced ledger allocations or real pocket transfers. \\
+api/chat/route.ts & Supply income, bills, forecast and cushion context; remove the roast and guaranteed-return language. \\
+sidebar.tsx & Replace nine destinations with the five-item focused navigation. \\
+Landing, metadata, README, learning content and seeds & Rebrand around one gig-worker story and realistic fluctuating income. \\
+\end{tabularx}
+
+\subsection{Implementation principles}
+
+\begin{itemize}
+  \item Keep financial calculations deterministic, testable and separate from generative AI.
+  \item Use AI to explain forecasts and suggest actions, never to invent balances or approve credit.
+  \item Keep the overview server-rendered and progressively enhance only interactive controls.
+  \item Label every simulated feed, prediction, transfer and credit offer in the hackathon build.
+\end{itemize}
+
+\newpage
+\section{Data model direction}
+
+Use a ledger-centered model so every displayed rupee can be reconciled.
+
+\begin{tabularx}{\textwidth}{>{\bfseries\color{Accent}}p{38mm} X}
+WorkerProfile & Occupation, work mode, language, desired buffer and risk preferences \\
+EarningStream & Platform/client/source, payout cadence, active status and connection type \\
+LedgerEntry & Income, expense, fee, refund or transfer with source and reconciliation status \\
+Commitment & Amount, due date, frequency, priority and optional mandate reference \\
+Pocket & Essentials, emergency, maintenance, tax/insurance or user goal \\
+AllocationRule & User-approved percentage or amount triggered by eligible income \\
+ForecastSnapshot & Forecast horizon, lower/expected/upper balances and model version \\
+ConsentRecord & Purpose, data scope, provider, status, granted time and revoked time \\
+CreditAssessment & Explainable affordability factors; never only an unexplained score \\
+\end{tabularx}
+
+\begin{accentbox}
+\textbf{Important integrity rule:} a goal balance or pocket balance may change only through a ledger-backed allocation or transfer. This prevents the current behavior where a UI action can increase ``saved'' money without moving funds.
+\end{accentbox}
+
+\section{Hackathon MVP}
+
+\begin{enumerate}
+  \item Gig-worker onboarding and a realistic 12-week demo dataset.
+  \item Income-aware Cashbook with payouts, work costs and expenses.
+  \item Safe-to-spend dashboard with a 30-day forecast range.
+  \item Payout-triggered Smart Split and emergency-buffer days.
+  \item Explainable Financial Resilience Score.
+  \item Responsible-credit simulation with full cost and affordability impact.
+  \item Focused landing page and cash-flow-aware AI coach.
+\end{enumerate}
+
+\subsection{Explicitly remove from the MVP}
+
+Retirement planning, the generic SIP/FD/EMI calculators, financial news and the hardcoded stock portfolio. Repurpose the heatmap as an income-consistency calendar rather than maintaining a separate analytics destination.
+
+\newpage
+\section{Five-minute demo narrative}
+
+\begin{herobox}
+\textbf{Persona: Ravi, 27, delivery partner using two platforms}\par
+Ravi's weekly earnings fluctuate, rent is due in six days, and a quiet week is forecast. SuperFinz Gig imports his payout history and shows a conservative expected payout range. The Today screen calculates a safe-to-spend amount instead of showing a generic monthly budget. When a new payout arrives, Ravi approves a split into essentials, maintenance and an emergency cushion. His buffer rises from 9 to 12 days and the app explains the score improvement. A later forecasted shortfall first suggests non-credit actions; only then does it display a small bank credit option with APR, total repayment and future cash-flow impact.
+\end{herobox}
+
+\textbf{Closing line for judges:}
+
+\begin{accentbox}
+\centering
+{\Large\bfseries Salaried users get a paycheck. SuperFinz Gig helps irregular earners create one.}
+\end{accentbox}
+
+\section{Experience and trust requirements}
+
+The existing high-contrast, paper-and-orange visual identity can remain, but the interface should feel calmer and less judgmental.
+
+\begin{itemize}
+  \item Use at least 14--16 pt-equivalent body text; remove the many 9--11 px labels.
+  \item Give every touch target at least 44 x 44 px and every icon-only control an accessible name.
+  \item Add visible keyboard focus states and never rely on color alone for financial status.
+  \item Pair every chart with a textual summary and distinguish actual versus forecast with both color and line style.
+  \item Respect reduced-motion preferences and use animation only to explain allocation or state changes.
+  \item Use plain language, optional local-language explanations and progressive disclosure for lending details.
+  \item Clearly label simulated feeds, predictions and credit decisions in the hackathon demo.
+\end{itemize}
+
+\subsection{Success metrics}
+
+\begin{tabularx}{\textwidth}{>{\bfseries}p{51mm} X}
+Primary customer outcome & Median increase in essential-expense buffer days \\
+Planning outcome & Reduction in forecasted negative-balance days \\
+Behavioral outcome & Percentage of payouts receiving an approved protective split \\
+Credit outcome & Avoided emergency borrowing and on-time repayment without repeat dependency \\
+Trust outcome & Forecast understanding, consent completion and explanation usefulness \\
+Bank outcome & Deposit retention, engagement and better-calibrated cash-flow underwriting \\
+\end{tabularx}
+
+\newpage
+\section{Copy-ready presentation prompt}
+
+\begin{accentbox}
+\small
+Create a polished 10-slide, 16:9 hackathon pitch deck titled \textbf{``SuperFinz Gig''} for bank innovation judges. The challenge is \textbf{Financial Resilience for Gig and Informal Workers}. The central promise is: \textbf{``Turn irregular earnings into a predictable weekly money plan.''}
+
+Use a modern, trustworthy fintech style inspired by the product's existing visual identity: warm cream background, near-black typography, safety orange accents and deep green for positive states. Use bold sans-serif typography, high contrast, large readable numbers, simple Lucide-style icons and realistic mobile UI mockups. Avoid stock photography, glassmorphism, decorative gradients, tiny text, excessive charts and unsupported claims. Every slide should have one message and no more than 35 words of visible body copy. Add concise speaker notes for a five-minute pitch.
+
+Build these slides:
+
+\begin{enumerate}
+  \item \textbf{Title:} SuperFinz Gig; tagline; one mobile hero showing ``Safe to spend Rs. 620 until Friday.''
+  \item \textbf{Problem persona:} Ravi, a 27-year-old delivery partner with two platforms, fluctuating weekly earnings, rent due and no salary-like planning tool.
+  \item \textbf{Core insight:} Gig workers do not only need budgeting; they need income stabilization. Contrast monthly-budget assumptions with payout-driven reality.
+  \item \textbf{Solution:} Three pillars - Stabilize with safe-to-spend, Protect with payout pockets, Unlock with explainable cash-flow credit.
+  \item \textbf{How it works:} Consented income data or manual cashbook to conservative forecast to safe-to-spend to payout split to resilience improvement.
+  \item \textbf{Product experience:} Today dashboard with expected payout range, upcoming obligations, 30-day confidence band and one recommended action.
+  \item \textbf{Responsible credit:} Show credit as the last intervention. Include lender, APR, fees, total repayment, instalments, KFS, cooling-off and future cash-flow impact.
+  \item \textbf{Technology and trust:} Next.js, Prisma/PostgreSQL, explainable rules, AI only for personalized explanations, consent records and future Account Aggregator integration.
+  \item \textbf{Impact and business value:} Buffer days, avoided negative-balance days, approved protective splits, safer repayments, bank engagement and deposit retention.
+  \item \textbf{Demo and close:} Ravi receives a payout, approves Smart Split, increases cushion from 9 to 12 days and avoids unsafe borrowing. End with: ``Salaried users get a paycheck. SuperFinz Gig helps irregular earners create one.''
+\end{enumerate}
+
+Use only these evidence-backed external references: the NITI Aayog report \emph{India's Booming Gig and Platform Economy}; RBI guidance on Account Aggregators; NPCI UPI AutoPay; and RBI's Digital Lending/Key Fact Statement guidance. Put short source footnotes on the relevant slides. Do not invent market-size numbers, approval rates, partnerships or live integrations. Clearly mark all bank feeds and credit offers as simulated prototype data.
+\end{accentbox}
+
+\vfill
+{\small\color{InkSoft}\textbf{Prototype disclaimer.} This proposal describes a product concept. Forecasts, allocations and lending simulations must not be presented as guaranteed financial outcomes or live regulated services.}
+
+\end{document}

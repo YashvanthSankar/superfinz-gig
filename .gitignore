@@ -61,3 +61,9 @@ apps/mobile/GoogleService-Info.plist
 *.jks
 *.keystore
 *.p8
+
+# Generated document previews and LaTeX build metadata
+/tmp/
+/output/pdf/*.aux
+/output/pdf/*.log
+/output/pdf/*.out

@@ -1,22 +1,175 @@
 import { redirect } from "next/navigation";
 import { calculateGigDashboard } from "@superfinz/shared";
-import { BadgeIndianRupee, Eye, LockKeyhole, ShieldCheck, TriangleAlert } from "lucide-react";
+import { LockKeyhole, ShieldCheck } from "lucide-react";
 import { getSession } from "@/lib/auth";
 import { getGigBundle } from "@/lib/gig-store";
 import { formatCurrency } from "@/lib/utils";
 import { PageHeading } from "@/components/gig/page-state";
+import { ResponsibleCreditClient } from "@/components/gig/responsible-credit-client";
 
-const pocketNames: Record<string, string> = { ESSENTIALS: "Essentials", WORK_COSTS: "Work costs", EMERGENCY_CUSHION: "Emergency cushion", LONG_TERM_SAVINGS: "Long-term savings", FLEXIBLE_SPENDING: "Flexible spending" };
+const pocketNames: Record<string, string> = {
+  ESSENTIALS: "Bills and essentials",
+  WORK_COSTS: "Work money",
+  EMERGENCY_CUSHION: "Emergency cushion",
+  LONG_TERM_SAVINGS: "Long-term savings",
+  FLEXIBLE_SPENDING: "Flexible spending",
+};
+
+const mainPocketKinds = new Set([
+  "ESSENTIALS",
+  "WORK_COSTS",
+  "EMERGENCY_CUSHION",
+]);
 
 export default async function SafetyPage() {
-  const session = await getSession(); if (!session) redirect("/login"); const bundle = await getGigBundle(session.userId); if (!bundle) redirect("/onboarding"); const dashboard = calculateGigDashboard(bundle); const s = dashboard.summary;
-  return <div className="space-y-6"><PageHeading eyebrow="Protection center" title="Safety you can inspect." copy="Every number is explainable. SuperFinz does not use contacts, messages, or protected traits, and this prototype never moves real money." />
-    <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5" aria-label="Protection pockets">{dashboard.pockets.map((pocket) => { const percent = pocket.targetAmount > 0 ? Math.min(100, pocket.currentAmount / pocket.targetAmount * 100) : 100; return <article key={pocket.id} className="brut-card p-4"><p className="brut-label">{pocketNames[pocket.kind] ?? pocket.kind}</p><p className="num mt-2 text-2xl font-black">{formatCurrency(pocket.currentAmount)}</p><div className="mt-4 h-3 border-2 border-ink bg-paper-2" role="progressbar" aria-label={`${pocketNames[pocket.kind]} progress`} aria-valuenow={Math.round(percent)} aria-valuemin={0} aria-valuemax={100}><div className="h-full bg-good" style={{ width: `${percent}%` }} /></div><p className="mt-2 text-xs font-semibold text-ink-soft">Target {formatCurrency(pocket.targetAmount)}</p></article>; })}</section>
-    <div className="grid gap-5 xl:grid-cols-[1.2fr_.8fr]"><section className="brut-card overflow-hidden"><div className="border-b-2 border-ink bg-ink p-5 text-paper"><div className="flex items-center gap-3"><ShieldCheck aria-hidden className="text-accent" size={26} /><div><p className="brut-label !text-paper-2">Resilience Passport</p><h2 className="brut-display mt-1 text-4xl">{s.resilienceScore}/100 · {s.resilienceStatus}</h2></div></div><p className="mt-3 text-sm font-semibold text-paper-2">A planning signal—not a bureau credit score and never a loan approval.</p></div><div>{dashboard.resilienceFactors.map((factor) => <article key={factor.key} className="border-b border-ink/30 p-5 last:border-b-0"><div className="flex items-start justify-between gap-4"><div><h3 className="font-black">{factor.label}</h3><p className="mt-1 text-sm font-semibold text-ink-soft">{factor.evidence}</p></div><span className="brut-stamp bg-paper-2">{factor.score}/100</span></div><div className="mt-3 h-3 border-2 border-ink bg-paper-2"><div className="h-full bg-accent" style={{ width: `${factor.score}%` }} /></div><p className="mt-3 text-xs font-bold">Next step: {factor.action}</p></article>)}</div></section>
-      <aside className="space-y-4"><section className="brut-card bg-good-soft p-5"><LockKeyhole aria-hidden size={23} /><p className="brut-label mt-4">Protected today</p><p className="num mt-2 text-4xl font-black">{formatCurrency(s.protectedMoney)}</p><p className="mt-2 text-sm font-semibold leading-6">About {Math.floor(s.protectedDays)} emergency days are currently covered.</p></section><section className="brut-card p-5"><Eye aria-hidden size={23} /><p className="brut-label mt-4">Data controls</p><ul className="mt-3 space-y-3 text-sm font-semibold"><li>Income sources can be paused or revoked in Settings.</li><li>Manual data is clearly separate from simulated connections.</li><li>No contact list, messages, or social graph is collected.</li><li>Forecasts are ranges and expected payouts are not treated as cash.</li></ul></section></aside></div>
-    <section className="brut-card-lg bg-warn-soft p-5 sm:p-6"><div className="flex items-start gap-3"><TriangleAlert aria-hidden size={25} /><div><p className="brut-label">Before borrowing</p><h2 className="brut-display mt-1 text-3xl">Use the smallest safe step.</h2></div></div><div className="mt-5 grid gap-3 md:grid-cols-4"><Step number="1" title="Verify the gap" copy="Check the low-income case and due dates." /><Step number="2" title="Reschedule" copy="Move a flexible payment before taking debt." /><Step number="3" title="Set a target" copy="Calculate only the earning shortfall." /><Step number="4" title="Compare total cost" copy="Review APR, fees, repayment, and complaints." /></div></section>
-    <section className="border-2 border-dashed border-ink bg-paper-2 p-5"><div className="flex items-start gap-3"><BadgeIndianRupee aria-hidden size={24} /><div><p className="brut-label">Credit readiness preview · simulated</p><h2 className="mt-1 text-xl font-black">No offer is active in this hackathon prototype.</h2><p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-ink-soft">A real bank integration would require eligibility rules, regulated-partner disclosures, APR, every fee, total repayment, schedule, cooling-off, consent, grievance support, and a human review route. SuperFinz will not turn a planning score into automatic credit.</p></div></div></section>
-  </div>;
+  const session = await getSession();
+  if (!session) redirect("/login");
+  const bundle = await getGigBundle(session.userId);
+  if (!bundle) redirect("/onboarding");
+  const dashboard = calculateGigDashboard(bundle);
+  const s = dashboard.summary;
+  const mainPockets = dashboard.pockets.filter((pocket) =>
+    mainPocketKinds.has(pocket.kind),
+  );
+  const otherPockets = dashboard.pockets.filter(
+    (pocket) => !mainPocketKinds.has(pocket.kind),
+  );
+  const weakest = [...dashboard.resilienceFactors].sort(
+    (a, b) => a.score - b.score,
+  )[0];
+
+  return (
+    <div className="space-y-6">
+      <PageHeading
+        eyebrow="Your safety money"
+        title={`${formatCurrency(s.protectedMoney)} is kept aside.`}
+        copy={`This money protects bills, work costs, and about ${Math.floor(s.protectedDays)} emergency ${Math.floor(s.protectedDays) === 1 ? "day" : "days"}. SuperFinz plans it but never moves money.`}
+      />
+
+      <section
+        className="grid gap-4 md:grid-cols-3"
+        aria-label="Money kept safe"
+      >
+        {mainPockets.map((pocket) => (
+          <PocketCard key={pocket.id} pocket={pocket} />
+        ))}
+      </section>
+
+      {weakest && (
+        <section className="brut-card bg-accent-soft p-5 sm:p-6">
+          <div className="flex items-start gap-3">
+            <ShieldCheck aria-hidden className="mt-0.5 text-accent" size={22} />
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-accent">
+                One way to get safer
+              </p>
+              <h2 className="mt-2 text-xl font-bold">{weakest.label}</h2>
+              <p className="mt-2 text-sm leading-6 text-ink-soft">
+                {weakest.action}
+              </p>
+              <p className="mt-2 text-xs text-mute">{weakest.evidence}</p>
+            </div>
+          </div>
+        </section>
+      )}
+
+      <details className="brut-card p-5 sm:p-6">
+        <summary className="font-semibold">See my full safety check</summary>
+        <div className="mt-5 rounded-2xl bg-ink p-5 text-paper">
+          <p className="text-sm font-semibold text-paper-2">
+            Overall safety check
+          </p>
+          <p className="num mt-1 text-4xl font-bold">{s.resilienceScore}/100</p>
+          <p className="mt-1 text-sm text-paper-2">
+            {s.resilienceStatus}. This is a planning check, not a credit score.
+          </p>
+        </div>
+        <div className="mt-4 space-y-3">
+          {dashboard.resilienceFactors.map((factor) => (
+            <article
+              key={factor.key}
+              className="rounded-2xl border border-ink bg-paper p-4"
+            >
+              <div className="flex items-center justify-between gap-4">
+                <h3 className="font-semibold">{factor.label}</h3>
+                <span className="num text-sm font-semibold">
+                  {factor.score}/100
+                </span>
+              </div>
+              <p className="mt-2 text-sm text-ink-soft">{factor.evidence}</p>
+            </article>
+          ))}
+        </div>
+      </details>
+
+      <details className="brut-card p-5 sm:p-6">
+        <summary className="font-semibold">
+          Other money goals and data safety
+        </summary>
+        <div className="mt-5 grid gap-4 md:grid-cols-2">
+          {otherPockets.map((pocket) => (
+            <PocketCard key={pocket.id} pocket={pocket} />
+          ))}
+        </div>
+        <div className="mt-5 flex items-start gap-3 rounded-2xl bg-paper-2 p-4">
+          <LockKeyhole aria-hidden className="mt-0.5 text-accent" size={20} />
+          <div>
+            <h3 className="font-semibold">Your private data stays limited</h3>
+            <p className="mt-1 text-sm leading-6 text-ink-soft">
+              SuperFinz does not read contacts, messages, call logs, photos, or
+              social graphs. Expected payouts are shown separately from money
+              already received.
+            </p>
+          </div>
+        </div>
+      </details>
+
+      <details className="rounded-[1.25rem] border border-ink bg-surface p-5 shadow-[var(--shadow-sm)] sm:p-6">
+        <summary className="font-semibold">I have an urgent work cost</summary>
+        <p className="mt-2 text-sm text-ink-soft">
+          Check simple non-loan options first. A loan comparison appears only
+          when the plan finds a real gap.
+        </p>
+        <div className="mt-5">
+          <ResponsibleCreditClient dashboard={dashboard} />
+        </div>
+      </details>
+    </div>
+  );
 }
 
-function Step({ number, title, copy }: { number: string; title: string; copy: string }) { return <div className="border-2 border-ink bg-paper p-4"><span className="brut-stamp bg-accent-soft">Step {number}</span><h3 className="mt-3 font-black">{title}</h3><p className="mt-1 text-xs font-semibold leading-5 text-ink-soft">{copy}</p></div>; }
+function PocketCard({
+  pocket,
+}: {
+  pocket: { kind: string; currentAmount: number; targetAmount: number };
+}) {
+  const percent = pocket.targetAmount
+    ? Math.min(100, (pocket.currentAmount / pocket.targetAmount) * 100)
+    : 100;
+  return (
+    <article className="brut-card p-5">
+      <p className="text-sm font-semibold text-ink-soft">
+        {pocketNames[pocket.kind] ?? pocket.kind}
+      </p>
+      <p className="num mt-2 text-2xl font-bold">
+        {formatCurrency(pocket.currentAmount)}
+      </p>
+      <div
+        className="mt-4 h-2 overflow-hidden rounded-full bg-paper-2"
+        role="progressbar"
+        aria-label={`${pocketNames[pocket.kind]} progress`}
+        aria-valuenow={Math.round(percent)}
+        aria-valuemin={0}
+        aria-valuemax={100}
+      >
+        <div
+          className="h-full rounded-full bg-good"
+          style={{ width: `${percent}%` }}
+        />
+      </div>
+      <p className="mt-2 text-xs text-mute">
+        Goal {formatCurrency(pocket.targetAmount)}
+      </p>
+    </article>
+  );
+}

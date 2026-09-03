@@ -20,21 +20,28 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           ref={ref}
           id={id}
           className={cn(
-            "w-full px-3 pr-9 h-11 bg-paper border-2 border-ink text-ink text-sm font-semibold",
-            "appearance-none cursor-pointer focus:outline-none focus:bg-accent-soft",
+            "h-12 w-full appearance-none rounded-xl border border-ink bg-paper px-3 pr-10 text-base font-medium text-ink shadow-sm",
+            "cursor-pointer transition-[background-color,border-color,box-shadow] duration-200 focus:border-accent focus:outline-none focus:ring-4 focus:ring-accent/15",
             error && "border-bad bg-bad-soft",
-            className
+            className,
           )}
           {...props}
         >
           {children}
         </select>
-        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-ink font-black text-xs">
-          ▼
+        <span
+          aria-hidden
+          className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-sm text-mute"
+        >
+          ⌄
         </span>
       </div>
-      {error && <p className="text-xs text-bad font-bold uppercase tracking-wide">{error}</p>}
+      {error && (
+        <p role="alert" className="text-sm font-medium text-bad">
+          {error}
+        </p>
+      )}
     </div>
-  )
+  ),
 );
 Select.displayName = "Select";

@@ -1,17 +1,249 @@
+import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
+import { LockKeyhole, ShieldCheck } from "lucide-react-native";
 import type { GigDashboardDto, PocketKind } from "@superfinz/shared";
 import { apiFetch } from "@/lib/api";
-import { Button, Card, ErrorState, Label, Loading, Progress, Screen, ui } from "@/components/ui";
+import {
+  Button,
+  Card,
+  ErrorState,
+  Label,
+  Loading,
+  Progress,
+  Screen,
+  ui,
+} from "@/components/ui";
 import { colors } from "@/constants/theme";
 
-const pocketMeta: Record<PocketKind, { label: string; purpose: string }> = { ESSENTIALS: { label: "Essentials", purpose: "Rent, bills, groceries, and family commitments" }, WORK_COSTS: { label: "Work costs", purpose: "Fuel, platform fees, equipment, and maintenance" }, EMERGENCY_CUSHION: { label: "Emergency cushion", purpose: "Liquid protection for a low-income week or shock" }, LONG_TERM_SAVINGS: { label: "Long-term savings", purpose: "Goals beyond the next payout cycle" }, FLEXIBLE_SPENDING: { label: "Flexible spending", purpose: "Money that the current plan allows you to use" } };
-const money = (value: number) => `₹${Math.round(value).toLocaleString("en-IN")}`;
+const pocketNames: Record<PocketKind, string> = {
+  ESSENTIALS: "Bills and essentials",
+  WORK_COSTS: "Work money",
+  EMERGENCY_CUSHION: "Emergency cushion",
+  LONG_TERM_SAVINGS: "Long-term savings",
+  FLEXIBLE_SPENDING: "Flexible spending",
+};
+const mainKinds = new Set<PocketKind>([
+  "ESSENTIALS",
+  "WORK_COSTS",
+  "EMERGENCY_CUSHION",
+]);
+const money = (value: number) =>
+  `₹${Math.round(value).toLocaleString("en-IN")}`;
 
 export default function Safety() {
-  const query = useQuery({ queryKey: ["gig-dashboard"], queryFn: () => apiFetch<{ dashboard: GigDashboardDto }>("/api/gig/dashboard") }); if (query.isLoading) return <Loading label="Checking your protection plan…" />; if (query.isError || !query.data) return <ErrorState title="Couldn’t load Safety" body={query.error instanceof Error ? query.error.message : undefined} onRetry={() => query.refetch()} />; const d = query.data.dashboard; const s = d.summary; const verifiedGap = Math.max(0, s.protectedMoney - s.availableBalance);
-  return <Screen title="Safety"><Card style={styles.passport}><Label>Resilience Passport</Label><Text accessibilityLabel={`Resilience score ${s.resilienceScore} out of 100`} style={styles.score}>{s.resilienceScore}<Text style={styles.outOf}>/100</Text></Text><Text style={styles.status}>{s.resilienceStatus}</Text><Text style={styles.light}>A transparent planning indicator—not a bureau credit score and not a loan decision.</Text></Card><Card><Label>Why this score</Label>{d.resilienceFactors.map((factor) => <View key={factor.key} style={styles.factor}><View style={ui.between}><Text style={styles.factorName}>{factor.label}</Text><Text style={styles.factorScore}>{factor.score}/100</Text></View><Progress label={`${factor.label}: ${factor.score} out of 100`} value={factor.score} tone={factor.score >= 70 ? colors.green : factor.score >= 45 ? colors.yellow : colors.red} /><Text style={ui.small}>{factor.evidence}</Text><Text style={styles.action}>{factor.action}</Text></View>)}<Text style={ui.small}>Used: income range, source count, commitment coverage, cushion depth, and work-cost ratio. Never used: contacts, messages, protected traits, or opaque surveillance.</Text></Card><Card><Label>Smart Pockets</Label>{d.pockets.map((pocket) => { const meta = pocketMeta[pocket.kind]; const pct = pocket.targetAmount ? pocket.currentAmount / pocket.targetAmount * 100 : 0; return <View key={pocket.id} style={styles.pocket}><View style={ui.between}><View style={{ flex: 1 }}><Text style={styles.factorName}>{meta.label}</Text><Text style={ui.small}>{meta.purpose}</Text></View><Text style={styles.pocketMoney}>{money(pocket.currentAmount)}</Text></View><Progress label={`${meta.label}: ${money(pocket.currentAmount)} of ${money(pocket.targetAmount)}`} value={pct} tone={pocket.kind === "FLEXIBLE_SPENDING" ? colors.accent : colors.green} /><Text style={ui.small}>Target {money(pocket.targetAmount)} · planned balance</Text></View>; })}<Button title="Edit protection rule" tone="quiet" onPress={() => router.push("/(app)/profile")} /></Card><Card style={{ backgroundColor: colors.greenSoft }}><Label>Protection center</Label><Text style={ui.h2}>Keep recovery options visible.</Text><Text style={ui.body}>1. Keep an emergency cushion liquid.{`\n`}2. Review e-Shram and eligible welfare schemes.{`\n`}3. Check accident, health, and vehicle cover.{`\n`}4. Store nominee and claim-document details.{`\n`}5. Use strong UPI and account-safety habits.</Text><Text style={ui.small}>Informational only. SuperFinz does not enroll you in a scheme or insurance policy.</Text></Card><Card style={verifiedGap > 0 ? { backgroundColor: colors.accentSoft } : undefined}><Label>Responsible support</Label><Text style={ui.h2}>{verifiedGap > 0 ? `${money(verifiedGap)} verified shortfall` : "No verified shortfall today"}</Text><Text style={ui.body}>Before credit: reschedule a flexible commitment, reduce flexible allocation, use available flexible funds, use only the necessary cushion amount, and set a short net-earning target.</Text><View style={styles.offer}><View style={ui.between}><Label>Simulated partner example</Label><Text style={styles.prototype}>NOT AN OFFER</Text></View><Text style={ui.body}>Principal ₹2,500 · 18% APR · ₹50 processing fee{`\n`}Illustrative total repayment ₹2,620{`\n`}8 weekly payments of ₹327.50</Text><Text style={ui.small}>A real flow must show the regulated partner, Key Facts Statement, all fees, repayment dates, cooling-off rights, grievance route, and data used before consent. SuperFinz does not lend or approve credit.</Text></View><Button title="Credit action unavailable" disabled onPress={() => undefined} /></Card></Screen>;
+  const [showMore, setShowMore] = useState(false);
+  const query = useQuery({
+    queryKey: ["gig-dashboard"],
+    queryFn: () =>
+      apiFetch<{ dashboard: GigDashboardDto }>("/api/gig/dashboard"),
+  });
+  if (query.isLoading) return <Loading label="Checking your safety money…" />;
+  if (query.isError || !query.data)
+    return (
+      <ErrorState
+        title="Couldn’t load safety money"
+        body={query.error instanceof Error ? query.error.message : undefined}
+        onRetry={() => query.refetch()}
+      />
+    );
+
+  const dashboard = query.data.dashboard;
+  const s = dashboard.summary;
+  const mainPockets = dashboard.pockets.filter((pocket) =>
+    mainKinds.has(pocket.kind),
+  );
+  const otherPockets = dashboard.pockets.filter(
+    (pocket) => !mainKinds.has(pocket.kind),
+  );
+  const weakest = [...dashboard.resilienceFactors].sort(
+    (a, b) => a.score - b.score,
+  )[0];
+
+  return (
+    <Screen title="Safety">
+      <Card style={styles.hero}>
+        <ShieldCheck
+          accessible={false}
+          color={colors.green as string}
+          size={26}
+        />
+        <Text style={styles.heroLabel}>Money kept aside</Text>
+        <Text
+          accessibilityLabel={`${money(s.protectedMoney)} kept aside`}
+          style={styles.heroMoney}
+        >
+          {money(s.protectedMoney)}
+        </Text>
+        <Text style={styles.heroText}>
+          This protects bills, work costs, and about{" "}
+          {Math.floor(s.protectedDays)} emergency{" "}
+          {Math.floor(s.protectedDays) === 1 ? "day" : "days"}.
+        </Text>
+      </Card>
+
+      <View style={styles.pockets}>
+        {mainPockets.map((pocket) => (
+          <Pocket key={pocket.id} pocket={pocket} />
+        ))}
+      </View>
+
+      {weakest && (
+        <Card style={styles.nextStep}>
+          <Label>One way to get safer</Label>
+          <Text style={ui.h2}>{weakest.label}</Text>
+          <Text style={ui.body}>{weakest.action}</Text>
+          <Text style={ui.small}>{weakest.evidence}</Text>
+        </Card>
+      )}
+
+      <Button
+        title={showMore ? "Hide full safety check" : "See full safety check"}
+        tone="quiet"
+        onPress={() => setShowMore((value) => !value)}
+      />
+
+      {showMore && (
+        <View style={styles.more}>
+          <Card>
+            <Label>Overall safety check</Label>
+            <Text style={styles.score}>{s.resilienceScore}/100</Text>
+            <Text style={ui.h2}>{s.resilienceStatus}</Text>
+            <Text style={ui.small}>
+              This is a planning check, not a credit score or loan decision.
+            </Text>
+            {dashboard.resilienceFactors.map((factor) => (
+              <View key={factor.key} style={styles.factor}>
+                <View style={ui.between}>
+                  <Text style={styles.factorName}>{factor.label}</Text>
+                  <Text style={styles.factorScore}>{factor.score}/100</Text>
+                </View>
+                <Progress
+                  label={`${factor.label}: ${factor.score} out of 100`}
+                  value={factor.score}
+                  tone={factor.score >= 60 ? colors.green : colors.yellow}
+                />
+                <Text style={ui.small}>{factor.evidence}</Text>
+              </View>
+            ))}
+          </Card>
+
+          {otherPockets.map((pocket) => (
+            <Pocket key={pocket.id} pocket={pocket} />
+          ))}
+
+          <Card>
+            <View style={styles.privacyTitle}>
+              <LockKeyhole
+                accessible={false}
+                color={colors.accent as string}
+                size={21}
+              />
+              <Text style={ui.h2}>Your private data stays limited</Text>
+            </View>
+            <Text style={ui.body}>
+              SuperFinz does not read contacts, messages, call logs, photos, or
+              social graphs. Expected payouts stay separate from money already
+              received.
+            </Text>
+          </Card>
+        </View>
+      )}
+
+      <Button
+        title="Change my safety goal"
+        tone="quiet"
+        onPress={() => router.push("/(app)/profile")}
+      />
+      <Text style={styles.note}>SuperFinz plans money but never moves it.</Text>
+    </Screen>
+  );
 }
 
-const styles = StyleSheet.create({ passport: { backgroundColor: colors.ink }, score: { color: colors.white, fontSize: 58, lineHeight: 62, fontWeight: "900", fontVariant: ["tabular-nums"] }, outOf: { color: colors.paper2, fontSize: 18 }, status: { color: colors.accent, fontSize: 20, fontWeight: "900" }, light: { color: colors.paper2, fontSize: 14, lineHeight: 21, fontWeight: "600" }, factor: { gap: 7, paddingTop: 12, borderTopWidth: 1, borderColor: colors.paper2 }, factorName: { flex: 1, color: colors.ink, fontWeight: "900", fontSize: 15 }, factorScore: { color: colors.ink, fontWeight: "900", fontVariant: ["tabular-nums"] }, action: { color: colors.accent, fontWeight: "800", fontSize: 12, lineHeight: 18 }, pocket: { gap: 7, paddingTop: 12, borderTopWidth: 1, borderColor: colors.paper2 }, pocketMoney: { color: colors.ink, fontWeight: "900", fontSize: 15, fontVariant: ["tabular-nums"] }, offer: { borderWidth: 2, borderColor: colors.ink, backgroundColor: colors.white, padding: 12, gap: 8 }, prototype: { borderWidth: 1, borderColor: colors.red, color: colors.red, padding: 4, fontSize: 8, fontWeight: "900" } });
+function Pocket({
+  pocket,
+}: {
+  pocket: {
+    id: string;
+    kind: PocketKind;
+    currentAmount: number;
+    targetAmount: number;
+  };
+}) {
+  const progress = pocket.targetAmount
+    ? (pocket.currentAmount / pocket.targetAmount) * 100
+    : 100;
+  return (
+    <Card>
+      <Text style={styles.pocketName}>{pocketNames[pocket.kind]}</Text>
+      <Text style={styles.pocketMoney}>{money(pocket.currentAmount)}</Text>
+      <Progress
+        label={`${pocketNames[pocket.kind]}: ${money(pocket.currentAmount)} of ${money(pocket.targetAmount)}`}
+        value={progress}
+        tone={colors.green}
+      />
+      <Text style={ui.small}>Goal {money(pocket.targetAmount)}</Text>
+    </Card>
+  );
+}
+
+const styles = StyleSheet.create({
+  hero: {
+    backgroundColor: colors.actionStrong,
+    borderColor: colors.actionStrong,
+  },
+  heroLabel: { color: colors.inverseMuted, fontSize: 14, fontWeight: "600" },
+  heroMoney: {
+    color: colors.white,
+    fontSize: 44,
+    lineHeight: 50,
+    fontWeight: "700",
+    letterSpacing: -1.8,
+    fontVariant: ["tabular-nums"],
+  },
+  heroText: {
+    color: colors.white,
+    fontSize: 16,
+    lineHeight: 23,
+    fontWeight: "600",
+  },
+  pockets: { gap: 12 },
+  pocketName: { color: colors.inkSoft, fontSize: 14, fontWeight: "600" },
+  pocketMoney: {
+    color: colors.ink,
+    fontSize: 25,
+    lineHeight: 30,
+    fontWeight: "700",
+    fontVariant: ["tabular-nums"],
+  },
+  nextStep: { backgroundColor: colors.accentSoft },
+  more: { gap: 12 },
+  score: {
+    color: colors.ink,
+    fontSize: 40,
+    lineHeight: 46,
+    fontWeight: "700",
+    fontVariant: ["tabular-nums"],
+  },
+  factor: {
+    gap: 8,
+    borderTopWidth: 1,
+    borderColor: colors.border,
+    paddingTop: 12,
+  },
+  factorName: { flex: 1, color: colors.ink, fontSize: 14, fontWeight: "600" },
+  factorScore: {
+    color: colors.ink,
+    fontSize: 13,
+    fontWeight: "700",
+    fontVariant: ["tabular-nums"],
+  },
+  privacyTitle: { flexDirection: "row", alignItems: "center", gap: 9 },
+  note: {
+    color: colors.muted,
+    fontSize: 12,
+    textAlign: "center",
+    paddingBottom: 4,
+  },
+});

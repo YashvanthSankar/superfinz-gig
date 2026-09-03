@@ -2,22 +2,407 @@ import { useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
-import type { GigDashboardDto } from "@superfinz/shared";
+import {
+  projectPayoutSplit,
+  recommendAdaptiveSplit,
+  type GigDashboardDto,
+  type SplitPercentages,
+} from "@superfinz/shared";
 import { apiFetch } from "@/lib/api";
-import { Button, Card, ErrorState, Field, Label, Loading, Money, Screen, ui } from "@/components/ui";
+import {
+  Button,
+  Card,
+  ErrorState,
+  Field,
+  Label,
+  Loading,
+  Money,
+  Screen,
+  ui,
+} from "@/components/ui";
 import { DateField } from "@/components/date-field";
 import { colors } from "@/constants/theme";
 
-const fields = [["essentialsPct", "Essentials"], ["workCostsPct", "Work costs"], ["emergencyPct", "Emergency cushion"], ["longTermPct", "Long-term savings"], ["flexiblePct", "Flexible spending"]] as const;
-const money = (value: number) => `₹${Math.round(value).toLocaleString("en-IN")}`;
+const fields: Array<
+  [
+    keyof SplitPercentages,
+    string,
+    "essentials" | "workCosts" | "emergency" | "longTerm" | "flexible",
+  ]
+> = [
+  ["essentialsPct", "Bills", "essentials"],
+  ["workCostsPct", "Work costs", "workCosts"],
+  ["emergencyPct", "Cushion", "emergency"],
+  ["longTermPct", "Savings", "longTerm"],
+  ["flexiblePct", "Free to use", "flexible"],
+];
+const money = (value: number) =>
+  `₹${Math.round(value).toLocaleString("en-IN")}`;
 
 export default function PayoutSplit() {
-  const client = useQueryClient(); const query = useQuery({ queryKey: ["gig-dashboard"], queryFn: () => apiFetch<{ dashboard: GigDashboardDto }>("/api/gig/dashboard") }); const [amount, setAmount] = useState(""); const [sourceId, setSourceId] = useState<string | null>(null); const [receivedAt, setReceivedAt] = useState(new Date()); const [note, setNote] = useState(""); const [percentages, setPercentages] = useState<Record<(typeof fields)[number][0], string> | null>(null); const [confirmed, setConfirmed] = useState(false);
-  const rule = query.data?.dashboard.splitRule; const values = percentages ?? (rule ? { essentialsPct: String(rule.essentialsPct), workCostsPct: String(rule.workCostsPct), emergencyPct: String(rule.emergencyPct), longTermPct: String(rule.longTermPct), flexiblePct: String(rule.flexiblePct) } : { essentialsPct: "55", workCostsPct: "15", emergencyPct: "10", longTermPct: "5", flexiblePct: "15" }); const totalPct = Object.values(values).reduce((sum, value) => sum + (Number(value) || 0), 0); const payout = Number(amount) || 0; const selectedSource = query.data?.dashboard.sources.find((source) => source.id === sourceId) ?? query.data?.dashboard.sources[0]; const allocations = fields.map(([key, label]) => ({ key, label, amount: payout * (Number(values[key]) || 0) / 100 }));
-  const mutation = useMutation({ mutationFn: () => apiFetch("/api/gig/split", { method: "POST", body: JSON.stringify({ sourceId: selectedSource?.id ?? null, sourceName: selectedSource?.name ?? "Manual income", amount: payout, receivedAt: receivedAt.toISOString(), note: note.trim() || null, percentages: Object.fromEntries(fields.map(([key]) => [key, Number(values[key])])) }) }), onSuccess: async () => { await client.invalidateQueries({ queryKey: ["gig-dashboard"] }); Alert.alert("Payout plan saved", "Your settled balance and planned pockets were updated together. No real transfer occurred.", [{ text: "Done", onPress: () => router.back() }]); }, onError: (cause) => Alert.alert("Couldn’t save split", cause instanceof Error ? cause.message : "Try again") });
-  if (query.isLoading) return <Loading label="Preparing Smart Split…" />; if (query.isError || !query.data) return <ErrorState title="Couldn’t open Smart Split" body={query.error instanceof Error ? query.error.message : undefined} onRetry={() => query.refetch()} />; const d = query.data.dashboard;
-  return <Screen><Text accessibilityRole="header" style={ui.h1}>Plan a settled payout.</Text><Text style={ui.body}>Every rupee gets a job based on the rule you control.</Text><Card><Label>Payout source</Label><View style={styles.wrap}>{d.sources.filter((source) => source.status === "ACTIVE").map((source) => <Choice key={source.id} label={source.name} selected={(sourceId ?? d.sources[0]?.id) === source.id} onPress={() => setSourceId(source.id)} />)}</View><Field label="Settled amount" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" placeholder="₹ 3,200" /><DateField label="Received date" value={receivedAt} onChange={(value) => value && setReceivedAt(value)} /><Field label="Note (optional)" value={note} onChangeText={setNote} /></Card><Card><View style={ui.between}><Label>Allocation rule</Label><Text style={[styles.total, totalPct !== 100 && { color: colors.red }]}>{totalPct}%</Text></View>{fields.map(([key, label]) => <View key={key} style={styles.allocation}><View style={{ flex: 1 }}><Field label={`${label} (%)`} value={values[key]} onChangeText={(value) => setPercentages((current) => ({ ...(current ?? values), [key]: value }))} keyboardType="decimal-pad" /></View><View style={styles.amountBox}><Label>Planned</Label><Text style={styles.amount}>{money(payout * (Number(values[key]) || 0) / 100)}</Text></View></View>)}{totalPct !== 100 && <Text accessibilityRole="alert" style={styles.error}>Adjust the rule so it totals exactly 100%.</Text>}<Button title="Reset to default" tone="quiet" onPress={() => setPercentages(null)} /></Card>{payout > 0 && totalPct === 100 && <Card style={{ backgroundColor: colors.greenSoft }}><Label>Before and after</Label><View style={styles.summary}><View><Label>Safe now</Label><Money value={d.summary.safeToSpend} /></View><View><Label>After payout</Label><Money value={d.summary.safeToSpend + (allocations.find((item) => item.key === "flexiblePct")?.amount ?? 0)} /></View></View><Text style={ui.body}>{money(allocations.find((item) => item.key === "emergencyPct")?.amount ?? 0)} will be planned for the cushion. {money(allocations.find((item) => item.key === "essentialsPct")?.amount ?? 0)} will be protected for essentials.</Text></Card>}<Pressable accessibilityRole="checkbox" accessibilityState={{ checked: confirmed }} accessibilityLabel="Confirm planned allocation" onPress={() => setConfirmed((value) => !value)} style={({ pressed }) => [styles.confirm, confirmed && styles.confirmed, pressed && styles.pressed]}><Text style={[styles.confirmText, confirmed && { color: colors.white }]}>{confirmed ? "✓ " : ""}I CONFIRM THIS PLANNED ALLOCATION</Text></Pressable><Text style={ui.small}>SuperFinz records the payout and updates planning pockets. It does not connect to a bank or move money in this prototype.</Text><Button title="Save planned allocation" loading={mutation.isPending} disabled={payout <= 0 || totalPct !== 100 || !confirmed || !selectedSource} onPress={() => mutation.mutate()} /></Screen>;
+  const client = useQueryClient();
+  const query = useQuery({
+    queryKey: ["gig-dashboard"],
+    queryFn: () =>
+      apiFetch<{ dashboard: GigDashboardDto }>("/api/gig/dashboard"),
+  });
+  const [amount, setAmount] = useState("");
+  const [sourceId, setSourceId] = useState<string | null>(null);
+  const [receivedAt, setReceivedAt] = useState(new Date());
+  const [note, setNote] = useState("");
+  const [mode, setMode] = useState<"ADAPTIVE" | "CUSTOM">("ADAPTIVE");
+  const [percentages, setPercentages] = useState<Record<
+    keyof SplitPercentages,
+    string
+  > | null>(null);
+  const [confirmed, setConfirmed] = useState(false);
+  const d = query.data?.dashboard;
+  const activeSources =
+    d?.sources.filter((source) => source.status === "ACTIVE") ?? [];
+  const selectedSource =
+    activeSources.find((source) => source.id === sourceId) ?? activeSources[0];
+  const payout = Number(amount) || 0;
+  const defaultValues = d
+    ? {
+        essentialsPct: String(d.splitRule.essentialsPct),
+        workCostsPct: String(d.splitRule.workCostsPct),
+        emergencyPct: String(d.splitRule.emergencyPct),
+        longTermPct: String(d.splitRule.longTermPct),
+        flexiblePct: String(d.splitRule.flexiblePct),
+      }
+    : {
+        essentialsPct: "55",
+        workCostsPct: "15",
+        emergencyPct: "10",
+        longTermPct: "5",
+        flexiblePct: "15",
+      };
+  const values = percentages ?? defaultValues;
+  const custom: SplitPercentages = {
+    essentialsPct: Number(values.essentialsPct),
+    workCostsPct: Number(values.workCostsPct),
+    emergencyPct: Number(values.emergencyPct),
+    longTermPct: Number(values.longTermPct),
+    flexiblePct: Number(values.flexiblePct),
+  };
+  const customTotal = Object.values(custom).reduce(
+    (sum, value) => sum + (value || 0),
+    0,
+  );
+  const adaptive = d ? recommendAdaptiveSplit(d, payout, receivedAt) : null;
+  const customProjection = d
+    ? projectPayoutSplit(d, payout, custom, receivedAt)
+    : null;
+  const used =
+    mode === "ADAPTIVE"
+      ? adaptive
+      : customProjection
+        ? {
+            ...customProjection,
+            percentages: custom,
+            reasons: ["You chose these percentages."],
+            fundedCommitments: [],
+          }
+        : null;
+  const totalPct = mode === "ADAPTIVE" ? 100 : customTotal;
+  const mutation = useMutation({
+    mutationFn: () =>
+      apiFetch("/api/gig/split", {
+        method: "POST",
+        body: JSON.stringify({
+          sourceId: selectedSource?.id ?? null,
+          sourceName: selectedSource?.name ?? "Manual income",
+          amount: payout,
+          receivedAt: receivedAt.toISOString(),
+          note: note.trim() || null,
+          allocationMode: mode,
+          percentages: mode === "ADAPTIVE" ? adaptive?.percentages : custom,
+        }),
+      }),
+    onSuccess: async () => {
+      await client.invalidateQueries({ queryKey: ["gig-dashboard"] });
+      Alert.alert(
+        "Payout saved",
+        "Your balance and five planning pockets were updated together. No bank transfer occurred.",
+        [{ text: "Done", onPress: () => router.back() }],
+      );
+    },
+    onError: (cause) =>
+      Alert.alert(
+        "Couldn’t save payout",
+        cause instanceof Error ? cause.message : "Try again",
+      ),
+  });
+  if (query.isLoading) return <Loading label="Preparing your payout plan…" />;
+  if (query.isError || !d)
+    return (
+      <ErrorState
+        title="Couldn’t open payout plan"
+        body={query.error instanceof Error ? query.error.message : undefined}
+        onRetry={() => query.refetch()}
+      />
+    );
+  return (
+    <Screen>
+      <Text accessibilityRole="header" style={ui.h1}>
+        A job for every rupee.
+      </Text>
+      <Text style={ui.body}>
+        Enter money only after it reaches you. We’ll protect bills and work
+        costs first.
+      </Text>
+      <Card>
+        <Label>Where did it come from?</Label>
+        <View style={styles.wrap}>
+          {activeSources.map((source) => (
+            <Choice
+              key={source.id}
+              label={source.name}
+              selected={selectedSource?.id === source.id}
+              onPress={() => setSourceId(source.id)}
+            />
+          ))}
+        </View>
+        <Field
+          label="Money received"
+          value={amount}
+          onChangeText={(value) => {
+            setAmount(value);
+            setConfirmed(false);
+          }}
+          keyboardType="decimal-pad"
+          placeholder="₹ 3,200"
+        />
+        <DateField
+          label="Date received"
+          value={receivedAt}
+          onChange={(value) => value && setReceivedAt(value)}
+        />
+        <Field label="Note (optional)" value={note} onChangeText={setNote} />
+      </Card>
+      <Card>
+        <Label>How should we protect it?</Label>
+        <View style={styles.modes}>
+          <View style={{ flex: 1 }}>
+            <Choice
+              label="Recommended"
+              selected={mode === "ADAPTIVE"}
+              onPress={() => {
+                setMode("ADAPTIVE");
+                setConfirmed(false);
+              }}
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Choice
+              label="Choose myself"
+              selected={mode === "CUSTOM"}
+              onPress={() => {
+                setMode("CUSTOM");
+                setConfirmed(false);
+              }}
+            />
+          </View>
+        </View>
+        {mode === "ADAPTIVE" && (
+          <Text style={ui.small}>
+            Changes with your next bills, work costs, and cushion—not a fixed
+            rule.
+          </Text>
+        )}
+        {mode === "CUSTOM" && (
+          <>
+            {fields.map(([key, label]) => (
+              <Field
+                key={key}
+                label={`${label} (%)`}
+                value={values[key]}
+                onChangeText={(value) =>
+                  setPercentages((current) => ({
+                    ...(current ?? values),
+                    [key]: value,
+                  }))
+                }
+                keyboardType="decimal-pad"
+              />
+            ))}
+            <Text
+              style={[
+                styles.total,
+                customTotal !== 100 && { color: colors.red },
+              ]}
+            >
+              Total {customTotal}%
+            </Text>
+            {customTotal !== 100 && (
+              <Text accessibilityRole="alert" style={styles.error}>
+                Make the total exactly 100%.
+              </Text>
+            )}
+            <Button
+              title="Reset"
+              tone="quiet"
+              onPress={() => setPercentages(null)}
+            />
+          </>
+        )}
+      </Card>
+      {payout > 0 && used && totalPct === 100 && (
+        <Card style={{ backgroundColor: colors.greenSoft }}>
+          <View style={ui.between}>
+            <Label>Review before saving</Label>
+            <Text style={styles.total}>{money(payout)}</Text>
+          </View>
+          {fields.map(([key, label, amountKey]) => (
+            <View key={key} style={styles.row}>
+              <Text style={styles.rowLabel}>
+                {label} · {used.percentages[key].toFixed(1)}%
+              </Text>
+              <Text style={styles.rowAmount}>
+                {money(used.amounts[amountKey])}
+              </Text>
+            </View>
+          ))}
+          <View style={styles.beforeAfter}>
+            <View>
+              <Label>Safe now</Label>
+              <Money value={used.beforeSafeAmount} />
+            </View>
+            <Text style={styles.arrow}>→</Text>
+            <View>
+              <Label>Safe after</Label>
+              <Money value={used.afterSafeAmount} />
+            </View>
+          </View>
+          <Text style={ui.body}>{used.reasons.join(" ")}</Text>
+          <Text style={ui.small}>
+            Protected days: {used.beforeProtectedDays.toFixed(1)} →{" "}
+            {used.afterProtectedDays.toFixed(1)}
+          </Text>
+        </Card>
+      )}
+      <Pressable
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: confirmed }}
+        accessibilityLabel="Confirm planned allocation"
+        onPress={() => setConfirmed((value) => !value)}
+        style={({ pressed }) => [
+          styles.confirm,
+          confirmed && styles.confirmed,
+          pressed && styles.pressed,
+        ]}
+      >
+        <Text
+          style={[styles.confirmText, confirmed && { color: colors.white }]}
+        >
+          {confirmed ? "✓ " : ""}I reviewed this payout plan
+        </Text>
+      </Pressable>
+      <Text style={ui.small}>
+        SuperFinz records a plan. It does not connect to a bank or move real
+        money in this prototype.
+      </Text>
+      <Button
+        title="Save payout plan"
+        loading={mutation.isPending}
+        disabled={
+          payout <= 0 || totalPct !== 100 || !confirmed || !selectedSource
+        }
+        onPress={() => mutation.mutate()}
+      />
+    </Screen>
+  );
 }
 
-function Choice({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) { return <Pressable accessibilityRole="radio" accessibilityState={{ checked: selected }} accessibilityLabel={label} onPress={onPress} style={({ pressed }) => [styles.choice, selected && styles.choiceActive, pressed && styles.pressed]}><Text style={[styles.choiceText, selected && { color: colors.white }]}>{label}</Text></Pressable>; }
-const styles = StyleSheet.create({ wrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 }, choice: { minHeight: 44, borderWidth: 2, borderColor: colors.ink, paddingHorizontal: 12, backgroundColor: colors.paper, alignItems: "center", justifyContent: "center" }, choiceActive: { backgroundColor: colors.ink }, choiceText: { color: colors.ink, fontSize: 11, fontWeight: "900" }, pressed: { opacity: .6 }, total: { color: colors.green, fontSize: 23, fontWeight: "900", fontVariant: ["tabular-nums"] }, allocation: { flexDirection: "row", alignItems: "flex-end", gap: 10 }, amountBox: { width: 110, minHeight: 50, justifyContent: "center" }, amount: { color: colors.ink, fontWeight: "900", fontSize: 14, fontVariant: ["tabular-nums"] }, error: { color: colors.red, fontWeight: "800", lineHeight: 20 }, summary: { flexDirection: "row", justifyContent: "space-between", gap: 12 }, confirm: { minHeight: 52, borderWidth: 2, borderColor: colors.ink, backgroundColor: colors.white, padding: 12, alignItems: "center", justifyContent: "center" }, confirmed: { backgroundColor: colors.ink }, confirmText: { color: colors.ink, fontWeight: "900", fontSize: 11, textAlign: "center" } });
+function Choice({
+  label,
+  selected,
+  onPress,
+}: {
+  label: string;
+  selected: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="radio"
+      accessibilityState={{ checked: selected }}
+      accessibilityLabel={label}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.choice,
+        selected && styles.choiceActive,
+        pressed && styles.pressed,
+      ]}
+    >
+      <Text style={[styles.choiceText, selected && { color: colors.white }]}>
+        {selected ? "✓ " : ""}
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+const styles = StyleSheet.create({
+  wrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  modes: { flexDirection: "row", gap: 8 },
+  choice: {
+    minHeight: 48,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 12,
+    backgroundColor: colors.paper,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  choiceActive: { backgroundColor: colors.actionStrong },
+  choiceText: { color: colors.ink, fontSize: 12, fontWeight: "800" },
+  pressed: { opacity: 0.65 },
+  total: {
+    color: colors.green,
+    fontSize: 18,
+    fontWeight: "900",
+    fontVariant: ["tabular-nums"],
+  },
+  error: { color: colors.red, fontWeight: "800", lineHeight: 20 },
+  row: {
+    minHeight: 44,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderTopWidth: 1,
+    borderColor: colors.paper2,
+  },
+  rowLabel: { color: colors.ink, fontSize: 13, fontWeight: "700" },
+  rowAmount: {
+    color: colors.ink,
+    fontSize: 15,
+    fontWeight: "900",
+    fontVariant: ["tabular-nums"],
+  },
+  beforeAfter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 10,
+    borderTopWidth: 1,
+    borderColor: colors.border,
+    paddingTop: 12,
+  },
+  arrow: { color: colors.accent, fontSize: 24, fontWeight: "900" },
+  confirm: {
+    minHeight: 52,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    padding: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  confirmed: { backgroundColor: colors.actionStrong },
+  confirmText: {
+    color: colors.ink,
+    fontWeight: "900",
+    fontSize: 12,
+    textAlign: "center",
+  },
+});

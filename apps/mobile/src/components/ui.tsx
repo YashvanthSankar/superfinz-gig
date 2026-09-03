@@ -1,20 +1,423 @@
 import type { PropsWithChildren, ReactNode } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type TextInputProps, type ViewProps } from "react-native";
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  type ColorValue,
+  type TextInputProps,
+  type ViewProps,
+} from "react-native";
+import { Moon, Sun } from "lucide-react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { colors, shadow } from "@/constants/theme";
+import { useAppTheme } from "@/providers/theme-provider";
 
-export function Screen({ children, title, action, scroll = true }: PropsWithChildren<{ title?: string; action?: ReactNode; scroll?: boolean }>) {
-  const content = <View style={[styles.content, !scroll && styles.contentFixed]}>{title && <View style={styles.heading}><Text accessibilityRole="header" style={styles.title}>{title}</Text>{action}</View>}{children}</View>;
-  return <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>{scroll ? <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>{content}</ScrollView> : content}</SafeAreaView>;
+export function Screen({
+  children,
+  title,
+  action,
+  scroll = true,
+}: PropsWithChildren<{
+  title?: string;
+  action?: ReactNode;
+  scroll?: boolean;
+}>) {
+  const content = (
+    <View style={[styles.content, !scroll && styles.contentFixed]}>
+      {title && (
+        <View style={styles.heading}>
+          <Text accessibilityRole="header" style={styles.title}>
+            {title}
+          </Text>
+          {action}
+        </View>
+      )}
+      {children}
+    </View>
+  );
+  return (
+    <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
+      {scroll ? (
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled"
+          automaticallyAdjustKeyboardInsets
+        >
+          {content}
+        </ScrollView>
+      ) : (
+        content
+      )}
+    </SafeAreaView>
+  );
 }
-export function Card({ children, style, ...props }: PropsWithChildren<ViewProps>) { return <View {...props} style={[styles.card, style]}>{children}</View>; }
-export function Label({ children }: PropsWithChildren) { return <Text style={styles.label}>{children}</Text>; }
-export function Money({ value, compact = false }: { value: number; compact?: boolean }) { const amount = compact && Math.abs(value) >= 100000 ? `${(value / 100000).toFixed(1)}L` : Math.round(value).toLocaleString("en-IN"); return <Text style={styles.money}>₹{amount}</Text>; }
-export function Progress({ value, tone = colors.accent, label = "Progress" }: { value: number; tone?: string; label?: string }) { const normalized = Math.min(100, Math.max(0, value)); return <View accessibilityRole="progressbar" accessibilityLabel={label} accessibilityValue={{ min: 0, max: 100, now: Math.round(normalized) }} style={styles.track}><View style={[styles.fill, { width: `${normalized}%`, backgroundColor: tone }]} /></View>; }
-export function Button({ title, onPress, disabled, loading = false, tone = "accent", accessibilityHint }: { title: string; onPress: () => void; disabled?: boolean; loading?: boolean; tone?: "accent" | "ink" | "quiet"; accessibilityHint?: string }) { const unavailable = disabled || loading; return <Pressable accessibilityRole="button" accessibilityLabel={title} accessibilityHint={accessibilityHint} accessibilityState={{ disabled: unavailable, busy: loading }} disabled={unavailable} onPress={onPress} style={({ pressed }) => [styles.button, tone === "ink" && styles.buttonInk, tone === "quiet" && styles.buttonQuiet, (pressed || unavailable) && styles.buttonPressed]}>{loading && <ActivityIndicator color={tone === "quiet" ? colors.ink : colors.white} size="small" />}<Text style={[styles.buttonText, tone === "quiet" && { color: colors.ink }]}>{title}</Text></Pressable>; }
-export function Field(props: TextInputProps & { label?: string }) { const { label, ...inputProps } = props; return <View style={styles.field}>{label && <Label>{label}</Label>}<TextInput accessibilityLabel={props.accessibilityLabel ?? label} placeholderTextColor={colors.muted} {...inputProps} style={[styles.input, props.style]} /></View>; }
-export function Loading({ label = "Loading…" }: { label?: string }) { return <SafeAreaView accessibilityLiveRegion="polite" style={styles.loadingSafe}><View style={styles.center}><ActivityIndicator color={colors.accent} size="large" /><Text style={styles.muted}>{label}</Text></View></SafeAreaView>; }
-export function Empty({ title, body }: { title: string; body: string }) { return <Card style={styles.center}><Text accessibilityRole="header" style={styles.emptyTitle}>{title}</Text><Text style={styles.muted}>{body}</Text></Card>; }
-export function ErrorState({ title = "Couldn’t load this", body, onRetry }: { title?: string; body?: string; onRetry: () => void }) { return <Screen><Empty title={title} body={body ?? "Check your connection and try again."} /><Button title="Try again" onPress={onRetry} /></Screen>; }
-export const ui = StyleSheet.create({ row: { flexDirection: "row", alignItems: "center", gap: 10 }, between: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }, h1: { fontSize: 34, lineHeight: 37, fontWeight: "900", color: colors.ink, letterSpacing: -1.2 }, h2: { fontSize: 20, fontWeight: "900", color: colors.ink }, body: { fontSize: 16, color: colors.inkSoft, lineHeight: 23 }, small: { fontSize: 13, color: colors.muted, fontWeight: "600" }, gap: { gap: 14 } });
-const styles = StyleSheet.create({ safe: { flex: 1, backgroundColor: colors.paper }, loadingSafe: { flex: 1, backgroundColor: colors.paper, justifyContent: "center" }, scroll: { flexGrow: 1, paddingBottom: 96 }, content: { padding: 18, gap: 16 }, contentFixed: { flex: 1 }, heading: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 2 }, title: { fontSize: 32, fontWeight: "900", color: colors.ink, letterSpacing: -1 }, card: { borderWidth: 2, borderColor: colors.ink, backgroundColor: colors.white, padding: 16, gap: 10, ...shadow }, label: { fontSize: 10, color: colors.ink, fontWeight: "900", letterSpacing: 1.3, textTransform: "uppercase" }, money: { fontSize: 25, fontWeight: "900", color: colors.ink, letterSpacing: -0.5, fontVariant: ["tabular-nums"] }, track: { height: 12, borderWidth: 2, borderColor: colors.ink, backgroundColor: colors.paper2 }, fill: { height: "100%" }, button: { minHeight: 48, borderWidth: 2, borderColor: colors.ink, backgroundColor: colors.accent, paddingHorizontal: 16, flexDirection: "row", gap: 8, alignItems: "center", justifyContent: "center", ...shadow }, buttonInk: { backgroundColor: colors.ink }, buttonQuiet: { backgroundColor: colors.paper }, buttonPressed: { opacity: 0.55, transform: [{ translateX: 2 }, { translateY: 2 }] }, buttonText: { color: colors.white, fontSize: 13, fontWeight: "900", textTransform: "uppercase", letterSpacing: 0.7 }, field: { gap: 6 }, input: { minHeight: 50, borderWidth: 2, borderColor: colors.ink, backgroundColor: colors.white, color: colors.ink, paddingHorizontal: 13, fontSize: 16 }, center: { minHeight: 150, alignItems: "center", justifyContent: "center", gap: 10 }, muted: { color: colors.muted, fontWeight: "600", textAlign: "center", lineHeight: 20 }, emptyTitle: { fontSize: 18, fontWeight: "900", color: colors.ink, textAlign: "center" } });
+
+export function Card({
+  children,
+  style,
+  ...props
+}: PropsWithChildren<ViewProps>) {
+  return (
+    <View {...props} style={[styles.card, style]}>
+      {children}
+    </View>
+  );
+}
+
+export function Label({ children }: PropsWithChildren) {
+  return <Text style={styles.label}>{children}</Text>;
+}
+
+export function Money({
+  value,
+  compact = false,
+}: {
+  value: number;
+  compact?: boolean;
+}) {
+  const amount =
+    compact && Math.abs(value) >= 100000
+      ? `${(value / 100000).toFixed(1)}L`
+      : Math.round(value).toLocaleString("en-IN");
+  return <Text style={styles.money}>₹{amount}</Text>;
+}
+
+export function Progress({
+  value,
+  tone = colors.accent,
+  label = "Progress",
+}: {
+  value: number;
+  tone?: ColorValue;
+  label?: string;
+}) {
+  const normalized = Math.min(100, Math.max(0, value));
+  return (
+    <View
+      accessibilityRole="progressbar"
+      accessibilityLabel={label}
+      accessibilityValue={{ min: 0, max: 100, now: Math.round(normalized) }}
+      style={styles.track}
+    >
+      <View
+        style={[
+          styles.fill,
+          { width: `${normalized}%`, backgroundColor: tone },
+        ]}
+      />
+    </View>
+  );
+}
+
+export function Button({
+  title,
+  onPress,
+  disabled,
+  loading = false,
+  tone = "accent",
+  accessibilityHint,
+}: {
+  title: string;
+  onPress: () => void;
+  disabled?: boolean;
+  loading?: boolean;
+  tone?: "accent" | "ink" | "quiet";
+  accessibilityHint?: string;
+}) {
+  const unavailable = disabled || loading;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      accessibilityHint={accessibilityHint}
+      accessibilityState={{ disabled: unavailable, busy: loading }}
+      disabled={unavailable}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.button,
+        tone === "ink" && styles.buttonInk,
+        tone === "quiet" && styles.buttonQuiet,
+        pressed && styles.buttonPressed,
+        unavailable && styles.buttonDisabled,
+      ]}
+    >
+      {loading && (
+        <ActivityIndicator
+          color={tone === "quiet" ? colors.ink : colors.white}
+          size="small"
+        />
+      )}
+      <Text
+        style={[styles.buttonText, tone === "quiet" && styles.buttonTextQuiet]}
+      >
+        {title}
+      </Text>
+    </Pressable>
+  );
+}
+
+export function ThemeToggle() {
+  const { theme, toggleTheme } = useAppTheme();
+  const dark = theme === "dark";
+  const Icon = dark ? Sun : Moon;
+  const label = dark ? "Use light mode" : "Use dark mode";
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityHint="Changes the app color theme"
+      onPress={toggleTheme}
+      hitSlop={8}
+      style={({ pressed }) => [
+        styles.themeButton,
+        pressed && styles.buttonPressed,
+      ]}
+    >
+      <Icon
+        accessible={false}
+        color={colors.ink as string}
+        size={19}
+        strokeWidth={2}
+      />
+      <Text style={styles.themeText}>{dark ? "Light" : "Dark"}</Text>
+    </Pressable>
+  );
+}
+
+export function Field(props: TextInputProps & { label?: string }) {
+  const { label, ...inputProps } = props;
+  return (
+    <View style={styles.field}>
+      {label && <Label>{label}</Label>}
+      <TextInput
+        accessibilityLabel={props.accessibilityLabel ?? label}
+        placeholderTextColor={colors.muted}
+        selectionColor={colors.accent}
+        {...inputProps}
+        style={[styles.input, props.style]}
+      />
+    </View>
+  );
+}
+
+export function Loading({ label = "Loading…" }: { label?: string }) {
+  return (
+    <SafeAreaView accessibilityLiveRegion="polite" style={styles.loadingSafe}>
+      <View style={styles.center}>
+        <ActivityIndicator color={colors.accent} size="large" />
+        <Text style={styles.muted}>{label}</Text>
+      </View>
+    </SafeAreaView>
+  );
+}
+
+export function ErrorState({
+  title,
+  body,
+  onRetry,
+}: {
+  title: string;
+  body?: string;
+  onRetry?: () => void;
+}) {
+  return (
+    <SafeAreaView style={styles.loadingSafe}>
+      <View accessibilityLiveRegion="assertive" style={styles.center}>
+        <Text accessibilityRole="header" style={styles.emptyTitle}>
+          {title}
+        </Text>
+        {body && <Text style={styles.muted}>{body}</Text>}
+        {onRetry && <Button title="Try again" tone="quiet" onPress={onRetry} />}
+      </View>
+    </SafeAreaView>
+  );
+}
+
+export function Empty({ title, body }: { title: string; body: string }) {
+  return (
+    <View style={styles.center}>
+      <Text accessibilityRole="header" style={styles.emptyTitle}>
+        {title}
+      </Text>
+      <Text style={styles.muted}>{body}</Text>
+    </View>
+  );
+}
+
+export const ui = StyleSheet.create({
+  row: { flexDirection: "row", alignItems: "center", gap: 10 },
+  between: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  h1: {
+    fontSize: 33,
+    lineHeight: 38,
+    fontWeight: "700",
+    color: colors.ink,
+    letterSpacing: -1.1,
+  },
+  h2: {
+    fontSize: 20,
+    lineHeight: 26,
+    fontWeight: "700",
+    color: colors.ink,
+    letterSpacing: -0.3,
+  },
+  body: { fontSize: 16, color: colors.inkSoft, lineHeight: 24 },
+  small: {
+    fontSize: 13,
+    color: colors.muted,
+    fontWeight: "500",
+    lineHeight: 19,
+  },
+  gap: { gap: 14 },
+});
+
+const styles = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: colors.paper },
+  loadingSafe: {
+    flex: 1,
+    backgroundColor: colors.paper,
+    justifyContent: "center",
+  },
+  scroll: { flexGrow: 1, paddingBottom: 104 },
+  content: {
+    width: "100%",
+    maxWidth: 760,
+    alignSelf: "center",
+    paddingHorizontal: 18,
+    paddingTop: 14,
+    gap: 16,
+  },
+  contentFixed: { flex: 1, paddingBottom: 10 },
+  heading: {
+    minHeight: 48,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    marginBottom: 4,
+  },
+  title: {
+    flexShrink: 1,
+    fontSize: 30,
+    lineHeight: 36,
+    fontWeight: "700",
+    color: colors.ink,
+    letterSpacing: -0.8,
+  },
+  card: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 18,
+    backgroundColor: colors.surface,
+    padding: 17,
+    gap: 11,
+    ...shadow,
+  },
+  label: {
+    fontSize: 12,
+    lineHeight: 17,
+    color: colors.muted,
+    fontWeight: "700",
+    letterSpacing: 0.35,
+  },
+  money: {
+    fontSize: 25,
+    lineHeight: 31,
+    fontWeight: "700",
+    color: colors.ink,
+    letterSpacing: -0.6,
+    fontVariant: ["tabular-nums"],
+  },
+  track: {
+    height: 10,
+    borderRadius: 999,
+    overflow: "hidden",
+    backgroundColor: colors.paper2,
+  },
+  fill: { height: "100%", borderRadius: 999 },
+  button: {
+    minHeight: 48,
+    borderWidth: 1,
+    borderColor: colors.action,
+    borderRadius: 14,
+    backgroundColor: colors.action,
+    paddingHorizontal: 17,
+    flexDirection: "row",
+    gap: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    ...shadow,
+  },
+  buttonInk: {
+    borderColor: colors.actionStrong,
+    backgroundColor: colors.actionStrong,
+  },
+  buttonQuiet: {
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    shadowOpacity: 0,
+  },
+  buttonPressed: { opacity: 0.76 },
+  buttonDisabled: { opacity: 0.45 },
+  buttonText: {
+    color: colors.white,
+    fontSize: 15,
+    fontWeight: "700",
+    letterSpacing: -0.15,
+  },
+  buttonTextQuiet: { color: colors.ink },
+  themeButton: {
+    minHeight: 44,
+    minWidth: 76,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    backgroundColor: colors.surface,
+    paddingHorizontal: 11,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+  },
+  themeText: { color: colors.ink, fontSize: 13, fontWeight: "600" },
+  field: { gap: 7 },
+  input: {
+    minHeight: 50,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 13,
+    backgroundColor: colors.paper,
+    color: colors.ink,
+    paddingHorizontal: 14,
+    fontSize: 16,
+  },
+  center: {
+    minHeight: 150,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    padding: 18,
+  },
+  muted: {
+    color: colors.muted,
+    fontSize: 14,
+    fontWeight: "500",
+    textAlign: "center",
+    lineHeight: 21,
+  },
+  emptyTitle: {
+    fontSize: 19,
+    fontWeight: "700",
+    color: colors.ink,
+    textAlign: "center",
+  },
+});

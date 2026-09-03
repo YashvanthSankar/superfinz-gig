@@ -1,12 +1,307 @@
 import Link from "next/link";
-import { ArrowRight, CalendarClock, ShieldCheck, WalletCards } from "lucide-react";
+import {
+  ArrowRight,
+  CalendarClock,
+  CirclePlus,
+  ShieldCheck,
+  WalletCards,
+} from "lucide-react";
 import type { GigDashboardDto } from "@superfinz/shared";
 import { formatCurrency } from "@/lib/utils";
 
-export function GigDashboardView({ dashboard, demo = false }: { dashboard: GigDashboardDto; demo?: boolean }) {
-  const s = dashboard.summary; const nextDay = new Date(s.safeUntil).toLocaleDateString("en-IN", { weekday: "long" }); const latest = dashboard.payoutSplits[0]; const actionHref = demo ? "/login" : "/dashboard/plan";
-  return <div className="space-y-5"><header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><p className="brut-label">{new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}</p><h1 className="brut-display mt-1 text-4xl sm:text-5xl">Good day, <span className="text-accent">{dashboard.profile.preferredName}.</span></h1><p className="mt-3 max-w-2xl text-base font-semibold text-ink-soft">Your current plan protects essentials and earning costs before showing flexible money.</p></div><span className="brut-stamp bg-accent-soft self-start">{demo ? "Prototype data" : "Live plan"}</span></header><section className="brut-card-lg bg-ink p-5 text-paper sm:p-7" aria-labelledby="safe-heading"><div className="flex flex-wrap items-start justify-between gap-3"><div><p id="safe-heading" className="brut-label !text-paper-2">Safe to spend</p><p className="num mt-2 text-6xl font-black tracking-[-0.05em] sm:text-7xl">{formatCurrency(s.safeToSpend)}</p><p className="mt-1 text-xl font-black text-accent">until {nextDay}</p></div><span className="border border-good-soft px-2 py-1 text-[10px] font-black uppercase tracking-wider text-good-soft">{s.safeToSpend > 0 ? "Plan protected" : "Hold spending"}</span></div><div className="mt-7 grid grid-cols-2 gap-4 border-t border-paper-2/40 pt-5 lg:grid-cols-4"><Metric label="Available balance" value={formatCurrency(s.availableBalance)} dark /><Metric label="Protected now" value={formatCurrency(s.protectedMoney)} dark /><Metric label="Expected payout" value={`${formatCurrency(s.expectedPayoutMin)}–${formatCurrency(s.expectedPayoutMax)}`} dark /><Metric label="Forecast confidence" value={s.forecastConfidence.toLowerCase()} dark /></div><details className="mt-5 border-2 border-paper-2 p-4"><summary className="cursor-pointer text-xs font-black uppercase tracking-wider focus:outline-2 focus:outline-offset-4 focus:outline-paper">How this is calculated</summary><div className="mt-4 grid gap-2 text-sm font-semibold"><p className="flex justify-between"><span>Settled balance</span><strong className="num">{formatCurrency(s.availableBalance)}</strong></p><p className="flex justify-between"><span>Less protected plan</span><strong className="num">− {formatCurrency(s.protectedMoney)}</strong></p><p className="flex justify-between border-t border-paper-2/50 pt-2 text-base"><span>Safe now</span><strong className="num text-accent">{formatCurrency(s.safeToSpend)}</strong></p><p className="text-paper-2">Expected income is never counted until it settles.</p></div></details></section><section className="brut-card bg-accent-soft p-5"><p className="brut-label">One action now</p><h2 className="mt-2 text-2xl font-black">{dashboard.recommendation.title}</h2><p className="mt-2 max-w-3xl font-semibold text-ink-soft">{dashboard.recommendation.body}</p><Link className="brut-btn mt-4 min-h-11 bg-paper text-ink" href={actionHref}>{dashboard.recommendation.action}<ArrowRight size={16} /></Link></section><section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4"><MetricCard icon={WalletCards} label="True net this week" value={formatCurrency(s.trueNetIncomeWeek)} detail={`${formatCurrency(s.grossIncomeWeek)} gross − ${formatCurrency(s.workCostsWeek)} work costs`} /><MetricCard icon={ShieldCheck} label="Resilience Passport" value={`${s.resilienceScore}/100`} detail={`${s.resilienceStatus} · not a credit score`} /><MetricCard icon={CalendarClock} label="Protected days" value={`${Math.floor(s.protectedDays)} days`} detail={`Target ${s.cushionTargetDays} days`} /><MetricCard icon={WalletCards} label="30-day income range" value={`${formatCurrency(s.forecastIncomeLow30d)}–${formatCurrency(s.forecastIncomeHigh30d)}`} detail={`${s.forecastConfidence.toLowerCase()} confidence · estimate`} /></section><section className="grid gap-4 xl:grid-cols-[1.25fr_.75fr]"><div className="brut-card p-5"><div className="flex items-center justify-between"><div><p className="brut-label">Money timeline</p><h2 className="mt-1 text-2xl font-black">What happens next</h2></div><CalendarClock aria-hidden size={26} className="text-accent" /></div><div className="mt-4 divide-y-2 divide-paper-2">{dashboard.timeline.map((event) => <div key={event.id} className="grid min-h-16 grid-cols-[12px_1fr_auto] items-center gap-3 py-3"><span className={`h-3 w-3 border border-ink ${event.type === "INCOME" ? "bg-good" : "bg-accent"}`} /><div><p className="font-black">{event.title}</p><p className="text-xs font-semibold text-ink-soft">{new Date(event.date).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })} · {event.status.toLowerCase()}</p></div><p className="num text-right text-sm font-black">{event.amountMin === event.amountMax ? formatCurrency(event.amountMin) : `${formatCurrency(event.amountMin)}–${formatCurrency(event.amountMax)}`}</p></div>)}</div></div><div className="brut-card bg-good-soft p-5"><p className="brut-label">Emergency cushion</p><p className="num mt-2 text-4xl font-black">{Math.floor(s.protectedDays)} days</p><div className="mt-4 h-4 border-2 border-ink bg-paper" role="progressbar" aria-label="Emergency cushion progress" aria-valuemin={0} aria-valuemax={s.cushionTargetDays} aria-valuenow={Math.floor(s.protectedDays)}><div className="h-full bg-good" style={{ width: `${Math.min(100, s.protectedDays / s.cushionTargetDays * 100)}%` }} /></div><p className="mt-3 text-sm font-semibold text-ink-soft">Goal: {s.cushionTargetDays} protected days. Based on recorded essentials and work costs.</p></div></section>{latest && <section className="brut-card p-5"><div className="flex flex-wrap items-end justify-between gap-3"><div><p className="brut-label">Latest planned payout</p><h2 className="mt-1 text-2xl font-black">{latest.sourceName} · {formatCurrency(latest.amount)}</h2></div><span className="brut-stamp">No money moved</span></div><div className="mt-5 grid grid-cols-2 gap-4 md:grid-cols-5"><Metric label="Essentials" value={formatCurrency(latest.essentialsAmount)} /><Metric label="Work costs" value={formatCurrency(latest.workCostsAmount)} /><Metric label="Cushion" value={formatCurrency(latest.emergencyAmount)} /><Metric label="Long term" value={formatCurrency(latest.longTermAmount)} /><Metric label="Flexible" value={formatCurrency(latest.flexibleAmount)} /></div></section>}<p className="text-xs font-semibold text-ink-soft">Forecasts are estimates. SuperFinz is a planning prototype, not a bank, lender, credit bureau, or investment adviser.</p></div>;
+export function GigDashboardView({
+  dashboard,
+  demo = false,
+}: {
+  dashboard: GigDashboardDto;
+  demo?: boolean;
+}) {
+  const s = dashboard.summary;
+  const nextDay = new Date(s.safeUntil).toLocaleDateString("en-IN", {
+    weekday: "long",
+  });
+  const nextEvents = dashboard.timeline.slice(0, 3);
+  const latest = dashboard.payoutSplits[0];
+  const planHref = demo ? "/login" : "/dashboard/plan";
+  const moneyHref = demo ? "/login" : "/dashboard/income";
+
+  return (
+    <div className="space-y-5">
+      <header>
+        <p className="text-sm font-medium text-mute">
+          {new Date().toLocaleDateString("en-IN", {
+            weekday: "long",
+            day: "numeric",
+            month: "long",
+          })}
+        </p>
+        <h1 className="mt-1 text-3xl font-bold tracking-[-0.04em] sm:text-4xl">
+          Hello, {dashboard.profile.preferredName}
+        </h1>
+        <p className="mt-2 max-w-xl text-ink-soft">
+          Here is today&apos;s simple money plan.
+        </p>
+      </header>
+
+      <section
+        className="overflow-hidden rounded-[1.5rem] bg-ink p-5 text-paper shadow-[var(--shadow-hard-lg)] sm:p-7"
+        aria-labelledby="safe-heading"
+      >
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p id="safe-heading" className="text-sm font-semibold text-paper-2">
+              You can safely use
+            </p>
+            <p className="num mt-1 text-5xl font-bold tracking-[-0.06em] sm:text-6xl">
+              {formatCurrency(s.safeToSpend)}
+            </p>
+            <p className="mt-2 text-lg font-semibold text-paper-2">
+              until {nextDay}, without touching bills or work money
+            </p>
+          </div>
+          <div className="rounded-2xl border border-paper-2 bg-white/5 p-4 lg:min-w-64">
+            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-paper-2">
+              Next payout estimate
+            </p>
+            <p className="num mt-1 text-xl font-bold">
+              {formatCurrency(s.expectedPayoutMin)}–
+              {formatCurrency(s.expectedPayoutMax)}
+            </p>
+            <p className="mt-1 text-xs text-paper-2">
+              Not counted until the money arrives
+            </p>
+          </div>
+        </div>
+
+        <details className="mt-6 border-t border-paper-2 pt-4">
+          <summary className="w-fit text-sm font-semibold text-paper">
+            See how this was calculated
+          </summary>
+          <div className="mt-4 max-w-lg space-y-2 text-sm text-paper-2">
+            <MoneyLine label="Money available" value={s.availableBalance} />
+            <MoneyLine
+              label="Kept aside for your plan"
+              value={-s.protectedMoney}
+            />
+            <div className="border-t border-paper-2 pt-2">
+              <MoneyLine label="Safe to use now" value={s.safeToSpend} strong />
+            </div>
+          </div>
+        </details>
+      </section>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Link
+          href={moneyHref}
+          className="flex min-h-14 items-center justify-center gap-2 rounded-xl bg-accent px-5 font-semibold text-paper shadow-[var(--shadow-sm)] transition hover:-translate-y-px hover:shadow-[var(--shadow-md)]"
+        >
+          <CirclePlus aria-hidden size={20} />
+          Add income or work cost
+        </Link>
+        <Link
+          href={demo ? "/login" : "/dashboard/income?panel=payout"}
+          className="flex min-h-14 items-center justify-center gap-2 rounded-xl border border-ink bg-surface px-5 font-semibold text-ink shadow-[var(--shadow-sm)] transition hover:bg-paper-2"
+        >
+          <WalletCards aria-hidden size={20} />
+          Plan a payout
+        </Link>
+      </div>
+
+      <section className="brut-card bg-accent-soft p-5 sm:p-6">
+        <p className="text-xs font-semibold uppercase tracking-[0.08em] text-accent">
+          Best next step
+        </p>
+        <h2 className="mt-2 text-xl font-bold sm:text-2xl">
+          {dashboard.recommendation.title}
+        </h2>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-ink-soft">
+          {dashboard.recommendation.body}
+        </p>
+        <Link
+          className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl bg-ink px-4 text-sm font-semibold text-paper"
+          href={planHref}
+        >
+          {dashboard.recommendation.action}
+          <ArrowRight aria-hidden size={16} />
+        </Link>
+      </section>
+
+      <section
+        className="grid gap-4 md:grid-cols-2"
+        aria-label="Your key numbers"
+      >
+        <SimpleCard
+          icon={WalletCards}
+          label="You kept this week"
+          value={formatCurrency(s.trueNetIncomeWeek)}
+          detail={`${formatCurrency(s.grossIncomeWeek)} earned, minus ${formatCurrency(s.workCostsWeek)} work costs`}
+        />
+        <SimpleCard
+          icon={ShieldCheck}
+          label="Emergency cover"
+          value={`${Math.floor(s.protectedDays)} ${Math.floor(s.protectedDays) === 1 ? "day" : "days"}`}
+          detail={`Your goal is ${s.cushionTargetDays} days`}
+          progress={Math.min(
+            100,
+            (s.protectedDays / s.cushionTargetDays) * 100,
+          )}
+        />
+      </section>
+
+      <section className="brut-card p-5 sm:p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-mute">
+              Coming up
+            </p>
+            <h2 className="mt-1 text-xl font-bold">Your next money events</h2>
+          </div>
+          <CalendarClock aria-hidden size={22} className="text-accent" />
+        </div>
+        {nextEvents.length ? (
+          <div className="mt-4 divide-y divide-ink">
+            {nextEvents.map((event) => (
+              <div
+                key={event.id}
+                className="grid min-h-16 grid-cols-[1fr_auto] items-center gap-3 py-3"
+              >
+                <div>
+                  <p className="font-semibold">{event.title}</p>
+                  <p className="mt-0.5 text-sm text-mute">
+                    {new Date(event.date).toLocaleDateString("en-IN", {
+                      weekday: "short",
+                      day: "numeric",
+                      month: "short",
+                    })}
+                    {event.type === "INCOME" ? " · expected" : " · due"}
+                  </p>
+                </div>
+                <p className="num text-right font-semibold">
+                  {event.amountMin === event.amountMax
+                    ? formatCurrency(event.amountMin)
+                    : `${formatCurrency(event.amountMin)}–${formatCurrency(event.amountMax)}`}
+                </p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-4 text-sm text-ink-soft">
+            Add a payout date or bill to see what comes next.
+          </p>
+        )}
+      </section>
+
+      <details className="brut-card p-5 sm:p-6">
+        <summary className="font-semibold">More about my plan</summary>
+        <div className="mt-5 grid gap-4 sm:grid-cols-3">
+          <SmallMetric
+            label="30-day income estimate"
+            value={`${formatCurrency(s.forecastIncomeLow30d)}–${formatCurrency(s.forecastIncomeHigh30d)}`}
+            help={`${s.forecastConfidence.toLowerCase()} confidence`}
+          />
+          <SmallMetric
+            label="Resilience check"
+            value={`${s.resilienceScore}/100`}
+            help={`${s.resilienceStatus} · not a credit score`}
+          />
+          <SmallMetric
+            label="Money kept aside"
+            value={formatCurrency(s.protectedMoney)}
+            help="Bills, work costs, and safety buffer"
+          />
+        </div>
+        {latest && (
+          <p className="mt-5 border-t border-ink pt-4 text-sm text-ink-soft">
+            Latest payout plan: {formatCurrency(latest.amount)} from{" "}
+            {latest.sourceName}. SuperFinz only planned it; no money was moved.
+          </p>
+        )}
+      </details>
+
+      <p className="text-xs text-mute">
+        Forecasts are estimates. SuperFinz is a planning prototype, not a bank
+        or lender.
+      </p>
+    </div>
+  );
 }
 
-function Metric({ label, value, dark = false }: { label: string; value: string; dark?: boolean }) { return <div><p className={`brut-label ${dark ? "!text-paper-2" : ""}`}>{label}</p><p className={`num mt-1 text-base font-black ${dark ? "text-paper" : "text-ink"}`}>{value}</p></div>; }
-function MetricCard({ icon: Icon, label, value, detail }: { icon: typeof WalletCards; label: string; value: string; detail: string }) { return <div className="brut-card p-5"><Icon aria-hidden size={22} /><p className="brut-label mt-4">{label}</p><p className="num mt-1 text-3xl font-black">{value}</p><p className="mt-2 text-xs font-semibold text-ink-soft">{detail}</p></div>; }
+function MoneyLine({
+  label,
+  value,
+  strong = false,
+}: {
+  label: string;
+  value: number;
+  strong?: boolean;
+}) {
+  const display = `${value < 0 ? "− " : ""}${formatCurrency(Math.abs(value))}`;
+  return (
+    <p
+      className={`flex justify-between gap-6 ${strong ? "font-semibold text-paper" : ""}`}
+    >
+      <span>{label}</span>
+      <span className="num font-semibold">{display}</span>
+    </p>
+  );
+}
+
+function SimpleCard({
+  icon: Icon,
+  label,
+  value,
+  detail,
+  progress,
+}: {
+  icon: typeof WalletCards;
+  label: string;
+  value: string;
+  detail: string;
+  progress?: number;
+}) {
+  return (
+    <article className="brut-card p-5 sm:p-6">
+      <div className="flex items-center gap-3 text-accent">
+        <Icon aria-hidden size={21} />
+        <p className="text-sm font-semibold">{label}</p>
+      </div>
+      <p className="num mt-3 text-3xl font-bold tracking-[-0.04em]">{value}</p>
+      {progress !== undefined && (
+        <div
+          className="mt-4 h-2 overflow-hidden rounded-full bg-paper-2"
+          role="progressbar"
+          aria-label={label}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={Math.round(progress)}
+        >
+          <div
+            className="h-full rounded-full bg-good"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+      )}
+      <p className="mt-3 text-sm text-ink-soft">{detail}</p>
+    </article>
+  );
+}
+
+function SmallMetric({
+  label,
+  value,
+  help,
+}: {
+  label: string;
+  value: string;
+  help: string;
+}) {
+  return (
+    <div>
+      <p className="text-xs font-semibold uppercase tracking-[0.06em] text-mute">
+        {label}
+      </p>
+      <p className="num mt-1 text-lg font-semibold">{value}</p>
+      <p className="mt-1 text-xs text-ink-soft">{help}</p>
+    </div>
+  );
+}

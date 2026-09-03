@@ -1,32 +1,669 @@
 import { useEffect, useMemo, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { GIG_PRIORITIES, GIG_WORK_TYPES, type GigPriority, type GigWorkType } from "@superfinz/shared";
+import {
+  GIG_PRIORITIES,
+  GIG_WORK_TYPES,
+  type GigPriority,
+  type GigWorkType,
+} from "@superfinz/shared";
 import { apiFetch } from "@/lib/api";
-import { Button, Card, Field, Label, Money, Progress, Screen, ui } from "@/components/ui";
+import {
+  Button,
+  Card,
+  Field,
+  Label,
+  Money,
+  Progress,
+  Screen,
+  ui,
+} from "@/components/ui";
 import { DateField } from "@/components/date-field";
 import { colors } from "@/constants/theme";
 import { useAuth } from "@/providers/auth-provider";
 
-const labels: Record<string, string> = { DELIVERY: "Delivery", RIDE_HAILING: "Ride-hailing", HOME_SERVICES: "Home services", FREELANCE: "Freelance", STREET_VENDING: "Street vending", DAILY_WAGE: "Daily wage", DOMESTIC_WORK: "Domestic work", OTHER: "Other", STABLE_WEEKLY_SPENDING: "Stable weekly spending", EMERGENCY_CUSHION: "Emergency cushion", UPCOMING_BILLS: "Upcoming bills", WORK_EXPENSES: "Work expenses", AVOIDING_DEBT: "Avoiding debt" };
-const splitFields = [["essentialsPct", "Essentials"], ["workCostsPct", "Work costs"], ["emergencyPct", "Emergency cushion"], ["longTermPct", "Long-term savings"], ["flexiblePct", "Flexible spending"]] as const;
+const labels: Record<string, string> = {
+  DELIVERY: "Delivery",
+  RIDE_HAILING: "Ride-hailing",
+  HOME_SERVICES: "Home services",
+  FREELANCE: "Freelance",
+  STREET_VENDING: "Street vending",
+  DAILY_WAGE: "Daily wage",
+  DOMESTIC_WORK: "Domestic work",
+  OTHER: "Other",
+  STABLE_WEEKLY_SPENDING: "Stable weekly spending",
+  EMERGENCY_CUSHION: "Emergency cushion",
+  UPCOMING_BILLS: "Upcoming bills",
+  WORK_EXPENSES: "Work expenses",
+  AVOIDING_DEBT: "Avoiding debt",
+};
+const splitFields = [
+  ["essentialsPct", "Essentials"],
+  ["workCostsPct", "Work costs"],
+  ["emergencyPct", "Emergency cushion"],
+  ["longTermPct", "Long-term savings"],
+  ["flexiblePct", "Flexible spending"],
+] as const;
 
-type Draft = { preferredName: string; city: string; language: string; workTypes: GigWorkType[]; priority: GigPriority; sourceName: string; low: string; typical: string; good: string; payoutDate: string; workDays: string; deduction: string; workCosts: string; balance: string; cushion: string; safetyBuffer: string; commitmentName: string; commitmentAmount: string; commitmentDate: string; split: Record<(typeof splitFields)[number][0], string>; confirmed: boolean };
+type Draft = {
+  preferredName: string;
+  city: string;
+  language: string;
+  workTypes: GigWorkType[];
+  priority: GigPriority;
+  sourceName: string;
+  low: string;
+  typical: string;
+  good: string;
+  payoutDate: string;
+  workDays: string;
+  deduction: string;
+  workCosts: string;
+  balance: string;
+  cushion: string;
+  safetyBuffer: string;
+  commitmentName: string;
+  commitmentAmount: string;
+  commitmentDate: string;
+  split: Record<(typeof splitFields)[number][0], string>;
+  confirmed: boolean;
+};
 
 export default function Onboarding() {
-  const { user, reloadUser } = useAuth(); const draftKey = useMemo(() => `superfinz:gig-onboarding:v2:${user?.id ?? "pending"}`, [user?.id]);
-  const [step, setStep] = useState(0); const [preferredName, setPreferredName] = useState(user?.name?.split(" ")[0] ?? ""); const [city, setCity] = useState("Chennai"); const [language, setLanguage] = useState("English"); const [workTypes, setWorkTypes] = useState<GigWorkType[]>(["DELIVERY"]); const [priority, setPriority] = useState<GigPriority>("STABLE_WEEKLY_SPENDING"); const [sourceName, setSourceName] = useState("Primary platform"); const [low, setLow] = useState("4000"); const [typical, setTypical] = useState("6000"); const [good, setGood] = useState("8000"); const [payoutDate, setPayoutDate] = useState(() => new Date(Date.now() + 3 * 86_400_000)); const [workDays, setWorkDays] = useState("6"); const [deduction, setDeduction] = useState("10"); const [workCosts, setWorkCosts] = useState("1200"); const [balance, setBalance] = useState("6800"); const [cushion, setCushion] = useState("600"); const [safetyBuffer, setSafetyBuffer] = useState("600"); const [commitmentName, setCommitmentName] = useState("Rent"); const [commitmentAmount, setCommitmentAmount] = useState("4000"); const [commitmentDate, setCommitmentDate] = useState(() => new Date(Date.now() + 8 * 86_400_000)); const [split, setSplit] = useState({ essentialsPct: "55", workCostsPct: "15", emergencyPct: "10", longTermPct: "5", flexiblePct: "15" }); const [confirmed, setConfirmed] = useState(false); const [ready, setReady] = useState(false); const [saving, setSaving] = useState(false);
-  const splitTotal = Object.values(split).reduce((sum, value) => sum + (Number(value) || 0), 0); const weeklyOrderValid = Number(low) >= 0 && Number(low) <= Number(typical) && Number(typical) <= Number(good) && Number(typical) > 0; const stepValid = [Boolean(preferredName.trim() && city.trim() && workTypes.length), Boolean(sourceName.trim() && weeklyOrderValid), Number(workDays) >= 1 && Number(workDays) <= 7 && Number(balance) >= 0 && Number(workCosts) >= 0, Boolean(commitmentName.trim() && Number(commitmentAmount) > 0), splitTotal === 100 && confirmed][step];
-  const draft: Draft = useMemo(() => ({ preferredName, city, language, workTypes, priority, sourceName, low, typical, good, payoutDate: payoutDate.toISOString(), workDays, deduction, workCosts, balance, cushion, safetyBuffer, commitmentName, commitmentAmount, commitmentDate: commitmentDate.toISOString(), split, confirmed }), [preferredName, city, language, workTypes, priority, sourceName, low, typical, good, payoutDate, workDays, deduction, workCosts, balance, cushion, safetyBuffer, commitmentName, commitmentAmount, commitmentDate, split, confirmed]);
+  const { user, reloadUser } = useAuth();
+  const draftKey = useMemo(
+    () => `superfinz:gig-onboarding:v2:${user?.id ?? "pending"}`,
+    [user?.id],
+  );
+  const [step, setStep] = useState(0);
+  const [preferredName, setPreferredName] = useState(
+    user?.name?.split(" ")[0] ?? "",
+  );
+  const [city, setCity] = useState("Chennai");
+  const [language, setLanguage] = useState("English");
+  const [workTypes, setWorkTypes] = useState<GigWorkType[]>(["DELIVERY"]);
+  const [priority, setPriority] = useState<GigPriority>(
+    "STABLE_WEEKLY_SPENDING",
+  );
+  const [sourceName, setSourceName] = useState("Primary platform");
+  const [low, setLow] = useState("4000");
+  const [typical, setTypical] = useState("6000");
+  const [good, setGood] = useState("8000");
+  const [payoutDate, setPayoutDate] = useState(
+    () => new Date(Date.now() + 3 * 86_400_000),
+  );
+  const [workDays, setWorkDays] = useState("6");
+  const [deduction, setDeduction] = useState("10");
+  const [workCosts, setWorkCosts] = useState("1200");
+  const [balance, setBalance] = useState("6800");
+  const [cushion, setCushion] = useState("600");
+  const [safetyBuffer, setSafetyBuffer] = useState("600");
+  const [commitmentName, setCommitmentName] = useState("Rent");
+  const [commitmentAmount, setCommitmentAmount] = useState("4000");
+  const [commitmentDate, setCommitmentDate] = useState(
+    () => new Date(Date.now() + 8 * 86_400_000),
+  );
+  const [split, setSplit] = useState({
+    essentialsPct: "55",
+    workCostsPct: "15",
+    emergencyPct: "10",
+    longTermPct: "5",
+    flexiblePct: "15",
+  });
+  const [confirmed, setConfirmed] = useState(false);
+  const [ready, setReady] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const splitTotal = Object.values(split).reduce(
+    (sum, value) => sum + (Number(value) || 0),
+    0,
+  );
+  const weeklyOrderValid =
+    Number(low) >= 0 &&
+    Number(low) <= Number(typical) &&
+    Number(typical) <= Number(good) &&
+    Number(typical) > 0;
+  const stepValid = [
+    Boolean(preferredName.trim() && city.trim() && workTypes.length),
+    Boolean(sourceName.trim() && weeklyOrderValid),
+    Number(workDays) >= 1 &&
+      Number(workDays) <= 7 &&
+      Number(balance) >= 0 &&
+      Number(workCosts) >= 0,
+    Boolean(commitmentName.trim() && Number(commitmentAmount) > 0),
+    splitTotal === 100 && confirmed,
+  ][step];
+  const draft: Draft = useMemo(
+    () => ({
+      preferredName,
+      city,
+      language,
+      workTypes,
+      priority,
+      sourceName,
+      low,
+      typical,
+      good,
+      payoutDate: payoutDate.toISOString(),
+      workDays,
+      deduction,
+      workCosts,
+      balance,
+      cushion,
+      safetyBuffer,
+      commitmentName,
+      commitmentAmount,
+      commitmentDate: commitmentDate.toISOString(),
+      split,
+      confirmed,
+    }),
+    [
+      preferredName,
+      city,
+      language,
+      workTypes,
+      priority,
+      sourceName,
+      low,
+      typical,
+      good,
+      payoutDate,
+      workDays,
+      deduction,
+      workCosts,
+      balance,
+      cushion,
+      safetyBuffer,
+      commitmentName,
+      commitmentAmount,
+      commitmentDate,
+      split,
+      confirmed,
+    ],
+  );
 
-  useEffect(() => { let mounted = true; AsyncStorage.getItem(draftKey).then((raw) => { if (!mounted || !raw) return; const saved = JSON.parse(raw) as Draft; setPreferredName(saved.preferredName); setCity(saved.city); setLanguage(saved.language); setWorkTypes(saved.workTypes); setPriority(saved.priority); setSourceName(saved.sourceName); setLow(saved.low); setTypical(saved.typical); setGood(saved.good); setPayoutDate(new Date(saved.payoutDate)); setWorkDays(saved.workDays); setDeduction(saved.deduction); setWorkCosts(saved.workCosts); setBalance(saved.balance); setCushion(saved.cushion); setSafetyBuffer(saved.safetyBuffer); setCommitmentName(saved.commitmentName); setCommitmentAmount(saved.commitmentAmount); setCommitmentDate(new Date(saved.commitmentDate)); setSplit(saved.split); setConfirmed(saved.confirmed); }).catch(() => undefined).finally(() => mounted && setReady(true)); return () => { mounted = false; }; }, [draftKey]);
-  useEffect(() => { if (!ready) return; const timer = setTimeout(() => AsyncStorage.setItem(draftKey, JSON.stringify(draft)).catch(() => undefined), 250); return () => clearTimeout(timer); }, [ready, draftKey, draft]);
+  useEffect(() => {
+    let mounted = true;
+    AsyncStorage.getItem(draftKey)
+      .then((raw) => {
+        if (!mounted || !raw) return;
+        const saved = JSON.parse(raw) as Draft;
+        setPreferredName(saved.preferredName);
+        setCity(saved.city);
+        setLanguage(saved.language);
+        setWorkTypes(saved.workTypes);
+        setPriority(saved.priority);
+        setSourceName(saved.sourceName);
+        setLow(saved.low);
+        setTypical(saved.typical);
+        setGood(saved.good);
+        setPayoutDate(new Date(saved.payoutDate));
+        setWorkDays(saved.workDays);
+        setDeduction(saved.deduction);
+        setWorkCosts(saved.workCosts);
+        setBalance(saved.balance);
+        setCushion(saved.cushion);
+        setSafetyBuffer(saved.safetyBuffer);
+        setCommitmentName(saved.commitmentName);
+        setCommitmentAmount(saved.commitmentAmount);
+        setCommitmentDate(new Date(saved.commitmentDate));
+        setSplit(saved.split);
+        setConfirmed(saved.confirmed);
+      })
+      .catch(() => undefined)
+      .finally(() => mounted && setReady(true));
+    return () => {
+      mounted = false;
+    };
+  }, [draftKey]);
+  useEffect(() => {
+    if (!ready) return;
+    const timer = setTimeout(
+      () =>
+        AsyncStorage.setItem(draftKey, JSON.stringify(draft)).catch(
+          () => undefined,
+        ),
+      250,
+    );
+    return () => clearTimeout(timer);
+  }, [ready, draftKey, draft]);
 
-  const toggleWork = (value: GigWorkType) => setWorkTypes((items) => items.includes(value) ? items.filter((item) => item !== value) : [...items, value]);
-  const submit = async () => { setSaving(true); try { await apiFetch("/api/gig/onboarding", { method: "POST", body: JSON.stringify({ preferredName: preferredName.trim(), city: city.trim(), preferredLanguage: language, workTypes, primaryPriority: priority, lowWeekIncome: Number(low), typicalWeekIncome: Number(typical), goodWeekIncome: Number(good), workDaysPerWeek: Number(workDays), platformDeductionRate: Number(deduction), weeklyWorkCosts: Number(workCosts), openingBalance: Number(balance), currentCushion: Number(cushion), safetyBuffer: Number(safetyBuffer), cushionTargetDays: 30, sources: [{ name: sourceName.trim(), type: "PLATFORM_PAYOUT", frequency: "WEEKLY", typicalMin: Number(low), typicalMax: Number(good), nextPayoutAt: payoutDate.toISOString(), connectionMode: "MANUAL", prototype: true }], commitments: [{ title: commitmentName.trim(), category: commitmentName.trim(), amount: Number(commitmentAmount), dueDate: commitmentDate.toISOString(), recurrence: "MONTHLY", essential: true, priority: 1, autopay: false }], splitRule: { essentialsPct: Number(split.essentialsPct), workCostsPct: Number(split.workCostsPct), emergencyPct: Number(split.emergencyPct), longTermPct: Number(split.longTermPct), flexiblePct: Number(split.flexiblePct), enabled: confirmed } }) }); await AsyncStorage.removeItem(draftKey); await reloadUser(); } catch (cause) { Alert.alert("Couldn’t build your plan", cause instanceof Error ? cause.message : "Check your details and try again"); } finally { setSaving(false); } };
+  const toggleWork = (value: GigWorkType) =>
+    setWorkTypes((items) =>
+      items.includes(value)
+        ? items.filter((item) => item !== value)
+        : [...items, value],
+    );
+  const submit = async () => {
+    setSaving(true);
+    try {
+      await apiFetch("/api/gig/onboarding", {
+        method: "POST",
+        body: JSON.stringify({
+          preferredName: preferredName.trim(),
+          city: city.trim(),
+          preferredLanguage: language,
+          workTypes,
+          primaryPriority: priority,
+          lowWeekIncome: Number(low),
+          typicalWeekIncome: Number(typical),
+          goodWeekIncome: Number(good),
+          workDaysPerWeek: Number(workDays),
+          platformDeductionRate: Number(deduction),
+          weeklyWorkCosts: Number(workCosts),
+          openingBalance: Number(balance),
+          currentCushion: Number(cushion),
+          safetyBuffer: Number(safetyBuffer),
+          cushionTargetDays: 30,
+          sources: [
+            {
+              name: sourceName.trim(),
+              type: "PLATFORM_PAYOUT",
+              frequency: "WEEKLY",
+              typicalMin: Number(low),
+              typicalMax: Number(good),
+              nextPayoutAt: payoutDate.toISOString(),
+              connectionMode: "MANUAL",
+              prototype: true,
+            },
+          ],
+          commitments: [
+            {
+              title: commitmentName.trim(),
+              category: commitmentName.trim(),
+              amount: Number(commitmentAmount),
+              dueDate: commitmentDate.toISOString(),
+              recurrence: "MONTHLY",
+              essential: true,
+              priority: 1,
+              autopay: false,
+            },
+          ],
+          splitRule: {
+            essentialsPct: Number(split.essentialsPct),
+            workCostsPct: Number(split.workCostsPct),
+            emergencyPct: Number(split.emergencyPct),
+            longTermPct: Number(split.longTermPct),
+            flexiblePct: Number(split.flexiblePct),
+            enabled: confirmed,
+          },
+        }),
+      });
+      await AsyncStorage.removeItem(draftKey);
+      await reloadUser();
+    } catch (cause) {
+      Alert.alert(
+        "Couldn’t build your plan",
+        cause instanceof Error
+          ? cause.message
+          : "Check your details and try again",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
 
-  return <Screen><View style={styles.top}><View style={{ flex: 1 }}><Label>Step {step + 1} of 5 · saved on device</Label><Progress label={`Onboarding step ${step + 1} of 5`} value={(step + 1) * 20} /></View></View>{step === 0 && <><Text accessibilityRole="header" style={ui.h1}>Tell us how you earn.</Text><Text style={ui.body}>Your work pattern—not a salary assumption—will shape the plan.</Text><Card><Field label="Preferred name" value={preferredName} onChangeText={setPreferredName} /><Field label="City" value={city} onChangeText={setCity} /><Field label="Preferred language" value={language} onChangeText={setLanguage} /><Label>Work types</Label><View style={styles.wrap}>{GIG_WORK_TYPES.map((value) => <Choice key={value} label={labels[value]} selected={workTypes.includes(value)} role="checkbox" onPress={() => toggleWork(value)} />)}</View><Label>Main priority</Label><View style={styles.stack}>{GIG_PRIORITIES.map((value) => <Choice key={value} label={labels[value]} selected={priority === value} role="radio" onPress={() => setPriority(value)} />)}</View></Card></>}{step === 1 && <><Text accessibilityRole="header" style={ui.h1}>Map your income range.</Text><Text style={ui.body}>We use a range because future gig income is an estimate, never a promise.</Text><Card><Field label="Income source" value={sourceName} onChangeText={setSourceName} placeholder="Swiggy, Rapido, clients…" /><Field label="Low-week earnings" value={low} onChangeText={setLow} keyboardType="decimal-pad" /><Field label="Typical-week earnings" value={typical} onChangeText={setTypical} keyboardType="decimal-pad" /><Field label="Good-week earnings" value={good} onChangeText={setGood} keyboardType="decimal-pad" />{!weeklyOrderValid && <Text accessibilityRole="alert" style={styles.error}>Use a realistic low ≤ typical ≤ good range.</Text>}<DateField label="Next expected payout" value={payoutDate} onChange={(value) => value && setPayoutDate(value)} /><Text style={ui.small}>Manual source · Prototype plan. No account is connected.</Text></Card></>}{step === 2 && <><Text accessibilityRole="header" style={ui.h1}>Protect the cost of working.</Text><Text style={ui.body}>Fuel, platform deductions, and equipment costs reduce what you truly take home.</Text><Card><Field label="Typical workdays each week" value={workDays} onChangeText={setWorkDays} keyboardType="number-pad" /><Field label="Platform deductions (%)" value={deduction} onChangeText={setDeduction} keyboardType="decimal-pad" /><Field label="Weekly work costs" value={workCosts} onChangeText={setWorkCosts} keyboardType="decimal-pad" /><Field label="Current available balance" value={balance} onChangeText={setBalance} keyboardType="decimal-pad" /><Field label="Current emergency cushion" value={cushion} onChangeText={setCushion} keyboardType="decimal-pad" /><Field label="Minimum safety buffer" value={safetyBuffer} onChangeText={setSafetyBuffer} keyboardType="decimal-pad" /></Card></>}{step === 3 && <><Text accessibilityRole="header" style={ui.h1}>Add the next essential.</Text><Text style={ui.body}>SuperFinz protects fixed commitments before showing flexible money.</Text><Card><Field label="Commitment" value={commitmentName} onChangeText={setCommitmentName} placeholder="Rent" /><Field label="Amount" value={commitmentAmount} onChangeText={setCommitmentAmount} keyboardType="decimal-pad" /><DateField label="Next due date" value={commitmentDate} onChange={(value) => value && setCommitmentDate(value)} /><View style={styles.essential}><Label>Essential · monthly · manual payment</Label></View></Card></>}{step === 4 && <><Text accessibilityRole="header" style={ui.h1}>Give every payout a job.</Text><Text style={ui.body}>Review the suggested rule. This prototype saves a planned allocation; it does not move real money.</Text><Card>{splitFields.map(([key, label]) => <Field key={key} label={`${label} (%)`} value={split[key]} onChangeText={(value) => setSplit((current) => ({ ...current, [key]: value }))} keyboardType="decimal-pad" />)}<View style={styles.total}><Label>Total allocation</Label><Text style={[styles.totalValue, splitTotal !== 100 && { color: colors.red }]}>{splitTotal}%</Text></View>{splitTotal === 100 && <View style={styles.preview}><View><Label>Sample payout</Label><Money value={Number(typical)} /></View><View><Label>Flexible share</Label><Money value={Number(typical) * Number(split.flexiblePct) / 100} /></View></View>}<Choice label="I confirm this planned Smart Split rule" selected={confirmed} role="checkbox" onPress={() => setConfirmed((value) => !value)} /></Card><Card style={{ backgroundColor: colors.accentSoft }}><Label>Review</Label><Text style={ui.body}>{workTypes.map((item) => labels[item]).join(", ")} in {city}{`\n`}Weekly estimate: ₹{Number(low).toLocaleString("en-IN")}–₹{Number(good).toLocaleString("en-IN")}{`\n`}Next essential: {commitmentName} · ₹{Number(commitmentAmount).toLocaleString("en-IN")}{`\n`}No real bank account or transfer is created.</Text></Card></>}<View style={styles.actions}>{step > 0 && <View style={{ flex: 1 }}><Button title="Back" tone="quiet" disabled={saving} onPress={() => setStep((value) => value - 1)} /></View>}<View style={{ flex: 1 }}><Button title={step === 4 ? "Build my plan" : "Continue"} loading={saving} disabled={!stepValid} onPress={step === 4 ? submit : () => setStep((value) => value + 1)} /></View></View></Screen>;
+  return (
+    <Screen>
+      <View style={styles.top}>
+        <View style={{ flex: 1 }}>
+          <Label>Step {step + 1} of 5 · saved on device</Label>
+          <Progress
+            label={`Onboarding step ${step + 1} of 5`}
+            value={(step + 1) * 20}
+          />
+        </View>
+      </View>
+      {step === 0 && (
+        <>
+          <Text accessibilityRole="header" style={ui.h1}>
+            Tell us how you earn.
+          </Text>
+          <Text style={ui.body}>
+            Your work pattern—not a salary assumption—will shape the plan.
+          </Text>
+          <Card>
+            <Field
+              label="Preferred name"
+              value={preferredName}
+              onChangeText={setPreferredName}
+            />
+            <Field label="City" value={city} onChangeText={setCity} />
+            <Field
+              label="Preferred language"
+              value={language}
+              onChangeText={setLanguage}
+            />
+            <Label>Work types</Label>
+            <View style={styles.wrap}>
+              {GIG_WORK_TYPES.map((value) => (
+                <Choice
+                  key={value}
+                  label={labels[value]}
+                  selected={workTypes.includes(value)}
+                  role="checkbox"
+                  onPress={() => toggleWork(value)}
+                />
+              ))}
+            </View>
+            <Label>Main priority</Label>
+            <View style={styles.stack}>
+              {GIG_PRIORITIES.map((value) => (
+                <Choice
+                  key={value}
+                  label={labels[value]}
+                  selected={priority === value}
+                  role="radio"
+                  onPress={() => setPriority(value)}
+                />
+              ))}
+            </View>
+          </Card>
+        </>
+      )}
+      {step === 1 && (
+        <>
+          <Text accessibilityRole="header" style={ui.h1}>
+            Map your income range.
+          </Text>
+          <Text style={ui.body}>
+            We use a range because future gig income is an estimate, never a
+            promise.
+          </Text>
+          <Card>
+            <Field
+              label="Income source"
+              value={sourceName}
+              onChangeText={setSourceName}
+              placeholder="Swiggy, Rapido, clients…"
+            />
+            <Field
+              label="Low-week earnings"
+              value={low}
+              onChangeText={setLow}
+              keyboardType="decimal-pad"
+            />
+            <Field
+              label="Typical-week earnings"
+              value={typical}
+              onChangeText={setTypical}
+              keyboardType="decimal-pad"
+            />
+            <Field
+              label="Good-week earnings"
+              value={good}
+              onChangeText={setGood}
+              keyboardType="decimal-pad"
+            />
+            {!weeklyOrderValid && (
+              <Text accessibilityRole="alert" style={styles.error}>
+                Use a realistic low ≤ typical ≤ good range.
+              </Text>
+            )}
+            <DateField
+              label="Next expected payout"
+              value={payoutDate}
+              onChange={(value) => value && setPayoutDate(value)}
+            />
+            <Text style={ui.small}>
+              Manual source · Prototype plan. No account is connected.
+            </Text>
+          </Card>
+        </>
+      )}
+      {step === 2 && (
+        <>
+          <Text accessibilityRole="header" style={ui.h1}>
+            Protect the cost of working.
+          </Text>
+          <Text style={ui.body}>
+            Fuel, platform deductions, and equipment costs reduce what you truly
+            take home.
+          </Text>
+          <Card>
+            <Field
+              label="Typical workdays each week"
+              value={workDays}
+              onChangeText={setWorkDays}
+              keyboardType="number-pad"
+            />
+            <Field
+              label="Platform deductions (%)"
+              value={deduction}
+              onChangeText={setDeduction}
+              keyboardType="decimal-pad"
+            />
+            <Field
+              label="Weekly work costs"
+              value={workCosts}
+              onChangeText={setWorkCosts}
+              keyboardType="decimal-pad"
+            />
+            <Field
+              label="Current available balance"
+              value={balance}
+              onChangeText={setBalance}
+              keyboardType="decimal-pad"
+            />
+            <Field
+              label="Current emergency cushion"
+              value={cushion}
+              onChangeText={setCushion}
+              keyboardType="decimal-pad"
+            />
+            <Field
+              label="Minimum safety buffer"
+              value={safetyBuffer}
+              onChangeText={setSafetyBuffer}
+              keyboardType="decimal-pad"
+            />
+          </Card>
+        </>
+      )}
+      {step === 3 && (
+        <>
+          <Text accessibilityRole="header" style={ui.h1}>
+            Add the next essential.
+          </Text>
+          <Text style={ui.body}>
+            SuperFinz protects fixed commitments before showing flexible money.
+          </Text>
+          <Card>
+            <Field
+              label="Commitment"
+              value={commitmentName}
+              onChangeText={setCommitmentName}
+              placeholder="Rent"
+            />
+            <Field
+              label="Amount"
+              value={commitmentAmount}
+              onChangeText={setCommitmentAmount}
+              keyboardType="decimal-pad"
+            />
+            <DateField
+              label="Next due date"
+              value={commitmentDate}
+              onChange={(value) => value && setCommitmentDate(value)}
+            />
+            <View style={styles.essential}>
+              <Label>Essential · monthly · manual payment</Label>
+            </View>
+          </Card>
+        </>
+      )}
+      {step === 4 && (
+        <>
+          <Text accessibilityRole="header" style={ui.h1}>
+            Give every payout a job.
+          </Text>
+          <Text style={ui.body}>
+            Review the suggested rule. This prototype saves a planned
+            allocation; it does not move real money.
+          </Text>
+          <Card>
+            {splitFields.map(([key, label]) => (
+              <Field
+                key={key}
+                label={`${label} (%)`}
+                value={split[key]}
+                onChangeText={(value) =>
+                  setSplit((current) => ({ ...current, [key]: value }))
+                }
+                keyboardType="decimal-pad"
+              />
+            ))}
+            <View style={styles.total}>
+              <Label>Total allocation</Label>
+              <Text
+                style={[
+                  styles.totalValue,
+                  splitTotal !== 100 && { color: colors.red },
+                ]}
+              >
+                {splitTotal}%
+              </Text>
+            </View>
+            {splitTotal === 100 && (
+              <View style={styles.preview}>
+                <View>
+                  <Label>Sample payout</Label>
+                  <Money value={Number(typical)} />
+                </View>
+                <View>
+                  <Label>Flexible share</Label>
+                  <Money
+                    value={(Number(typical) * Number(split.flexiblePct)) / 100}
+                  />
+                </View>
+              </View>
+            )}
+            <Choice
+              label="I confirm this planned Smart Split rule"
+              selected={confirmed}
+              role="checkbox"
+              onPress={() => setConfirmed((value) => !value)}
+            />
+            {!confirmed && (
+              <Text accessibilityRole="alert" style={styles.error}>
+                Confirm the Smart Split rule to enable “Build my plan”.
+              </Text>
+            )}
+          </Card>
+          <Card style={{ backgroundColor: colors.accentSoft }}>
+            <Label>Review</Label>
+            <Text style={ui.body}>
+              {workTypes.map((item) => labels[item]).join(", ")} in {city}
+              {`\n`}Weekly estimate: ₹{Number(low).toLocaleString("en-IN")}–₹
+              {Number(good).toLocaleString("en-IN")}
+              {`\n`}Next essential: {commitmentName} · ₹
+              {Number(commitmentAmount).toLocaleString("en-IN")}
+              {`\n`}No real bank account or transfer is created.
+            </Text>
+          </Card>
+        </>
+      )}
+      <View style={styles.actions}>
+        {step > 0 && (
+          <View style={{ flex: 1 }}>
+            <Button
+              title="Back"
+              tone="quiet"
+              disabled={saving}
+              onPress={() => setStep((value) => value - 1)}
+            />
+          </View>
+        )}
+        <View style={{ flex: 1 }}>
+          <Button
+            title={step === 4 ? "Build my plan" : "Continue"}
+            loading={saving}
+            disabled={!stepValid}
+            onPress={step === 4 ? submit : () => setStep((value) => value + 1)}
+          />
+        </View>
+      </View>
+    </Screen>
+  );
 }
 
-function Choice({ label, selected, role, onPress }: { label: string; selected: boolean; role: "checkbox" | "radio"; onPress: () => void }) { return <Pressable accessibilityRole={role} accessibilityState={{ checked: selected }} accessibilityLabel={label} onPress={onPress} style={({ pressed }) => [styles.choice, selected && styles.choiceActive, pressed && styles.pressed]}><Text style={[styles.choiceText, selected && { color: colors.white }]}>{selected ? "✓ " : ""}{label}</Text></Pressable>; }
-const styles = StyleSheet.create({ top: { flexDirection: "row", gap: 12, alignItems: "center" }, wrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 }, stack: { gap: 8 }, choice: { minHeight: 48, borderWidth: 2, borderColor: colors.ink, backgroundColor: colors.paper, paddingHorizontal: 12, alignItems: "center", justifyContent: "center" }, choiceActive: { backgroundColor: colors.ink }, choiceText: { color: colors.ink, fontWeight: "900", fontSize: 12, textTransform: "uppercase", textAlign: "center" }, pressed: { opacity: .6 }, error: { color: colors.red, fontWeight: "800", lineHeight: 20 }, essential: { padding: 12, backgroundColor: colors.greenSoft, borderWidth: 2, borderColor: colors.ink }, total: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" }, totalValue: { fontSize: 24, color: colors.green, fontWeight: "900", fontVariant: ["tabular-nums"] }, preview: { flexDirection: "row", justifyContent: "space-between", gap: 12, backgroundColor: colors.paper, padding: 12, borderWidth: 2, borderColor: colors.ink }, actions: { flexDirection: "row", gap: 10 } });
+function Choice({
+  label,
+  selected,
+  role,
+  onPress,
+}: {
+  label: string;
+  selected: boolean;
+  role: "checkbox" | "radio";
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole={role}
+      accessibilityState={{ checked: selected }}
+      accessibilityLabel={label}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.choice,
+        selected && styles.choiceActive,
+        pressed && styles.pressed,
+      ]}
+    >
+      <Text style={[styles.choiceText, selected && { color: colors.white }]}>
+        {selected ? "✓ " : ""}
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+const styles = StyleSheet.create({
+  top: { flexDirection: "row", gap: 12, alignItems: "center" },
+  wrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  stack: { gap: 8 },
+  choice: {
+    minHeight: 48,
+    borderWidth: 2,
+    borderColor: colors.border,
+    backgroundColor: colors.paper,
+    paddingHorizontal: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  choiceActive: { backgroundColor: colors.actionStrong },
+  choiceText: {
+    color: colors.ink,
+    fontWeight: "900",
+    fontSize: 12,
+    textTransform: "uppercase",
+    textAlign: "center",
+  },
+  pressed: { opacity: 0.6 },
+  error: { color: colors.red, fontWeight: "800", lineHeight: 20 },
+  essential: {
+    padding: 12,
+    backgroundColor: colors.greenSoft,
+    borderWidth: 2,
+    borderColor: colors.border,
+  },
+  total: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  totalValue: {
+    fontSize: 24,
+    color: colors.green,
+    fontWeight: "900",
+    fontVariant: ["tabular-nums"],
+  },
+  preview: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 12,
+    backgroundColor: colors.paper,
+    padding: 12,
+    borderWidth: 2,
+    borderColor: colors.border,
+  },
+  actions: { flexDirection: "row", gap: 10 },
+});

@@ -19,6 +19,16 @@ const geistMono = Geist_Mono({
 const gatwick = localFont({
   src: [
     {
+      path: "../../public/Gatwick/Gatwick-Ultralight.otf",
+      weight: "200",
+      style: "normal",
+    },
+    {
+      path: "../../public/Gatwick/Gatwick-Light.otf",
+      weight: "300",
+      style: "normal",
+    },
+    {
       path: "../../public/Gatwick/Gatwick-Regular.otf",
       weight: "400",
       style: "normal",

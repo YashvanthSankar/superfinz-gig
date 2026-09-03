@@ -1,443 +1,289 @@
 import Link from "next/link";
+import { IncomeMorph } from "@/components/landing/income-morph";
+import { Phone } from "@/components/landing/phone";
+import { Reveal } from "@/components/landing/reveal";
 import {
-  Apple,
-  ArrowRight,
-  Bike,
-  BriefcaseBusiness,
-  CalendarCheck,
-  Check,
-  Car,
-  CircleGauge,
-  IndianRupee,
-  LockKeyhole,
-  Package,
-  ReceiptText,
-  ShieldCheck,
-  Smartphone,
-  Sparkles,
-  TrendingDown,
-  Utensils,
-  WalletCards,
-  Zap,
-} from "lucide-react";
+  BILLS,
+  BILLS_TOTAL,
+  DAILY_INCOME,
+  MONTH_TOTAL,
+  inr,
+} from "@/components/landing/landing-data";
 import styles from "./page.module.css";
+
+const sources = ["Zomato", "Swiggy", "Cash", "Rain day", "Uber", "Zomato", "Swiggy", "Cash", "Uber", "Rain day"];
+const ticker = DAILY_INCOME.slice(0, 10).map((amount, i) => ({
+  day: i + 1,
+  source: sources[i],
+  amount,
+}));
+
+const steps = [
+  {
+    title: "Log the payout",
+    body: "Add each settlement in seconds. UPI, cash, or platform, it all counts the same.",
+  },
+  {
+    title: "It gets split",
+    body: "Rent, EMI, fuel, safety cushion, savings, spend. You see the split before you confirm, and you can change it.",
+  },
+  {
+    title: "You get one number",
+    body: "Safe to spend, today and this week. Everything above it is already promised somewhere.",
+  },
+  {
+    title: "Ask the coach",
+    body: "Plain-language answers built on your real pattern. “Can I take Sunday off?” gets a number, not a lecture.",
+  },
+];
 
 const problems = [
   {
-    icon: TrendingDown,
-    stat: "₹0 → ₹1,800",
-    title: "Income swings every day",
-    body: "A rainy Tuesday pays nothing. A festival weekend pays triple. Platform payouts, UPI, and cash all land on different days.",
+    title: "Income arrives in pieces.",
+    body: "Weekday settlements, weekend surges, rain days at zero. UPI, cash and platform payouts all land on different days.",
   },
   {
-    icon: CalendarCheck,
-    stat: "Due on the 5th",
-    title: "Bills never swing",
-    body: "Rent, EMI, electricity, school fees. They arrive on a fixed date whether the week was good or not.",
+    title: "Bills arrive as one block.",
+    body: "Rent on the 5th is three times your best day. EMI, electricity and school fees follow whether the week was good or not.",
   },
   {
-    icon: BriefcaseBusiness,
-    stat: "Fuel, fees, repairs",
-    title: "Earning costs money",
-    body: "A flat tyre or an empty tank means no income tomorrow. Work costs get mixed with personal spending and vanish.",
+    title: "Earning has its own costs.",
+    body: "A flat tyre or an empty tank means no income tomorrow. Work money and home money share one wallet and vanish together.",
   },
 ];
 
-const solution = [
-  {
-    icon: CircleGauge,
-    title: "One safe-to-spend number",
-    body: "Open the app, see exactly what you can spend today after every bill and work cost is protected. No spreadsheets. No guessing.",
-  },
-  {
-    icon: IndianRupee,
-    title: "Auto-split every payout",
-    body: "Each settlement is divided across bills, work costs, a safety buffer, savings, and spending. Set once, runs forever.",
-  },
-  {
-    icon: ReceiptText,
-    title: "Bill shield",
-    body: "Upcoming essentials are reserved before their due date. Money for rent is locked away before it can leak.",
-  },
-  {
-    icon: Sparkles,
-    title: "A coach that knows gig work",
-    body: "Ask in plain language. Get straight answers built on your actual income pattern, not generic advice.",
-  },
+const appFacts = [
+  { k: "5 sec", v: "to log a payout" },
+  { k: "Offline", v: "works without signal, syncs later" },
+  { k: "8:00 am", v: "reminder the day before every due date" },
+  { k: "0", v: "loans pushed at you" },
 ];
 
-const workers = [
-  { icon: Bike, label: "Delivery riders" },
-  { icon: Car, label: "Cab drivers" },
-  { icon: Package, label: "Couriers" },
-  { icon: Utensils, label: "Food partners" },
-  { icon: Smartphone, label: "Freelancers" },
-  { icon: Zap, label: "Daily-wage pros" },
-];
+/* Mirrored chart geometry. One rupee scale for both halves so the size difference is honest. */
+const CW = 1000;
+const AXIS = 130;
+const UNIT = 35; // rupees per SVG unit
+const COLS = DAILY_INCOME.length;
+const PADX = 8;
+const GAP = 6;
+const BW = (CW - PADX * 2 - GAP * (COLS - 1)) / COLS;
+const CH = AXIS + Math.round(9000 / UNIT) + 70;
+const colX = (day: number) => PADX + (day - 1) * (BW + GAP);
 
-const marquee = [
-  "Safe to spend",
-  "Bill shield",
-  "Payout split",
-  "Work-cost pocket",
-  "Safety buffer",
-  "Gig coach",
-  "iOS",
-  "Android",
-];
+function StoreBadges({ tone }: { tone: "onNavy" | "onPaper" }) {
+  return (
+    <div className={`${styles.badges} ${tone === "onNavy" ? styles.badgesNavy : ""}`}>
+      <a href="#app" className={styles.badge}>
+        <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path fill="currentColor" d="M16.4 12.6c0-2.5 2-3.7 2.1-3.8-1.2-1.7-3-1.9-3.6-2-1.5-.2-3 .9-3.8.9-.8 0-2-.9-3.3-.9-1.7 0-3.3 1-4.2 2.5-1.8 3.1-.5 7.7 1.3 10.2.9 1.2 1.9 2.6 3.2 2.6 1.3-.1 1.8-.8 3.3-.8s2 .8 3.3.8c1.4 0 2.2-1.3 3-2.5 1-1.4 1.4-2.8 1.4-2.9-.1 0-2.7-1-2.7-4.1zM14 5.3c.7-.8 1.1-2 1-3.1-1 0-2.2.7-2.9 1.5-.6.7-1.2 1.9-1 3 1.1.1 2.2-.6 2.9-1.4z"/></svg>
+        <span><small>Download on the</small>App Store</span>
+      </a>
+      <a href="#app" className={styles.badge}>
+        <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path fill="currentColor" d="M3.6 2.4c-.3.3-.4.7-.4 1.2v16.8c0 .5.1.9.4 1.2l.1.1L13 12.3v-.2L3.7 2.3l-.1.1z"/><path fill="currentColor" opacity=".8" d="M16.1 15.5 13 12.3v-.2l3.1-3.1.1.1 3.7 2.1c1.1.6 1.1 1.6 0 2.2l-3.7 2.1h-.1z"/><path fill="currentColor" opacity=".6" d="M16.2 15.4 13 12.2 3.6 21.6c.4.4.9.4 1.6 0l11-6.2z"/><path fill="currentColor" opacity=".9" d="M16.2 8.9 5.2 2.7c-.7-.4-1.2-.3-1.6 0L13 12.2l3.2-3.3z"/></svg>
+        <span><small>Get it on</small>Google Play</span>
+      </a>
+    </div>
+  );
+}
 
 export default function LandingPage() {
   return (
     <main className={styles.page}>
-      <a className={styles.skipLink} href="#main-content">
-        Skip to main content
-      </a>
-
-      <div className={styles.bgGlowA} aria-hidden="true" />
-      <div className={styles.bgGlowB} aria-hidden="true" />
-      <div className={styles.bgGrid} aria-hidden="true" />
+      <Reveal />
+      <a className={styles.skipLink} href="#main-content">Skip to main content</a>
 
       <header className={styles.header}>
         <nav className={styles.nav} aria-label="Main navigation">
-          <Link href="/" className={styles.brand} aria-label="SuperFinz home">
-            <span className={styles.brandMark}>S</span>
-            <span>SuperFinz</span>
-          </Link>
-          <div className={styles.navLinks}>
-            <a href="#problem">Problem</a>
-            <a href="#solution">Solution</a>
-            <a href="#app">The app</a>
-          </div>
+          <Link href="/" className={styles.wordmark}>SuperFinz</Link>
+          <ul className={styles.navLinks}>
+            <li><a href="#problem">Problem</a></li>
+            <li><a href="#how">How it works</a></li>
+            <li><a href="#app">The app</a></li>
+          </ul>
           <div className={styles.navActions}>
-            <Link href="/login" className={styles.signInLink}>
-              Sign in
-            </Link>
-            <Link href="/demo" className={styles.navCta}>
-              Try the demo
-              <ArrowRight size={16} aria-hidden="true" />
-            </Link>
+            <a href="#app" className={styles.navButton}>Get the app</a>
           </div>
         </nav>
       </header>
 
       <div id="main-content">
-        {/* HERO */}
-        <section className={styles.hero}>
-          <div className={styles.heroCopy}>
-            <div className={styles.pill}>
-              <span className={styles.pillDot} />
-              Now on iOS &amp; Android
-            </div>
-            <h1 className={styles.heroTitle}>
-              A salary layer
-              <br />
-              for people
-              <br />
-              <span className={styles.heroGradient}>without salaries.</span>
-            </h1>
-            <p className={styles.heroLead}>
-              SuperFinz turns unpredictable gig income into one calm number you
-              can trust every morning. Bills protected. Work costs covered. Spend
-              the rest without fear.
-            </p>
-            <div className={styles.heroActions}>
-              <a href="#app" className={styles.storeButton}>
-                <Apple size={22} aria-hidden="true" />
-                <span>
-                  <small>Download on the</small>
-                  App Store
-                </span>
-              </a>
-              <a href="#app" className={styles.storeButton}>
-                <PlayIcon />
-                <span>
-                  <small>Get it on</small>
-                  Google Play
-                </span>
-              </a>
-              <Link href="/demo" className={styles.ghostButton}>
-                Open web demo
-                <ArrowRight size={16} aria-hidden="true" />
-              </Link>
-            </div>
-            <ul className={styles.heroProof}>
-              <li>
-                <Check size={14} aria-hidden="true" /> Built for Indian gig
-                workers
-              </li>
-              <li>
-                <Check size={14} aria-hidden="true" /> Works with UPI, cash &amp;
-                platform payouts
-              </li>
-              <li>
-                <Check size={14} aria-hidden="true" /> Free to start
-              </li>
-            </ul>
-          </div>
-
-          <div className={styles.heroVisual} aria-hidden="true">
-            <div className={styles.phone}>
-              <div className={styles.phoneNotch} />
-              <div className={styles.phoneScreen}>
-                <div className={styles.screenTop}>
-                  <span>Good morning, Ravi</span>
-                  <span className={styles.screenBadge}>Tue</span>
-                </div>
-                <div className={styles.screenSafe}>
-                  <small>Safe to spend today</small>
-                  <strong>₹640</strong>
-                  <em>after ₹3,200 protected</em>
-                </div>
-                <div className={styles.screenRow}>
-                  <span>Rent · 5 Sep</span>
-                  <b className={styles.ok}>Reserved</b>
-                </div>
-                <div className={styles.screenRow}>
-                  <span>Bike EMI · 8 Sep</span>
-                  <b className={styles.ok}>Reserved</b>
-                </div>
-                <div className={styles.screenRow}>
-                  <span>Fuel pocket</span>
-                  <b>₹1,100</b>
-                </div>
-                <div className={styles.screenRow}>
-                  <span>Safety buffer</span>
-                  <b>₹2,450</b>
-                </div>
-                <div className={styles.screenBar}>
-                  <i style={{ width: "62%" }} />
-                </div>
-                <div className={styles.screenCoach}>
-                  <Sparkles size={12} aria-hidden="true" />
-                  Payout of ₹2,900 landed. Split it?
-                </div>
-              </div>
-            </div>
-            <div className={`${styles.floatCard} ${styles.floatA}`}>
-              <ShieldCheck size={16} aria-hidden="true" />
-              Rent locked in
-            </div>
-            <div className={`${styles.floatCard} ${styles.floatB}`}>
-              <IndianRupee size={16} aria-hidden="true" />
-              Payout split in 1 tap
-            </div>
-            <div className={`${styles.floatCard} ${styles.floatC}`}>
-              <CircleGauge size={16} aria-hidden="true" />
-              Safe number updated
-            </div>
-          </div>
-        </section>
-
-        {/* MARQUEE */}
-        <div className={styles.marquee} aria-hidden="true">
-          <div className={styles.marqueeTrack}>
-            {[...marquee, ...marquee].map((item, i) => (
-              <span key={`${item}-${i}`}>
-                {item}
-                <i>✦</i>
-              </span>
-            ))}
-          </div>
-        </div>
-
-        {/* WHO */}
-        <section className={styles.who}>
-          <p className={styles.whoTitle}>Made for the people who keep India moving</p>
-          <ul className={styles.whoList}>
-            {workers.map(({ icon: Icon, label }) => (
-              <li key={label}>
-                <Icon size={18} aria-hidden="true" />
-                {label}
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        {/* PROBLEM */}
-        <section id="problem" className={styles.section}>
-          <div className={styles.sectionHead}>
-            <span className={styles.eyebrow}>The problem</span>
-            <h2>
-              Irregular income. <span className={styles.strike}>Regular</span>{" "}
-              <span className={styles.heroGradient}>relentless</span> bills.
-            </h2>
-            <p>
-              Over 12 million gig workers in India earn a different amount every
-              single day. Every budgeting app assumes a salary. So none of them
-              work.
-            </p>
-          </div>
-          <div className={styles.grid3}>
-            {problems.map(({ icon: Icon, stat, title, body }) => (
-              <article key={title} className={styles.problemCard}>
-                <div className={styles.cardIcon}>
-                  <Icon size={20} aria-hidden="true" />
-                </div>
-                <span className={styles.cardStat}>{stat}</span>
-                <h3>{title}</h3>
-                <p>{body}</p>
-              </article>
-            ))}
-          </div>
-          <div className={styles.problemPunch}>
-            <WalletCards size={20} aria-hidden="true" />
-            <p>
-              The result: a good week gets spent, a bad week borrows, and rent is
-              always a surprise. <strong>That is the problem we kill.</strong>
-            </p>
-          </div>
-        </section>
-
-        {/* SOLUTION */}
-        <section id="solution" className={`${styles.section} ${styles.sectionSolution}`}>
-          <div className={styles.sectionHead}>
-            <span className={styles.eyebrow}>The solution</span>
-            <h2>
-              We turn every payout into a{" "}
-              <span className={styles.heroGradient}>paycheck.</span>
-            </h2>
-            <p>
-              SuperFinz sits between your earnings and your spending. Money comes
-              in messy. It goes out planned.
-            </p>
-          </div>
-          <div className={styles.grid4}>
-            {solution.map(({ icon: Icon, title, body }, i) => (
-              <article key={title} className={styles.solutionCard}>
-                <span className={styles.stepNum}>0{i + 1}</span>
-                <div className={styles.cardIcon}>
-                  <Icon size={20} aria-hidden="true" />
-                </div>
-                <h3>{title}</h3>
-                <p>{body}</p>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        {/* APP */}
-        <section id="app" className={styles.appSection}>
-          <div className={styles.appInner}>
-            <div className={styles.appCopy}>
-              <span className={styles.eyebrow}>Native iOS &amp; Android app</span>
-              <h2>
-                Sleek. Fast.
-                <br />
-                Built for one-handed use
-                <br />
-                between rides.
-              </h2>
-              <ul className={styles.appList}>
-                <li>
-                  <Check size={16} aria-hidden="true" />
-                  Log a payout in under 5 seconds
-                </li>
-                <li>
-                  <Check size={16} aria-hidden="true" />
-                  Dark mode, offline-first, low-data
-                </li>
-                <li>
-                  <Check size={16} aria-hidden="true" />
-                  Reminders before every due date
-                </li>
-                <li>
-                  <Check size={16} aria-hidden="true" />
-                  Plain-language coach, no jargon
-                </li>
-              </ul>
-              <div className={styles.heroActions}>
-                <a href="#app" className={styles.storeButton}>
-                  <Apple size={22} aria-hidden="true" />
-                  <span>
-                    <small>Download on the</small>
-                    App Store
-                  </span>
-                </a>
-                <a href="#app" className={styles.storeButton}>
-                  <PlayIcon />
-                  <span>
-                    <small>Get it on</small>
-                    Google Play
-                  </span>
-                </a>
-              </div>
-              <p className={styles.appNote}>
-                <LockKeyhole size={14} aria-hidden="true" />
-                Your data stays yours. No lending, no selling, no spam.
+        {/* ============ HERO ============ */}
+        <section className={`${styles.band} ${styles.navy} ${styles.hero}`}>
+          <div className={`${styles.container} ${styles.heroGrid}`}>
+            <div className={styles.heroCopy}>
+              <p className={styles.eyebrow}>Now on iOS and Android</p>
+              <h1 className={styles.h1}>
+                <span>Every payout,</span>
+                <span className={styles.h1Light}>a paycheck.</span>
+              </h1>
+              <p className={styles.lead}>
+                SuperFinz is the salary layer for India&rsquo;s gig workers. It takes the money you
+                actually earned this week, from UPI, cash and platform settlements, and turns it into
+                one number you can safely spend today. Rent, EMI and fuel are already set aside.
+              </p>
+              <StoreBadges tone="onNavy" />
+              <p className={styles.heroMeta}>
+                <span>Free to start</span>
+                <span aria-hidden="true">·</span>
+                <span>No lending</span>
+                <span aria-hidden="true">·</span>
+                <span>Built in India</span>
               </p>
             </div>
-            <div className={styles.appPhones} aria-hidden="true">
-              <div className={`${styles.miniPhone} ${styles.miniA}`}>
-                <div className={styles.miniHead}>Split payout</div>
-                <div className={styles.miniAmount}>₹2,900</div>
-                <div className={styles.miniRow}><span>Bills</span><b>₹1,200</b></div>
-                <div className={styles.miniRow}><span>Work</span><b>₹500</b></div>
-                <div className={styles.miniRow}><span>Safety</span><b>₹400</b></div>
-                <div className={styles.miniRow}><span>Savings</span><b>₹300</b></div>
-                <div className={styles.miniRow}><span>Spend</span><b>₹500</b></div>
-                <div className={styles.miniBtn}>Confirm split</div>
-              </div>
-              <div className={`${styles.miniPhone} ${styles.miniB}`}>
-                <div className={styles.miniHead}>This week</div>
-                <div className={styles.miniBars}>
-                  {[40, 70, 30, 90, 55, 80, 65].map((h, i) => (
-                    <i key={i} style={{ height: `${h}%` }} />
-                  ))}
-                </div>
-                <div className={styles.miniRow}><span>Earned</span><b>₹6,340</b></div>
-                <div className={styles.miniRow}><span>Protected</span><b className={styles.ok}>₹3,200</b></div>
-                <div className={styles.miniRow}><span>Safe</span><b>₹640/day</b></div>
-              </div>
+            <div className={styles.heroVisual}>
+              <Phone screen="today" className={styles.heroPhone} />
             </div>
           </div>
         </section>
 
-        {/* CTA */}
-        <section className={styles.cta}>
-          <h2>
-            Stop guessing.
-            <br />
-            Start every day with one safe number.
-          </h2>
-          <div className={styles.heroActions}>
-            <Link href="/demo" className={styles.primaryButton}>
-              Try the live demo
-              <ArrowRight size={18} aria-hidden="true" />
-            </Link>
-            <a href="#app" className={styles.ghostButton}>
-              Get the app
-            </a>
+        {/* ============ TICKER ============ */}
+        <section className={`${styles.band} ${styles.navy} ${styles.tickerBand}`} aria-label="Example month of settlements">
+          <div className={styles.ticker}>
+            <ul className={styles.tickerTrack}>
+              {[...ticker, ...ticker].map((t, i) => (
+                <li key={`${t.day}-${i}`} aria-hidden={i >= ticker.length}>
+                  <span className={styles.tickerDay}>{t.day} Sep</span>
+                  <span>{t.source}</span>
+                  <span className={t.amount === 0 ? styles.tickerZero : styles.tickerAmt}>{inr(t.amount)}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+
+        {/* ============ PROBLEM ============ */}
+        <section id="problem" className={`${styles.band} ${styles.paper}`}>
+          <div className={styles.container}>
+            <div className={styles.sectionHead} data-reveal>
+              <p className={styles.eyebrow}>The problem</p>
+              <h2 className={styles.h2}>
+                Budgeting apps assume a salary.
+                <br />
+                7.7 million Indian gig workers don&rsquo;t have one.
+              </h2>
+              <p className={styles.sub}>
+                NITI Aayog counts 7.7 million gig workers in India and expects 23.5 million by 2030.
+                Every one of them earns a different amount every day and pays the same bills every
+                month. Here is one real-looking month for a delivery partner.
+              </p>
+            </div>
+
+            <figure className={styles.chart} data-reveal>
+              <svg viewBox={`0 0 ${CW} ${CH}`} className={styles.chartSvg} role="img" aria-label={`Thirty days of earnings totalling ${inr(MONTH_TOTAL)} drawn above the line, and ${inr(BILLS_TOTAL)} of bills drawn below it on the same scale. Rent alone is taller than any day of income.`}>
+                {DAILY_INCOME.map((v, i) => (
+                  <rect key={`in-${i}`} x={colX(i + 1)} width={BW} y={AXIS - v / UNIT} height={v / UNIT} fill="var(--accent)" rx={1.5} />
+                ))}
+                {BILLS.map((b) => (
+                  <g key={b.name}>
+                    <rect x={colX(b.day)} width={BW} y={AXIS} height={b.amount / UNIT} fill="var(--ink)" rx={1.5} />
+                    <text x={colX(b.day)} y={AXIS + b.amount / UNIT + 20} className={styles.chartLabel}>{b.name}</text>
+                    <text x={colX(b.day)} y={AXIS + b.amount / UNIT + 38} className={styles.chartLabelStrong}>{inr(b.amount)}</text>
+                  </g>
+                ))}
+                <line x1={0} x2={CW} y1={AXIS} y2={AXIS} stroke="var(--rule-strong)" />
+                <text x={colX(14)} y={AXIS - 2750 / UNIT - 10} className={styles.chartLabel} textAnchor="middle">best day {inr(2750)}</text>
+                <text x={colX(4) + BW / 2} y={AXIS - 10} className={styles.chartLabel} textAnchor="middle">₹0</text>
+                <text x={PADX} y={AXIS + 16} className={styles.chartLabel}>Income ↑ · Bills ↓</text>
+                <text x={CW - PADX} y={AXIS + 16} className={styles.chartLabel} textAnchor="end">same scale</text>
+              </svg>
+              <ul className={styles.billLegend} aria-hidden="true">
+                {BILLS.map((b) => (
+                  <li key={b.name}><span>{b.name} · {b.day} Sep</span><b>{inr(b.amount)}</b></li>
+                ))}
+              </ul>
+              <figcaption className={styles.chartCaption}>
+                <span>{inr(MONTH_TOTAL)} earned across 30 days.</span>
+                <span>{inr(BILLS_TOTAL)} due on 5 of them.</span>
+              </figcaption>
+            </figure>
+
+            <ul className={styles.threeUp} data-reveal>
+              {problems.map((p) => (
+                <li key={p.title}>
+                  <h3 className={styles.h3}>{p.title}</h3>
+                  <p>{p.body}</p>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+
+        {/* ============ HOW IT WORKS ============ */}
+        <section id="how" className={`${styles.band} ${styles.navy} ${styles.how}`}>
+          <div className={styles.container}>
+            <div className={styles.sectionHead} data-reveal>
+              <p className={styles.eyebrow}>How it works</p>
+              <h2 className={styles.h2}>We smooth the month before you spend it.</h2>
+            </div>
+          </div>
+          <div className={styles.container}>
+            <IncomeMorph />
+          </div>
+          <div className={styles.container}>
+            <ol className={styles.steps} data-reveal>
+              {steps.map((s, i) => (
+                <li key={s.title}>
+                  <span className={styles.stepIndex}>{String(i + 1).padStart(2, "0")}</span>
+                  <h3 className={styles.h3}>{s.title}</h3>
+                  <p>{s.body}</p>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </section>
+
+        {/* ============ THE APP ============ */}
+        <section id="app" className={`${styles.band} ${styles.paper}`}>
+          <div className={`${styles.container} ${styles.appGrid}`}>
+            <div className={styles.appCopy} data-reveal>
+              <p className={styles.eyebrow}>Native iOS and Android</p>
+              <h2 className={styles.h2}>Built for one hand, between rides.</h2>
+              <p className={styles.sub}>
+                Dark mode, offline-first, low-data. Reminders before every due date. Nothing to learn.
+              </p>
+              <dl className={styles.factList}>
+                {appFacts.map((f) => (
+                  <div key={f.v}>
+                    <dt>{f.k}</dt>
+                    <dd>{f.v}</dd>
+                  </div>
+                ))}
+              </dl>
+              <StoreBadges tone="onPaper" />
+            </div>
+            <div className={styles.phones} data-reveal>
+              <Phone screen="split" className={styles.phoneL} />
+              <Phone screen="today" className={styles.phoneC} />
+              <Phone screen="bills" className={styles.phoneR} />
+            </div>
+          </div>
+        </section>
+
+
+        {/* ============ CTA ============ */}
+        <section className={`${styles.band} ${styles.navy} ${styles.cta}`}>
+          <div className={styles.container} data-reveal>
+            <h2 className={styles.h1}>
+              <span>Start tomorrow</span>
+              <span className={styles.h1Light}>with one safe number.</span>
+            </h2>
+            <StoreBadges tone="onNavy" />
           </div>
         </section>
       </div>
 
       <footer className={styles.footer}>
-        <div className={styles.footerInner}>
-          <Link href="/" className={styles.brand} aria-label="SuperFinz home">
-            <span className={styles.brandMark}>S</span>
-            <span>SuperFinz</span>
-          </Link>
-          <div className={styles.footerLinks}>
-            <a href="#problem">Problem</a>
-            <a href="#solution">Solution</a>
-            <a href="#app">App</a>
-            <Link href="/demo">Demo</Link>
-            <Link href="/login">Sign in</Link>
-          </div>
-          <p>© {new Date().getFullYear()} SuperFinz. Financial resilience for irregular earners.</p>
+        <div className={`${styles.container} ${styles.footerGrid}`}>
+          <Link href="/" className={styles.wordmark}>SuperFinz</Link>
+          <ul className={styles.footerLinks}>
+            <li><a href="#problem">Problem</a></li>
+            <li><a href="#how">How it works</a></li>
+            <li><a href="#app">The app</a></li>
+          </ul>
+          <p className={styles.footerNote}>
+            Financial resilience for irregular earners. © {new Date().getFullYear()} SuperFinz.
+          </p>
         </div>
       </footer>
     </main>
-  );
-}
-
-function PlayIcon() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M4 3.5v17l9.5-8.5L4 3.5z" fill="#34a853" />
-      <path d="M4 3.5l9.5 8.5 3-2.7L5.5 3.2A1.2 1.2 0 0 0 4 3.5z" fill="#4285f4" />
-      <path d="M4 20.5l9.5-8.5 3 2.7-11 6.1A1.2 1.2 0 0 1 4 20.5z" fill="#ea4335" />
-      <path d="M13.5 12l3-2.7 3.2 1.8c.9.5.9 1.3 0 1.8l-3.2 1.8-3-2.7z" fill="#fbbc04" />
-    </svg>
   );
 }

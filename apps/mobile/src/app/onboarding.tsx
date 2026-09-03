@@ -59,6 +59,14 @@ const billPresets = [
   "Loan / EMI",
   "Family support",
 ] as const;
+const spendingCategories = [
+  "Rent / home",
+  "Food",
+  "Transport / fuel",
+  "Family support",
+  "Utilities",
+  "Personal spending",
+] as const;
 
 const recurrenceOptions: Array<{
   value: CommitmentRecurrence;
@@ -137,6 +145,11 @@ const steps = [
     help: "Add rent, electricity, gas, school fees, EMIs, or family support. SuperFinz protects these before showing safe spending money.",
   },
   {
+    title: "How should we learn?",
+    subtitle: "Choose your starting pace.",
+    help: "Start with a safe baseline, or let SuperFinz learn from your real entries for 1–2 months before personalising the split.",
+  },
+  {
     title: "Your starter plan",
     subtitle: "Review one simple rule for every payout.",
     help: "This is only a plan. SuperFinz does not move real money. You can change the percentages later.",
@@ -171,6 +184,9 @@ type Draft = {
   billAmount: string;
   billDate: string;
   billRecurrence: CommitmentRecurrence;
+  trackingMode: "START_NOW" | "OBSERVE_LEARN";
+  essentialCategories: string[];
+  hardestToProtect: string;
   confirmed: boolean;
 };
 
@@ -207,6 +223,9 @@ export default function Onboarding() {
   const [balance, setBalance] = useState("");
   const [cushion, setCushion] = useState("");
   const [safetyBuffer, setSafetyBuffer] = useState("");
+  const [trackingMode, setTrackingMode] = useState<"START_NOW" | "OBSERVE_LEARN">("START_NOW");
+  const [essentialCategories, setEssentialCategories] = useState<string[]>(["Rent / home", "Food"]);
+  const [hardestToProtect, setHardestToProtect] = useState("");
   const [bills, setBills] = useState<BillDraft[]>([]);
   const [billName, setBillName] = useState("");
   const [billAmount, setBillAmount] = useState("");
@@ -240,6 +259,7 @@ export default function Onboarding() {
     workCostsValid,
     moneyNowValid,
     true,
+    Boolean(trackingMode),
     confirmed,
   ][step];
   const meta = steps[step];
@@ -265,6 +285,9 @@ export default function Onboarding() {
       billAmount,
       billDate: billDate.toISOString(),
       billRecurrence,
+      trackingMode,
+      essentialCategories,
+      hardestToProtect,
       confirmed,
     }),
     [
@@ -287,6 +310,9 @@ export default function Onboarding() {
       billAmount,
       billDate,
       billRecurrence,
+      trackingMode,
+      essentialCategories,
+      hardestToProtect,
       confirmed,
     ],
   );
@@ -316,6 +342,9 @@ export default function Onboarding() {
         setBillAmount(saved.billAmount ?? "");
         setBillDate(new Date(saved.billDate));
         setBillRecurrence(saved.billRecurrence ?? "MONTHLY");
+        setTrackingMode(saved.trackingMode ?? "START_NOW");
+        setEssentialCategories(saved.essentialCategories ?? ["Rent / home", "Food"]);
+        setHardestToProtect(saved.hardestToProtect ?? "");
         setConfirmed(saved.confirmed);
       })
       .catch(() => undefined)
@@ -423,6 +452,12 @@ export default function Onboarding() {
           splitRule: {
             ...starterSplit,
             enabled: confirmed,
+          },
+          trackingMode,
+          spendingProfile: {
+            essentialCategories,
+            flexibleCategories: [],
+            hardestToProtect: hardestToProtect.trim() || null,
           },
         }),
       });
@@ -698,6 +733,51 @@ export default function Onboarding() {
       )}
 
       {step === 8 && (
+        <>
+          <View style={styles.choiceList}>
+            <Choice
+              label="Start now · use a safe baseline estimate"
+              selected={trackingMode === "START_NOW"}
+              role="radio"
+              onPress={() => setTrackingMode("START_NOW")}
+            />
+            <Choice
+              label="Observe & learn · track quietly for 1–2 months"
+              selected={trackingMode === "OBSERVE_LEARN"}
+              role="radio"
+              onPress={() => setTrackingMode("OBSERVE_LEARN")}
+            />
+          </View>
+          <Card>
+            <Label>Where does essential money usually go?</Label>
+            <View style={styles.wrap}>
+              {spendingCategories.map((category) => (
+                <Choice
+                  key={category}
+                  label={category}
+                  selected={essentialCategories.includes(category)}
+                  role="checkbox"
+                  compact
+                  onPress={() =>
+                    setEssentialCategories((items) =>
+                      items.includes(category)
+                        ? items.filter((item) => item !== category)
+                        : [...items, category],
+                    )
+                  }
+                />
+              ))}
+            </View>
+            <Field
+              label="Hardest expense to protect (optional)"
+              value={hardestToProtect}
+              onChangeText={setHardestToProtect}
+            />
+          </Card>
+        </>
+      )}
+
+      {step === 9 && (
         <>
           <Card>
             <View style={styles.reviewHeader}>

@@ -7,8 +7,24 @@ import {
   deriveGigNotifications,
   recommendAdaptiveSplit,
   simulateGigScenario,
+  validateTabTransaction,
   type GigBundleDto,
 } from "./gig";
+
+test("virtual tab transactions require an unlocked tab with enough funds", () => {
+  assert.deepEqual(
+    validateTabTransaction({ balance: 250, isLocked: false }, 250),
+    { ok: true },
+  );
+  assert.deepEqual(
+    validateTabTransaction({ balance: 250, isLocked: true }, 25),
+    { ok: false, error: "TAB_LOCKED" },
+  );
+  assert.deepEqual(
+    validateTabTransaction({ balance: 25, isLocked: false }, 30),
+    { ok: false, error: "INSUFFICIENT_FUNDS" },
+  );
+});
 
 const now = new Date("2026-09-03T06:00:00.000Z");
 const bundle: GigBundleDto = {

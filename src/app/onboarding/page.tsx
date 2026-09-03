@@ -27,6 +27,14 @@ const labels: Record<string, string> = {
   WORK_EXPENSES: "Work expenses",
   AVOIDING_DEBT: "Avoiding debt",
 };
+const spendingCategories = [
+  "Rent / home",
+  "Food",
+  "Transport / fuel",
+  "Family support",
+  "Utilities",
+  "Personal spending",
+] as const;
 const dateValue = (days: number) =>
   new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
 const initial = {
@@ -54,6 +62,10 @@ const initial = {
   emergency: "10",
   longTerm: "5",
   flexible: "15",
+  trackingMode: "START_NOW" as "START_NOW" | "OBSERVE_LEARN",
+  essentialCategories: ["Rent / home", "Food"] as string[],
+  flexibleCategories: ["Personal spending"] as string[],
+  hardestToProtect: "",
   confirmed: false,
 };
 type Form = typeof initial;
@@ -72,7 +84,7 @@ export default function OnboardingPage() {
     const raw = window.localStorage.getItem("superfinz-onboarding-v3");
     if (raw) {
       try {
-        setForm(JSON.parse(raw) as Form);
+        setForm({ ...initial, ...(JSON.parse(raw) as Partial<Form>) });
       } catch {
         /* ignore invalid local draft */
       }
@@ -112,6 +124,7 @@ export default function OnboardingPage() {
       Number(form.workDays) <= 7 &&
       Number(form.balance) >= 0,
     Boolean(form.commitment.trim() && Number(form.commitmentAmount) > 0),
+    Boolean(form.trackingMode),
     splitTotal === 100 && form.confirmed,
   ][step];
   const submit = async () => {
@@ -169,6 +182,12 @@ export default function OnboardingPage() {
             flexiblePct: Number(form.flexible),
             enabled: true,
           },
+          trackingMode: form.trackingMode,
+          spendingProfile: {
+            essentialCategories: form.essentialCategories,
+            flexibleCategories: form.flexibleCategories,
+            hardestToProtect: form.hardestToProtect.trim() || null,
+          },
         }),
       });
       const body = await response.json().catch(() => ({}));
@@ -196,19 +215,19 @@ export default function OnboardingPage() {
             <Logo size="md" />
             <span className="font-black">SUPERFINZ</span>
           </div>
-          <span className="brut-stamp bg-accent-soft">Step {step + 1} / 5</span>
+          <span className="brut-stamp bg-accent-soft">Step {step + 1} / 6</span>
         </div>
         <div
           className="mt-5 h-3 border-2 border-ink bg-paper-2"
           role="progressbar"
           aria-label="Onboarding progress"
           aria-valuemin={1}
-          aria-valuemax={5}
+          aria-valuemax={6}
           aria-valuenow={step + 1}
         >
           <div
             className="h-full bg-accent transition-[width] duration-200 motion-reduce:transition-none"
-            style={{ width: `${(step + 1) * 20}%` }}
+            style={{ width: `${(step + 1) * 100 / 6}%` }}
           />
         </div>
         <section className="mt-7 brut-card-lg p-5 sm:p-8">
@@ -392,6 +411,21 @@ export default function OnboardingPage() {
           )}
           {step === 4 && (
             <>
+              <Eyebrow>How should we learn?</Eyebrow>
+              <Title>Choose your starting pace.</Title>
+              <Copy>Start with a safe baseline, or let SuperFinz learn from your real entries for 1–2 months before personalising the split.</Copy>
+              <div className="mt-7 grid gap-4">
+                <Choice selected={form.trackingMode === "START_NOW"} onClick={() => set("trackingMode", "START_NOW")}>Start now · use a safe baseline estimate</Choice>
+                <Choice selected={form.trackingMode === "OBSERVE_LEARN"} onClick={() => set("trackingMode", "OBSERVE_LEARN")}>Observe & learn · track quietly for 1–2 months</Choice>
+              </div>
+              <ChoiceGroup label="Where does your essential money usually go?">
+                {spendingCategories.map((category) => <Choice key={category} selected={form.essentialCategories.includes(category)} onClick={() => set("essentialCategories", form.essentialCategories.includes(category) ? form.essentialCategories.filter((item) => item !== category) : [...form.essentialCategories, category])}>{category}</Choice>)}
+              </ChoiceGroup>
+              <Field label="Which expense is hardest to protect? (optional)" value={form.hardestToProtect} onChange={(value) => set("hardestToProtect", value)} />
+            </>
+          )}
+          {step === 5 && (
+            <>
               <Eyebrow>Protection rule</Eyebrow>
               <Title>Give every payout a job.</Title>
               <Copy>
@@ -493,13 +527,13 @@ export default function OnboardingPage() {
             )}
             <button
               onClick={
-                step === 4 ? submit : () => setStep((value) => value + 1)
+                step === 5 ? submit : () => setStep((value) => value + 1)
               }
               disabled={!valid || saving}
               className="brut-btn min-h-12 bg-accent text-paper"
             >
-              {saving ? "Saving…" : step === 4 ? "Build my plan" : "Continue"}
-              {step === 4 ? (
+              {saving ? "Saving…" : step === 5 ? "Build my plan" : "Continue"}
+              {step === 5 ? (
                 <Check aria-hidden size={17} />
               ) : (
                 <ArrowRight aria-hidden size={17} />

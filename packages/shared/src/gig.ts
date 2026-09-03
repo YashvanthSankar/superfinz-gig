@@ -71,6 +71,56 @@ export type CashEntryKind = (typeof CASH_ENTRY_KINDS)[number];
 export type CommitmentRecurrence = (typeof COMMITMENT_RECURRENCES)[number];
 export type PocketKind = (typeof POCKET_KINDS)[number];
 
+export type GigVirtualTabDto = {
+  id: string;
+  userId: string;
+  tabName: string;
+  balance: number;
+  targetAmount?: number | null;
+  priority?: number;
+  isEssential?: boolean;
+  purpose?: string | null;
+  isLocked: boolean;
+  isSystem: boolean;
+  archivedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type TabTransactionError =
+  | "INVALID_AMOUNT"
+  | "TAB_LOCKED"
+  | "INSUFFICIENT_FUNDS";
+
+export function validateTabTransaction(
+  tab: Pick<GigVirtualTabDto, "balance" | "isLocked">,
+  amount: number,
+): { ok: true } | { ok: false; error: TabTransactionError } {
+  if (!Number.isFinite(amount) || amount <= 0)
+    return { ok: false, error: "INVALID_AMOUNT" };
+  if (tab.isLocked) return { ok: false, error: "TAB_LOCKED" };
+  if (tab.balance < amount)
+    return { ok: false, error: "INSUFFICIENT_FUNDS" };
+  return { ok: true };
+}
+
+export const virtualTabInputSchema = z.object({
+  tabName: z.string().trim().min(1).max(60),
+  balance: z.number().finite().nonnegative().max(100_000_000),
+  targetAmount: z.number().finite().nonnegative().max(100_000_000).nullable().optional(),
+  priority: z.number().int().min(1).max(100).optional(),
+  isEssential: z.boolean().optional(),
+  purpose: z.string().trim().max(160).nullable().optional(),
+});
+
+export const virtualTabExpenseInputSchema = z.object({
+  tabId: z.string().trim().min(1),
+  amount: z.number().finite().positive().max(100_000_000),
+  category: z.string().trim().min(1).max(60),
+  note: z.string().trim().max(300).nullable().optional(),
+  idempotencyKey: z.string().trim().min(16).max(120),
+});
+
 export type GigProfileDto = {
   id: string;
   userId: string;
@@ -89,6 +139,12 @@ export type GigProfileDto = {
   currentBalance: number;
   safetyBuffer: number;
   cushionTargetDays: number;
+  trackingMode?: "START_NOW" | "OBSERVE_LEARN";
+  spendingProfile?: {
+    essentialCategories: string[];
+    flexibleCategories: string[];
+    hardestToProtect?: string | null;
+  };
   createdAt: string;
   updatedAt: string;
 };
@@ -198,6 +254,7 @@ export type PayoutSplitDto = {
   afterProtectedDays?: number | null;
   fundedCommitmentIds?: string[];
   fundedCommitments?: Array<{ id: string; amount: number }>;
+  virtualTabAllocations?: Array<{ tabId: string; amount: number }>;
   recommendationReason?: string | null;
   createdAt: string;
 };
@@ -534,6 +591,14 @@ export const gigOnboardingSchema = z
     sources: z.array(gigSourceInputSchema).min(1).max(20),
     commitments: z.array(commitmentInputSchema).max(50),
     splitRule: splitRuleInputSchema,
+    trackingMode: z.enum(["START_NOW", "OBSERVE_LEARN"]).default("START_NOW"),
+    spendingProfile: z
+      .object({
+        essentialCategories: z.array(z.string().trim().min(1).max(40)).max(12),
+        flexibleCategories: z.array(z.string().trim().min(1).max(40)).max(12),
+        hardestToProtect: z.string().trim().max(40).nullable().optional(),
+      })
+      .default({ essentialCategories: [], flexibleCategories: [] }),
   })
   .refine(
     (value) =>

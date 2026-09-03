@@ -144,9 +144,17 @@ When money arrives, SuperFinz recommends how to protect it in this order:
 
 This is not a rigid 50/30/20 split. The recommendation changes with the actual payout, due dates, funded commitments, work needs, and current cushion. The worker reviews and confirms every allocation.
 
-### 4. Shock Simulator
+### 4. Plan Ahead and Slow-week Shield
 
-The worker can ask practical questions before making a decision:
+One focused subpage keeps advanced planning off the everyday dashboard while
+giving the worker four useful tools:
+
+- a conservative 30-day runway with a visible safety floor;
+- true take-home earnings after fuel, fees, data, and other work costs;
+- one-tap slow-week scenarios that recalculate the whole plan; and
+- a private, user-initiated summary to share with family or a counsellor.
+
+The worker can test practical questions before making a decision:
 
 - What if the next payout is late?
 - What if next week's income falls?
@@ -162,6 +170,12 @@ An explainable planning indicator based on controllable financial factors such a
 ### 6. Plan-grounded Money Coach
 
 The coach answers in short, plain language using the worker's saved plan. Financial numbers come from deterministic shared calculations—not from the language model. If AI is unavailable, the app returns a deterministic fallback instead of breaking the experience.
+
+**Omni Coach makes that guidance usable without typing.** The worker can tap
+the microphone, ask a question naturally, see the transcript, receive the same
+plan-grounded answer, and listen to it aloud. Voice is always user-initiated,
+limited to 30 seconds, and never written to the SuperFinz database. Text remains
+visible and fully usable for people who cannot or prefer not to use audio.
 
 ### One engine, one continuous loop
 
@@ -227,7 +241,8 @@ SuperFinz is implemented as a responsive web product and a native Expo applicati
 | **Money** | Record settled income or costs, see true net work earnings, manage income sources, and start a payout plan |
 | **Plan** | Add rent, electricity, gas, education fees, or EMIs; mark them paid; and run shock scenarios |
 | **Safety** | Track protected pockets, cushion days, resilience factors, and responsible-credit guardrails |
-| **Coach** | Ask plain-language questions grounded in the same live plan |
+| **Plan ahead** | See a 30-day runway, true take-home earnings, test a slow week, and privately share a plan summary |
+| **Coach** | Type or speak a question, receive an answer grounded in the same live plan, and listen to it aloud |
 | **Settings** | Control profile, accessibility, alert preferences, split rules, and source consent |
 
 ### Designed for low digital confidence
@@ -428,7 +443,7 @@ The implementation clamps protected money to the current balance, avoids double-
 1. **Experience layer:** workers use the same simple product through Next.js web, native iOS, or native Android. Manual cash and payout entry works today; consented Account Aggregator and platform feeds are the planned scale path.
 2. **Server trust boundary:** authenticated Next.js routes validate requests, enforce ownership, and call one shared TypeScript and Zod decision engine. No database or AI secret is shipped to a client.
 3. **Decision core:** the deterministic engine calculates safe-to-spend, adaptive payout protection, forecasts, shock scenarios, resilience factors, and the next non-credit action. Web, mobile, APIs, and tests use the same contracts.
-4. **Managed services:** Convex stores user-owned financial records and sessions. Google verifies identity. OpenAI can explain a bounded plan in plain language, but it cannot access the database or create financial figures; a deterministic fallback always remains available.
+4. **Managed services:** Convex stores user-owned financial records and sessions. Google verifies identity. OpenAI can explain a bounded plan and transcribe a short, user-initiated voice question, but it cannot access the database or create financial figures; a deterministic fallback always remains available. Speech output uses the device's accessibility-friendly voice service.
 5. **Closed resilience loop:** each settled payout or cost triggers the same sequence—observe, protect, calculate, prepare, explain, confirm, and learn—so every product surface stays synchronized.
 
 **Use the diagram:** [edit in Excalidraw](docs/architecture/superfinz-full-architecture.excalidraw) · [download SVG for decks](docs/architecture/superfinz-full-architecture.svg) · [download PNG](docs/architecture/superfinz-full-architecture.png)
@@ -450,7 +465,7 @@ flowchart TB
 
     API --> AUTH[Web + native session validation]
     API --> ENGINE[Shared TypeScript decision engine]
-    API --> COACH[OpenAI Responses API<br/>with deterministic fallback]
+    API --> COACH[OpenAI Responses + transcription APIs<br/>with deterministic fallback]
     API --> STORE[Server-only Convex adapter]
     STORE --> DB[(Convex database)]
 
@@ -468,7 +483,7 @@ flowchart TB
 | Database | Convex | Users, sessions, gig profiles, ledger, commitments, pockets, sources, rules, splits, preferences, outcomes |
 | Web auth | NextAuth | Google OAuth and secure web session cookie |
 | Native auth | Google Sign-In, JWT, SecureStore | Short access token and rotating refresh session |
-| Coach | OpenAI Responses API | Plain-language explanation of server-supplied plan data |
+| Coach | OpenAI Responses + transcription APIs, device TTS | Plan-grounded explanations with optional voice input and spoken output |
 
 ### Security boundaries
 
@@ -476,6 +491,7 @@ flowchart TB
 - Every protected query and mutation validates the signed-in user and record ownership.
 - Native refresh tokens are random, hashed at rest, rotated on use, revocable, and stored on-device with SecureStore.
 - The AI coach receives a bounded plan summary rather than database credentials or unrestricted records.
+- Voice recording starts only after a microphone tap, is capped at 30 seconds, is sent through an authenticated server route for transcription, and is not stored by SuperFinz.
 - Secrets must never use `NEXT_PUBLIC_` or `EXPO_PUBLIC_` prefixes.
 
 ## Repository map
@@ -503,6 +519,7 @@ The running application reads and writes Convex. Legacy PostgreSQL tables remain
 | `/onboarding` | Irregular-income setup |
 | `/dashboard` | Today and safe-to-spend |
 | `/dashboard/income` | Cashbook, sources, and payout plan |
+| `/dashboard/insights` | 30-day runway, true earnings, Slow-week Shield, and private summary |
 | `/dashboard/plan` | Commitments, forecast, and scenarios |
 | `/dashboard/safety` | Pockets, resilience, and credit guardrails |
 | `/dashboard/coach` | Plan-grounded money coach |
@@ -551,7 +568,7 @@ npm run mobile:android
 
 For a physical phone, `EXPO_PUBLIC_API_URL` must be a reachable LAN or HTTPS address. For the local iOS simulator, `http://127.0.0.1:3000` works when Next.js runs on port 3000. Native OAuth and EAS instructions are in [`MOBILE_SETUP.md`](MOBILE_SETUP.md).
 
-The AI coach is optional for local development. Without `OPENAI_API_KEY`, the deterministic fallback still returns an answer grounded in the current plan.
+The AI coach is optional for local development. Without `OPENAI_API_KEY`, the deterministic text fallback still returns an answer grounded in the current plan; voice transcription clearly reports that it is unavailable while typing continues to work.
 
 ## Verification
 

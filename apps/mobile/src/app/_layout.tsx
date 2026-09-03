@@ -31,6 +31,7 @@ function Routes() {
       </Stack.Protected>
       <Stack.Protected guard={!!user && user.onboarded}>
         <Stack.Screen name="(app)" options={{ headerShown: false }} />
+        <Stack.Screen name="insights" options={{ headerShown: false }} />
         <Stack.Screen
           name="split"
           options={{ presentation: "modal", headerShown: false }}

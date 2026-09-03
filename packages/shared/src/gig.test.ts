@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   calculateGigDashboard,
   DEFAULT_GIG_PREFERENCES,
+  deriveGigInsights,
   deriveGigNotifications,
   recommendAdaptiveSplit,
   simulateGigScenario,
@@ -369,6 +370,24 @@ test("scenario engine updates the whole plan and identifies risk", () => {
   );
   assert.ok(result.earningTarget > 0);
   assert.ok(result.atRiskCommitments.length > 0);
+});
+
+test("premium insights stay deterministic and use true earning costs", () => {
+  const dashboard = calculateGigDashboard(bundle, now);
+  const insights = deriveGigInsights(dashboard);
+
+  assert.equal(insights.earnings.basis, "TYPICAL_WEEK");
+  assert.equal(insights.earnings.gross, 6_000);
+  assert.equal(insights.earnings.workCosts, 1_200);
+  assert.equal(insights.earnings.net, 4_800);
+  assert.equal(insights.earnings.workCostPerHundred, 20);
+  assert.equal(insights.earnings.keptPerHundred, 80);
+  assert.equal(
+    insights.outlook.lowestBalanceLow,
+    dashboard.summary.lowestProjectedBalanceLow,
+  );
+  assert.equal(insights.month.confidence, dashboard.summary.forecastConfidence);
+  assert.ok(insights.outlook.title.length > 0);
 });
 
 test("worker alerts stay useful, respect preferences, and never promote credit", () => {

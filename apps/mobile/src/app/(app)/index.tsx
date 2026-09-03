@@ -3,6 +3,7 @@ import { router } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import {
   CalendarClock,
+  ChartNoAxesCombined,
   Settings2,
   ShieldCheck,
   WalletCards,
@@ -198,6 +199,27 @@ export default function Today() {
         </Card>
       </View>
 
+      <Card style={styles.insightsCard}>
+        <View style={styles.insightsTitle}>
+          <View style={styles.insightsIcon}>
+            <ChartNoAxesCombined
+              accessible={false}
+              color={colors.accent as string}
+              size={22}
+            />
+          </View>
+          <View style={styles.insightsCopy}>
+            <Label>Plan ahead</Label>
+            <Text style={ui.h2}>See the next 30 days.</Text>
+          </View>
+        </View>
+        <Text style={ui.body}>
+          Check your runway, true take-home earnings, and common slow-week
+          situations on one simple page.
+        </Text>
+        <Button title="Open insights" tone="ink" onPress={() => router.push("/insights")} />
+      </Card>
+
       <Card>
         <View style={ui.between}>
           <View>
@@ -360,6 +382,19 @@ const styles = StyleSheet.create({
   actionButton: { flex: 1 },
   nextAction: { backgroundColor: colors.accentSoft },
   twoCards: { flexDirection: "row", alignItems: "stretch", gap: 12 },
+  insightsCard: { backgroundColor: colors.accentSoft },
+  insightsTitle: { flexDirection: "row", alignItems: "center", gap: 11 },
+  insightsIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  insightsCopy: { flex: 1, gap: 3 },
   halfCard: { flex: 1, minWidth: 0, padding: 15 },
   cardLabel: { color: colors.inkSoft, fontSize: 13, fontWeight: "600" },
   cardValue: {

@@ -253,6 +253,34 @@ export type GigScenarioResult = {
   nonCreditAlternatives: string[];
 };
 
+export type GigInsightsDto = {
+  outlook: {
+    lowestBalanceLow: number;
+    lowestBalanceHigh: number;
+    safetyFloor: number;
+    gapToSafetyFloor: number;
+    status: "ON_TRACK" | "WATCH" | "AT_RISK";
+    title: string;
+    body: string;
+  };
+  earnings: {
+    basis: "ACTUAL_WEEK" | "TYPICAL_WEEK";
+    gross: number;
+    workCosts: number;
+    net: number;
+    workCostPerHundred: number;
+    keptPerHundred: number;
+    changeFromTypicalPct: number;
+  };
+  month: {
+    forecastIncomeLow: number;
+    forecastIncomeHigh: number;
+    committedOutflow: number;
+    estimatedWorkCosts: number;
+    confidence: "LOW" | "MEDIUM" | "HIGH";
+  };
+};
+
 export const GIG_ALERT_CATEGORIES = [
   "PAYOUTS",
   "COMMITMENTS",
@@ -1394,6 +1422,79 @@ export function simulateGigScenario(
     atRiskCommitments,
     recommendedAction,
     nonCreditAlternatives,
+  };
+}
+
+export function deriveGigInsights(
+  dashboard: GigDashboardDto,
+): GigInsightsDto {
+  const summary = dashboard.summary;
+  const lowestBalanceLow = roundCurrency(summary.lowestProjectedBalanceLow);
+  const lowestBalanceHigh = roundCurrency(summary.lowestProjectedBalanceHigh);
+  const safetyFloor = roundCurrency(dashboard.profile.safetyBuffer);
+  const gapToSafetyFloor = roundCurrency(
+    Math.max(0, safetyFloor - lowestBalanceLow),
+  );
+  const status =
+    lowestBalanceLow < 0
+      ? "AT_RISK"
+      : lowestBalanceLow < safetyFloor
+        ? "WATCH"
+        : "ON_TRACK";
+  const outlookCopy =
+    status === "AT_RISK"
+      ? {
+          title: "A weak month may create a gap",
+          body: `Protect another ₹${Math.ceil(gapToSafetyFloor).toLocaleString("en-IN")} or adjust a flexible cost before it becomes urgent.`,
+        }
+      : status === "WATCH"
+        ? {
+            title: "Your plan stays above zero, but the cushion is thin",
+            body: `The low estimate falls below your ₹${Math.round(safetyFloor).toLocaleString("en-IN")} safety floor. Keep the next payout conservative.`,
+          }
+        : {
+            title: "Your 30-day plan holds in the low estimate",
+            body: "The projected low point stays above your chosen safety floor. Keep recording payouts and work costs.",
+          };
+
+  const hasActualIncome = summary.grossIncomeWeek > 0;
+  const gross = hasActualIncome
+    ? summary.grossIncomeWeek
+    : dashboard.profile.typicalWeekIncome;
+  const workCosts = hasActualIncome
+    ? summary.workCostsWeek
+    : dashboard.profile.weeklyWorkCosts;
+  const net = gross - workCosts;
+  const workCostPerHundred =
+    gross > 0 ? Math.max(0, (workCosts / gross) * 100) : 0;
+  const keptPerHundred = gross > 0 ? (net / gross) * 100 : 0;
+
+  return {
+    outlook: {
+      lowestBalanceLow,
+      lowestBalanceHigh,
+      safetyFloor,
+      gapToSafetyFloor,
+      status,
+      title: outlookCopy.title,
+      body: outlookCopy.body,
+    },
+    earnings: {
+      basis: hasActualIncome ? "ACTUAL_WEEK" : "TYPICAL_WEEK",
+      gross: roundCurrency(gross),
+      workCosts: roundCurrency(workCosts),
+      net: roundCurrency(net),
+      workCostPerHundred: roundCurrency(workCostPerHundred),
+      keptPerHundred: roundCurrency(keptPerHundred),
+      changeFromTypicalPct: roundCurrency(summary.typicalWeekDeltaPct),
+    },
+    month: {
+      forecastIncomeLow: roundCurrency(summary.forecastIncomeLow30d),
+      forecastIncomeHigh: roundCurrency(summary.forecastIncomeHigh30d),
+      committedOutflow: roundCurrency(summary.committedOutflow30d),
+      estimatedWorkCosts: roundCurrency(summary.estimatedWorkCosts30d),
+      confidence: summary.forecastConfidence,
+    },
   };
 }
 

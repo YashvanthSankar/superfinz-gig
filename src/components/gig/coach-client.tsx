@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   Bot,
   Check,
   Copy,
+  Mic,
   Send,
   ShieldCheck,
   Square,
@@ -13,6 +14,7 @@ import {
   ThumbsUp,
   Trash2,
   UserRound,
+  Volume2,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { PageHeading } from "./page-state";
@@ -39,6 +41,15 @@ const suggestions = [
   "Explain my resilience score",
 ];
 
+const speechLanguage = (value: string) => {
+  if (/\p{Script=Devanagari}/u.test(value)) return "hi-IN";
+  if (/\p{Script=Tamil}/u.test(value)) return "ta-IN";
+  if (/\p{Script=Telugu}/u.test(value)) return "te-IN";
+  if (/\p{Script=Kannada}/u.test(value)) return "kn-IN";
+  if (/\p{Script=Malayalam}/u.test(value)) return "ml-IN";
+  return "en-IN";
+};
+
 export function CoachClient() {
   const { dashboard } = useGigDashboard();
   const [messages, setMessages] = useState<Message[]>([welcome]);
@@ -46,10 +57,54 @@ export function CoachClient() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<number | null>(null);
+  const [recording, setRecording] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const [speakingId, setSpeakingId] = useState<number | null>(null);
   const nextId = useRef(2);
   const controller = useRef<AbortController | null>(null);
+  const mediaRecorder = useRef<MediaRecorder | null>(null);
+  const mediaStream = useRef<MediaStream | null>(null);
+  const audioChunks = useRef<Blob[]>([]);
+  const recordingTimer = useRef<number | null>(null);
+  const discardRecording = useRef(false);
 
-  const ask = async (question: string) => {
+  useEffect(
+    () => () => {
+      if (recordingTimer.current) clearTimeout(recordingTimer.current);
+      discardRecording.current = true;
+      if (mediaRecorder.current?.state === "recording")
+        mediaRecorder.current.stop();
+      mediaStream.current?.getTracks().forEach((track) => track.stop());
+      window.speechSynthesis?.cancel();
+    },
+    [],
+  );
+
+  const speak = (message: Message) => {
+    if (!("speechSynthesis" in window)) {
+      setVoiceError("Reading aloud is not available in this browser.");
+      return;
+    }
+    if (speakingId === message.id) {
+      window.speechSynthesis.cancel();
+      setSpeakingId(null);
+      return;
+    }
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(message.text);
+    utterance.lang = speechLanguage(message.text);
+    utterance.rate = 0.9;
+    utterance.onend = () => setSpeakingId(null);
+    utterance.onerror = () => {
+      setSpeakingId(null);
+      setVoiceError("Couldn’t play that answer aloud.");
+    };
+    setSpeakingId(message.id);
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const ask = async (question: string, speakReply = false) => {
     if (!question.trim() || busy) return;
     const userMessage: Message = {
       id: nextId.current++,
@@ -70,15 +125,14 @@ export function CoachClient() {
           signal: controller.current.signal,
         },
       );
-      setMessages((current) => [
-        ...current,
-        {
-          id: nextId.current++,
-          role: "assistant",
-          text: body.reply,
-          source: body.source,
-        },
-      ]);
+      const responseMessage: Message = {
+        id: nextId.current++,
+        role: "assistant",
+        text: body.reply,
+        source: body.source,
+      };
+      setMessages((current) => [...current, responseMessage]);
+      if (speakReply) speak(responseMessage);
     } catch (cause) {
       if (!(cause instanceof DOMException && cause.name === "AbortError"))
         setError(
@@ -87,6 +141,94 @@ export function CoachClient() {
     } finally {
       setBusy(false);
       controller.current = null;
+    }
+  };
+
+  const stopVoice = (discard = false) => {
+    if (recordingTimer.current) clearTimeout(recordingTimer.current);
+    recordingTimer.current = null;
+    discardRecording.current = discard;
+    if (mediaRecorder.current?.state === "recording")
+      mediaRecorder.current.stop();
+    setRecording(false);
+  };
+
+  const transcribe = async (audio: Blob) => {
+    setTranscribing(true);
+    setVoiceError(null);
+    try {
+      const extension = audio.type.includes("webm") ? "webm" : "m4a";
+      const form = new FormData();
+      form.append("audio", audio, `question.${extension}`);
+      const response = await fetch("/api/gig/coach/transcribe", {
+        method: "POST",
+        body: form,
+      });
+      const result = (await response.json().catch(() => ({}))) as {
+        transcript?: string;
+        error?: string;
+      };
+      if (!response.ok || !result.transcript)
+        throw new Error(result.error ?? "Couldn’t understand that recording.");
+      setTranscribing(false);
+      await ask(result.transcript, true);
+    } catch (cause) {
+      setTranscribing(false);
+      setVoiceError(
+        cause instanceof Error
+          ? cause.message
+          : "Couldn’t understand that recording.",
+      );
+    }
+  };
+
+  const startVoice = async () => {
+    if (busy || transcribing || recording) return;
+    if (!("MediaRecorder" in window) || !navigator.mediaDevices?.getUserMedia) {
+      setVoiceError("Voice questions are not available in this browser.");
+      return;
+    }
+    setVoiceError(null);
+    window.speechSynthesis?.cancel();
+    setSpeakingId(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const preferredType = MediaRecorder.isTypeSupported(
+        "audio/webm;codecs=opus",
+      )
+        ? "audio/webm;codecs=opus"
+        : "";
+      const recorder = new MediaRecorder(
+        stream,
+        preferredType ? { mimeType: preferredType } : undefined,
+      );
+      mediaStream.current = stream;
+      mediaRecorder.current = recorder;
+      audioChunks.current = [];
+      discardRecording.current = false;
+      recorder.ondataavailable = (event) => {
+        if (event.data.size) audioChunks.current.push(event.data);
+      };
+      recorder.onstop = () => {
+        const audio = new Blob(audioChunks.current, {
+          type: recorder.mimeType || "audio/webm",
+        });
+        stream.getTracks().forEach((track) => track.stop());
+        mediaStream.current = null;
+        mediaRecorder.current = null;
+        if (discardRecording.current) {
+          discardRecording.current = false;
+          return;
+        }
+        void transcribe(audio);
+      };
+      recorder.start();
+      setRecording(true);
+      recordingTimer.current = window.setTimeout(stopVoice, 30_000);
+    } catch {
+      setVoiceError(
+        "Microphone access is off. Allow it in your browser, or type instead.",
+      );
     }
   };
   const submit = (event: FormEvent) => {
@@ -119,8 +261,12 @@ export function CoachClient() {
   };
   const clear = () => {
     controller.current?.abort();
+    stopVoice(true);
+    window.speechSynthesis?.cancel();
     setMessages([welcome]);
     setError(null);
+    setVoiceError(null);
+    setSpeakingId(null);
     setBusy(false);
   };
 
@@ -187,6 +333,24 @@ export function CoachClient() {
                           <Copy size={14} />
                         )}
                         {copiedId === message.id ? "Copied" : "Copy"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => speak(message)}
+                        aria-pressed={speakingId === message.id}
+                        aria-label={
+                          speakingId === message.id
+                            ? "Stop reading coach response"
+                            : "Read coach response aloud"
+                        }
+                        className="flex min-h-10 items-center gap-1 px-2 text-[10px] font-black uppercase"
+                      >
+                        {speakingId === message.id ? (
+                          <Square aria-hidden size={14} />
+                        ) : (
+                          <Volume2 aria-hidden size={15} />
+                        )}
+                        {speakingId === message.id ? "Stop" : "Listen"}
                       </button>
                       <button
                         type="button"
@@ -261,29 +425,75 @@ export function CoachClient() {
               </div>
             )}
           </div>
+          {(recording || transcribing || voiceError) && (
+            <div
+              role={voiceError ? "alert" : "status"}
+              className={`mx-3 mb-3 flex min-h-11 items-center gap-2 rounded-xl border px-3 text-sm font-semibold ${voiceError ? "border-bad bg-bad-soft text-bad" : "border-accent bg-accent-soft text-ink"}`}
+            >
+              {transcribing ? (
+                <span
+                  aria-hidden
+                  className="h-4 w-4 animate-spin rounded-full border-2 border-accent border-t-transparent motion-reduce:animate-none"
+                />
+              ) : (
+                <Mic aria-hidden size={17} />
+              )}
+              {voiceError
+                ? voiceError
+                : transcribing
+                  ? "Turning your recording into text…"
+                  : "Listening… tap Stop when you finish."}
+            </div>
+          )}
           <form
             onSubmit={submit}
-            className="flex gap-2 border-t-2 border-ink bg-paper-2 p-3"
+            className="border-t-2 border-ink bg-paper-2 p-3"
           >
-            <label className="sr-only" htmlFor="coach-question">
-              Ask the money coach
-            </label>
-            <input
-              id="coach-question"
-              value={input}
-              onChange={(event) => setInput(event.target.value)}
-              maxLength={500}
-              placeholder="Can I afford ₹500 for repairs?"
-              className="min-h-12 min-w-0 flex-1 border-2 border-ink bg-paper px-3 text-base font-bold outline-none focus:ring-4 focus:ring-accent/30"
-            />
-            <button
-              disabled={busy || !input.trim()}
-              aria-label="Send question"
-              className="brut-btn min-h-12 bg-accent text-paper"
-            >
-              <Send aria-hidden size={18} />
-              <span className="hidden sm:inline">Send</span>
-            </button>
+            <div className="flex gap-2">
+              <label className="sr-only" htmlFor="coach-question">
+                Ask the money coach
+              </label>
+              <input
+                id="coach-question"
+                value={input}
+                onChange={(event) => setInput(event.target.value)}
+                maxLength={500}
+                placeholder="Ask by voice or type here"
+                className="min-h-12 min-w-0 flex-1 border-2 border-ink bg-paper px-3 text-base font-bold outline-none focus:ring-4 focus:ring-accent/30"
+              />
+              <button
+                type="button"
+                disabled={busy || transcribing}
+                onClick={
+                  recording ? () => stopVoice() : () => void startVoice()
+                }
+                aria-label={
+                  recording
+                    ? "Stop recording and ask"
+                    : "Start a voice question"
+                }
+                aria-pressed={recording}
+                className={`flex min-h-12 min-w-12 cursor-pointer items-center justify-center rounded-xl text-paper disabled:cursor-not-allowed disabled:opacity-45 ${recording ? "bg-ink" : "bg-accent"}`}
+              >
+                {recording ? (
+                  <Square aria-hidden size={18} />
+                ) : (
+                  <Mic aria-hidden size={19} />
+                )}
+              </button>
+              <button
+                disabled={busy || recording || transcribing || !input.trim()}
+                aria-label="Send question"
+                className="brut-btn min-h-12 bg-accent text-paper"
+              >
+                <Send aria-hidden size={18} />
+                <span className="hidden sm:inline">Send</span>
+              </button>
+            </div>
+            <p className="mt-2 text-center text-[11px] leading-4 text-mute">
+              Voice is sent only for transcription and is not saved by
+              SuperFinz.
+            </p>
           </form>
         </section>
         <aside className="space-y-4">

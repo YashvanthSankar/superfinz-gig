@@ -36,6 +36,34 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}, retry = 
   return body as T;
 }
 
+export async function apiUpload<T>(
+  path: string,
+  formData: FormData,
+  retry = true,
+): Promise<T> {
+  assertApiConfigured();
+  const accessToken = await SecureStore.getItemAsync(ACCESS_KEY);
+  const response = await fetch(`${API_URL}${path}`, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+    },
+    body: formData,
+  });
+  if (response.status === 401 && retry && (await refreshAccessToken()))
+    return apiUpload<T>(path, formData, false);
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok)
+    throw new ApiError(
+      typeof body?.error === "string"
+        ? body.error
+        : `Request failed (${response.status})`,
+      response.status,
+    );
+  return body as T;
+}
+
 export async function mobileGoogleLogin(idToken: string, deviceLabel?: string) {
   assertApiConfigured();
   const response = await fetch(`${API_URL}/api/mobile-auth/google`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ idToken, deviceLabel }) });

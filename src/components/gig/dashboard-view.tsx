@@ -2,6 +2,7 @@ import Link from "next/link";
 import {
   ArrowRight,
   CalendarClock,
+  ChartNoAxesCombined,
   CirclePlus,
   ShieldCheck,
   WalletCards,
@@ -24,6 +25,7 @@ export function GigDashboardView({
   const latest = dashboard.payoutSplits[0];
   const planHref = demo ? "/login" : "/dashboard/plan";
   const moneyHref = demo ? "/login" : "/dashboard/income";
+  const insightsHref = demo ? "/demo/insights" : "/dashboard/insights";
 
   return (
     <div className="space-y-5">
@@ -146,6 +148,33 @@ export function GigDashboardView({
             (s.protectedDays / s.cushionTargetDays) * 100,
           )}
         />
+      </section>
+
+      <section className="brut-card flex flex-col gap-5 bg-accent-soft p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+        <div className="flex items-start gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-surface text-accent">
+            <ChartNoAxesCombined aria-hidden size={22} />
+          </span>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-accent">
+              Plan ahead
+            </p>
+            <h2 className="mt-1 text-xl font-bold sm:text-2xl">
+              See the next 30 days before they happen.
+            </h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-ink-soft">
+              Check your runway, true take-home earnings, and common slow-week
+              situations without crowding today&apos;s plan.
+            </p>
+          </div>
+        </div>
+        <Link
+          href={insightsHref}
+          className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-xl bg-ink px-5 font-semibold text-paper"
+        >
+          Open insights
+          <ArrowRight aria-hidden size={17} />
+        </Link>
       </section>
 
       <section className="brut-card p-5 sm:p-6">

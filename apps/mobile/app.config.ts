@@ -41,6 +41,16 @@ const expoConfig = ({ config }: ConfigContext): ExpoConfig => ({
   plugins: [
     "expo-router",
     "expo-secure-store",
+    [
+      "expo-audio",
+      {
+        microphonePermission:
+          "Allow SuperFinz to hear a money question only while you are recording.",
+        recordAudioAndroid: true,
+        enableBackgroundRecording: false,
+        enableBackgroundPlayback: false,
+      },
+    ],
     "@react-native-community/datetimepicker",
     [
       "expo-splash-screen",

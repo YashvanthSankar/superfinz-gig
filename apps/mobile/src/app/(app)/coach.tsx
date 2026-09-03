@@ -56,6 +56,17 @@ const suggestions: Suggestion[] = [
   },
 ];
 
+const plainCoachText = (value: string) =>
+  value
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/__([^_]+)__/g, "$1")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/^\s*[-*]\s+/gm, "• ")
+    .replace(/\*([^*\n]+)\*/g, "$1")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
 export default function Coach() {
   const list = useRef<ScrollView>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -190,7 +201,7 @@ export default function Coach() {
                   </Text>
                   <View
                     accessible
-                    accessibilityLabel={`${message.role === "user" ? "You" : "Coach"}: ${message.content}`}
+                    accessibilityLabel={`${message.role === "user" ? "You" : "Coach"}: ${message.role === "assistant" ? plainCoachText(message.content) : message.content}`}
                     style={[
                       styles.bubble,
                       message.role === "user" ? styles.user : styles.assistant,
@@ -202,7 +213,9 @@ export default function Coach() {
                         message.role === "user" && styles.userMessageText,
                       ]}
                     >
-                      {message.content}
+                      {message.role === "assistant"
+                        ? plainCoachText(message.content)
+                        : message.content}
                     </Text>
                   </View>
                 </View>

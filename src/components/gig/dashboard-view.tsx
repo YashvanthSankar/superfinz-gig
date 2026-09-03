@@ -105,6 +105,15 @@ export function GigDashboardView({
           <WalletCards aria-hidden size={20} />
           Plan a payout
         </Link>
+        {!demo && (
+          <Link
+            href="/dashboard/savings"
+            className="flex min-h-14 items-center justify-center gap-2 rounded-xl border border-ink bg-surface px-5 font-semibold text-ink shadow-[var(--shadow-sm)] transition hover:bg-paper-2 sm:col-span-2"
+          >
+            <WalletCards aria-hidden size={20} />
+            Manage savings tabs
+          </Link>
+        )}
       </div>
 
       <section className="brut-card bg-accent-soft p-5 sm:p-6">

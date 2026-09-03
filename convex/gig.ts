@@ -6,6 +6,7 @@ import {
 } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import { v } from "convex/values";
+import { validateTabTransaction } from "@superfinz/shared";
 
 type ReadCtx = QueryCtx | MutationCtx;
 
@@ -47,6 +48,11 @@ async function findCommitment(ctx: ReadCtx, id: string) {
 
 async function findPayoutSplit(ctx: ReadCtx, id: string) {
   const nativeId = ctx.db.normalizeId("gigPayoutSplits", id);
+  return nativeId ? await ctx.db.get(nativeId) : null;
+}
+
+async function findVirtualTab(ctx: ReadCtx, id: string) {
+  const nativeId = ctx.db.normalizeId("gigVirtualTabs", id);
   return nativeId ? await ctx.db.get(nativeId) : null;
 }
 
@@ -219,6 +225,19 @@ function toPocket(doc: Doc<"gigPockets">) {
     updatedAt: new Date(doc.updatedAt).toISOString(),
   };
 }
+function toVirtualTab(doc: Doc<"gigVirtualTabs">) {
+  return {
+    id: publicId(doc),
+    userId: doc.userId,
+    tabName: doc.tabName,
+    balance: doc.balance,
+    isLocked: doc.isLocked,
+    isSystem: doc.isSystem ?? false,
+    archivedAt: iso(doc.archivedAt),
+    createdAt: new Date(doc.createdAt).toISOString(),
+    updatedAt: new Date(doc.updatedAt).toISOString(),
+  };
+}
 function toRule(doc: Doc<"gigSplitRules">) {
   return {
     id: publicId(doc),
@@ -253,6 +272,7 @@ function toPayoutSplit(doc: Doc<"gigPayoutSplits">) {
     afterProtectedDays: doc.afterProtectedDays ?? null,
     fundedCommitmentIds: doc.fundedCommitmentIds ?? [],
     fundedCommitments: doc.fundedCommitments ?? [],
+    virtualTabAllocations: doc.virtualTabAllocations ?? [],
     recommendationReason: doc.recommendationReason ?? null,
     createdAt: new Date(doc.createdAt).toISOString(),
   };
@@ -345,6 +365,175 @@ export const getBundle = query({
   },
 });
 
+export const listVirtualTabs = query({
+  args: { serverKey: v.string(), userId: v.string() },
+  handler: async (ctx, args) => {
+    assertServerKey(args.serverKey);
+    const tabs = await ctx.db
+      .query("gigVirtualTabs")
+      .withIndex("by_user_created", (q) => q.eq("userId", args.userId))
+      .order("asc")
+      .collect();
+    return tabs.filter((tab) => tab.archivedAt === undefined).map(toVirtualTab);
+  },
+});
+
+async function ensureSafetyVirtualTab(ctx: MutationCtx, userId: string) {
+  const tabs = await ctx.db
+    .query("gigVirtualTabs")
+    .withIndex("by_user_created", (q) => q.eq("userId", userId))
+    .collect();
+  const existing = tabs.find(
+    (tab) => tab.isSystem && tab.archivedAt === undefined,
+  );
+  if (existing) return existing;
+  const profile = await profileForUser(ctx, userId);
+  const now = Date.now();
+  const id = await ctx.db.insert("gigVirtualTabs", {
+    userId,
+    tabName: "Safety Cushion",
+    balance: Math.min(profile.safetyBuffer, profile.currentBalance),
+    isLocked: true,
+    isSystem: true,
+    createdAt: now,
+    updatedAt: now,
+  });
+  const created = await ctx.db.get(id);
+  if (!created) throw new Error("Unable to create Safety Cushion tab");
+  return created;
+}
+
+export const ensureSafetyTab = mutation({
+  args: { serverKey: v.string(), userId: v.string() },
+  handler: async (ctx, args) => {
+    assertServerKey(args.serverKey);
+    return toVirtualTab(await ensureSafetyVirtualTab(ctx, args.userId));
+  },
+});
+
+export const createVirtualTab = mutation({
+  args: {
+    serverKey: v.string(),
+    userId: v.string(),
+    tabName: v.string(),
+    balance: v.number(),
+  },
+  handler: async (ctx, args) => {
+    assertServerKey(args.serverKey);
+    if (!args.tabName.trim() || args.tabName.length > 60)
+      throw new Error("Tab name must be between 1 and 60 characters");
+    if (!Number.isFinite(args.balance) || args.balance < 0)
+      throw new Error("Tab balance must be non-negative");
+    await ensureSafetyVirtualTab(ctx, args.userId);
+    const profile = await profileForUser(ctx, args.userId);
+    const tabs = await ctx.db
+      .query("gigVirtualTabs")
+      .withIndex("by_user_created", (q) => q.eq("userId", args.userId))
+      .collect();
+    const allocated = tabs
+      .filter((tab) => tab.archivedAt === undefined)
+      .reduce((sum, tab) => sum + tab.balance, 0);
+    if (allocated + args.balance > profile.currentBalance)
+      throw new Error("Savings tabs cannot exceed your recorded balance");
+    const now = Date.now();
+    const id = await ctx.db.insert("gigVirtualTabs", {
+      userId: args.userId,
+      tabName: args.tabName.trim(),
+      balance: args.balance,
+      isLocked: false,
+      isSystem: false,
+      createdAt: now,
+      updatedAt: now,
+    });
+    const tab = await ctx.db.get(id);
+    if (!tab) throw new Error("Unable to create savings tab");
+    return toVirtualTab(tab);
+  },
+});
+
+export const updateVirtualTab = mutation({
+  args: {
+    serverKey: v.string(),
+    userId: v.string(),
+    tabId: v.string(),
+    tabName: v.optional(v.string()),
+    isLocked: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    assertServerKey(args.serverKey);
+    const tab = await findVirtualTab(ctx, args.tabId);
+    if (!tab || tab.userId !== args.userId || tab.archivedAt !== undefined)
+      throw new Error("Savings tab not found");
+    if (tab.isSystem)
+      throw new Error("Safety Cushion is managed by SuperFinz");
+    if (
+      args.tabName !== undefined &&
+      (!args.tabName.trim() || args.tabName.length > 60)
+    )
+      throw new Error("Tab name must be between 1 and 60 characters");
+    await ctx.db.patch(tab._id, {
+      ...(args.tabName !== undefined ? { tabName: args.tabName.trim() } : {}),
+      ...(args.isLocked !== undefined ? { isLocked: args.isLocked } : {}),
+      updatedAt: Date.now(),
+    });
+    const updated = await ctx.db.get(tab._id);
+    if (!updated) throw new Error("Unable to update savings tab");
+    return toVirtualTab(updated);
+  },
+});
+
+export const logVirtualTabExpense = mutation({
+  args: {
+    serverKey: v.string(),
+    userId: v.string(),
+    tabId: v.string(),
+    amount: v.number(),
+    category: v.string(),
+    note: v.optional(v.string()),
+    idempotencyKey: v.string(),
+  },
+  handler: async (ctx, args) => {
+    assertServerKey(args.serverKey);
+    const profile = await profileForUser(ctx, args.userId);
+    const tab = await findVirtualTab(ctx, args.tabId);
+    if (!tab || tab.userId !== args.userId || tab.archivedAt !== undefined)
+      throw new Error("Savings tab not found");
+    const duplicate = await ctx.db
+      .query("gigVirtualTabTransactions")
+      .withIndex("by_user_idempotency", (q) =>
+        q.eq("userId", args.userId).eq("idempotencyKey", args.idempotencyKey),
+      )
+      .unique();
+    if (duplicate) return toVirtualTab((await ctx.db.get(tab._id)) ?? tab);
+    const validation = validateTabTransaction(tab, args.amount);
+    if (!validation.ok) throw new Error(validation.error);
+    if (profile.currentBalance < args.amount)
+      throw new Error("Recorded balance is lower than this expense");
+    const now = Date.now();
+    const balanceAfter = tab.balance - args.amount;
+    await ctx.db.insert("gigVirtualTabTransactions", {
+      userId: args.userId,
+      tabId: args.tabId,
+      kind: "EXPENSE",
+      amount: args.amount,
+      balanceBefore: tab.balance,
+      balanceAfter,
+      category: args.category.trim(),
+      ...(args.note?.trim() ? { note: args.note.trim() } : {}),
+      idempotencyKey: args.idempotencyKey,
+      createdAt: now,
+    });
+    await ctx.db.patch(tab._id, { balance: balanceAfter, updatedAt: now });
+    await ctx.db.patch(profile._id, {
+      currentBalance: profile.currentBalance - args.amount,
+      updatedAt: now,
+    });
+    const updated = await ctx.db.get(tab._id);
+    if (!updated) throw new Error("Unable to update savings tab");
+    return toVirtualTab(updated);
+  },
+});
+
 export const completeOnboarding = mutation({
   args: {
     serverKey: v.string(),
@@ -403,6 +592,10 @@ export const completeOnboarding = mutation({
         .withIndex("by_user_received", (q) => q.eq("userId", args.userId))
         .collect(),
       ctx.db
+        .query("gigVirtualTabs")
+        .withIndex("by_user_created", (q) => q.eq("userId", args.userId))
+        .collect(),
+      ctx.db
         .query("gigNotificationStates")
         .withIndex("by_user", (q) => q.eq("userId", args.userId))
         .collect(),
@@ -426,6 +619,15 @@ export const completeOnboarding = mutation({
       currentBalance: args.openingBalance,
       safetyBuffer: args.safetyBuffer,
       cushionTargetDays: args.cushionTargetDays,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await ctx.db.insert("gigVirtualTabs", {
+      userId: args.userId,
+      tabName: "Safety Cushion",
+      balance: Math.min(args.currentCushion, args.openingBalance),
+      isLocked: true,
+      isSystem: true,
       createdAt: now,
       updatedAt: now,
     });
@@ -1296,6 +1498,9 @@ export const applyPayoutSplit = mutation({
     afterProtectedDays: v.optional(v.number()),
     fundedCommitmentIds: v.optional(v.array(v.string())),
     recommendationReason: v.optional(v.string()),
+    virtualTabAllocations: v.optional(
+      v.array(v.object({ tabId: v.string(), amount: v.number() })),
+    ),
     percentages: v.object({
       essentialsPct: v.number(),
       workCostsPct: v.number(),
@@ -1381,6 +1586,59 @@ export const applyPayoutSplit = mutation({
     const fundedCommitmentIds = fundedCommitments.map(({ doc }) =>
       String(doc._id),
     );
+    const safetyTab = await ensureSafetyVirtualTab(ctx, args.userId);
+    const activeVirtualTabs = (await ctx.db
+      .query("gigVirtualTabs")
+      .withIndex("by_user_created", (q) => q.eq("userId", args.userId))
+      .collect()).filter((tab) => tab.archivedAt === undefined);
+    const userVirtualTabs = activeVirtualTabs.filter((tab) => !tab.isSystem);
+    const virtualTabAllocations: Array<{ tabId: string; amount: number }> = [];
+    if (emergencyAmount > 0) {
+      const balanceAfter = roundMoney(safetyTab.balance + emergencyAmount);
+      virtualTabAllocations.push({ tabId: String(safetyTab._id), amount: emergencyAmount });
+      await ctx.db.patch(safetyTab._id, { balance: balanceAfter, updatedAt: now });
+      await ctx.db.insert("gigVirtualTabTransactions", {
+        userId: args.userId,
+        tabId: String(safetyTab._id),
+        kind: "ALLOCATION",
+        amount: emergencyAmount,
+        balanceBefore: safetyTab.balance,
+        balanceAfter,
+        category: "Payout safety-cushion allocation",
+        createdAt: now,
+      });
+    }
+    if (longTermAmount > 0 && userVirtualTabs.length > 0) {
+      const totalExisting = userVirtualTabs.reduce(
+        (sum, tab) => sum + tab.balance,
+        0,
+      );
+      let allocated = 0;
+      for (const [index, tab] of userVirtualTabs.entries()) {
+        const amount =
+          index === userVirtualTabs.length - 1
+            ? roundMoney(longTermAmount - allocated)
+            : roundMoney(
+                totalExisting > 0
+                  ? (longTermAmount * tab.balance) / totalExisting
+                  : longTermAmount / userVirtualTabs.length,
+              );
+        allocated = roundMoney(allocated + amount);
+        const balanceAfter = roundMoney(tab.balance + amount);
+        virtualTabAllocations.push({ tabId: String(tab._id), amount });
+        await ctx.db.patch(tab._id, { balance: balanceAfter, updatedAt: now });
+        await ctx.db.insert("gigVirtualTabTransactions", {
+          userId: args.userId,
+          tabId: String(tab._id),
+          kind: "ALLOCATION",
+          amount,
+          balanceBefore: tab.balance,
+          balanceAfter,
+          category: "Payout savings allocation",
+          createdAt: now,
+        });
+      }
+    }
     const splitId = await ctx.db.insert("gigPayoutSplits", {
       userId: args.userId,
       ...(args.sourceId ? { sourceId: args.sourceId } : {}),
@@ -1415,6 +1673,7 @@ export const applyPayoutSplit = mutation({
             })),
           }
         : {}),
+      ...(virtualTabAllocations.length ? { virtualTabAllocations } : {}),
       ...(linkedSource
         ? {
             sourceScheduleCaptured: true,

@@ -191,6 +191,38 @@ export default defineSchema({
     updatedAt: v.number(),
   }).index("by_user_kind", ["userId", "kind"]),
 
+  gigVirtualTabs: defineTable({
+    userId: v.string(),
+    tabName: v.string(),
+    balance: v.number(),
+    isLocked: v.boolean(),
+    isSystem: v.optional(v.boolean()),
+    archivedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_user_active", ["userId", "archivedAt"])
+    .index("by_user_created", ["userId", "createdAt"]),
+
+  gigVirtualTabTransactions: defineTable({
+    userId: v.string(),
+    tabId: v.string(),
+    kind: v.union(
+      v.literal("EXPENSE"),
+      v.literal("ALLOCATION"),
+      v.literal("ADJUSTMENT"),
+    ),
+    amount: v.number(),
+    balanceBefore: v.number(),
+    balanceAfter: v.number(),
+    category: v.string(),
+    note: v.optional(v.string()),
+    idempotencyKey: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_tab_created", ["tabId", "createdAt"])
+    .index("by_user_idempotency", ["userId", "idempotencyKey"]),
+
   gigSplitRules: defineTable({
     userId: v.string(),
     essentialsPct: v.number(),
@@ -227,6 +259,9 @@ export default defineSchema({
           amount: v.number(),
         }),
       ),
+    ),
+    virtualTabAllocations: v.optional(
+      v.array(v.object({ tabId: v.string(), amount: v.number() })),
     ),
     sourceScheduleCaptured: v.optional(v.boolean()),
     previousNextPayoutAt: v.optional(v.number()),

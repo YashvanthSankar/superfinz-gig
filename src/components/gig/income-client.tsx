@@ -297,7 +297,7 @@ export function IncomeClient() {
       setCustomSplit(null);
       closePanel();
       setMessage(
-        "Payout recorded and all five planning pockets updated together.",
+        "Payout recorded, planning pockets updated, and the savings share added to your virtual tabs.",
       );
       await refresh();
     } catch (cause) {

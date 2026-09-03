@@ -71,6 +71,48 @@ export type CashEntryKind = (typeof CASH_ENTRY_KINDS)[number];
 export type CommitmentRecurrence = (typeof COMMITMENT_RECURRENCES)[number];
 export type PocketKind = (typeof POCKET_KINDS)[number];
 
+export type GigVirtualTabDto = {
+  id: string;
+  userId: string;
+  tabName: string;
+  balance: number;
+  isLocked: boolean;
+  isSystem: boolean;
+  archivedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type TabTransactionError =
+  | "INVALID_AMOUNT"
+  | "TAB_LOCKED"
+  | "INSUFFICIENT_FUNDS";
+
+export function validateTabTransaction(
+  tab: Pick<GigVirtualTabDto, "balance" | "isLocked">,
+  amount: number,
+): { ok: true } | { ok: false; error: TabTransactionError } {
+  if (!Number.isFinite(amount) || amount <= 0)
+    return { ok: false, error: "INVALID_AMOUNT" };
+  if (tab.isLocked) return { ok: false, error: "TAB_LOCKED" };
+  if (tab.balance < amount)
+    return { ok: false, error: "INSUFFICIENT_FUNDS" };
+  return { ok: true };
+}
+
+export const virtualTabInputSchema = z.object({
+  tabName: z.string().trim().min(1).max(60),
+  balance: z.number().finite().nonnegative().max(100_000_000),
+});
+
+export const virtualTabExpenseInputSchema = z.object({
+  tabId: z.string().trim().min(1),
+  amount: z.number().finite().positive().max(100_000_000),
+  category: z.string().trim().min(1).max(60),
+  note: z.string().trim().max(300).nullable().optional(),
+  idempotencyKey: z.string().trim().min(16).max(120),
+});
+
 export type GigProfileDto = {
   id: string;
   userId: string;
@@ -198,6 +240,7 @@ export type PayoutSplitDto = {
   afterProtectedDays?: number | null;
   fundedCommitmentIds?: string[];
   fundedCommitments?: Array<{ id: string; amount: number }>;
+  virtualTabAllocations?: Array<{ tabId: string; amount: number }>;
   recommendationReason?: string | null;
   createdAt: string;
 };

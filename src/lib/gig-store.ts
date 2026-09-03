@@ -9,6 +9,7 @@ import type {
   GigPartnerMetricsDto,
   GigPreferencesDto,
   PayoutSplitDto,
+  GigVirtualTabDto,
 } from "@superfinz/shared";
 import { api } from "../../convex/_generated/api";
 
@@ -16,6 +17,65 @@ function serverKey() {
   const value = process.env.SUPERFINZ_SERVER_KEY;
   if (!value) throw new Error("SUPERFINZ_SERVER_KEY is not configured");
   return value;
+}
+
+export async function listGigVirtualTabs(
+  userId: string,
+): Promise<GigVirtualTabDto[]> {
+  return (await fetchQuery(api.gig.listVirtualTabs, {
+    serverKey: serverKey(),
+    userId,
+  })) as GigVirtualTabDto[];
+}
+
+export async function ensureGigSafetyTab(userId: string) {
+  return (await fetchMutation(api.gig.ensureSafetyTab, {
+    serverKey: serverKey(),
+    userId,
+  })) as GigVirtualTabDto;
+}
+
+export async function createGigVirtualTab(
+  userId: string,
+  input: { tabName: string; balance: number },
+): Promise<GigVirtualTabDto> {
+  return (await fetchMutation(api.gig.createVirtualTab, {
+    serverKey: serverKey(),
+    userId,
+    ...input,
+  })) as GigVirtualTabDto;
+}
+
+export async function updateGigVirtualTab(
+  userId: string,
+  input: { tabId: string; tabName?: string; isLocked?: boolean },
+): Promise<GigVirtualTabDto> {
+  return (await fetchMutation(api.gig.updateVirtualTab, {
+    serverKey: serverKey(),
+    userId,
+    ...input,
+  })) as GigVirtualTabDto;
+}
+
+export async function logGigVirtualTabExpense(
+  userId: string,
+  input: {
+    tabId: string;
+    amount: number;
+    category: string;
+    note?: string | null;
+    idempotencyKey: string;
+  },
+): Promise<GigVirtualTabDto> {
+  return (await fetchMutation(api.gig.logVirtualTabExpense, {
+    serverKey: serverKey(),
+    userId,
+    tabId: input.tabId,
+    amount: input.amount,
+    category: input.category,
+    ...(input.note ? { note: input.note } : {}),
+    idempotencyKey: input.idempotencyKey,
+  })) as GigVirtualTabDto;
 }
 
 export async function getGigBundle(

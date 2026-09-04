@@ -39,19 +39,19 @@ income and gives every recorded payout a purpose.
 
 ## Customer-facing product surfaces
 
-| Area | Web | iOS / Android | What is implemented |
-| --- | --- | --- | --- |
-| Public landing page | Working | — | Responsive problem/solution story, product preview, trust principles, CTAs, and embedded product video with 1x/2x playback. |
-| Public live demo | Working | — | Judge-friendly dashboard and insights using a clearly labelled fictional worker, Ravi. No sign-in required. |
-| Google sign-in | Working | Working | Google OAuth on web; native Google sign-in in the Expo development build. |
-| Guided onboarding | Working | Working | Web setup flow plus a faster conversational mobile setup with typing or voice. |
-| Today | Working | Working | Safe-to-use amount, planning horizon, protected-money explanation, expected payout range, best next step, and upcoming events. |
-| Money | Working | Working | Record income/costs, view current balance and weekly figures, inspect recent entries, and plan a payout. Web includes deeper analysis and filters. |
-| Plan | Working | Working | Create and manage bills, mark them paid, and test income or expense shocks. |
-| Safety | Working | Working | View five planning pockets, protected days, resilience factors, and privacy boundaries. |
-| Plan Ahead / Insights | Working | Working | 30-day runway, true take-home, slow-week simulations, and user-initiated summary sharing. |
-| Money Coach | Working | Working | Plan-grounded chat, feedback, speech-to-text questions, and spoken answers. |
-| Settings | Working | Working | Planning basics, default split percentages, source status controls, theme, and sign-out. |
+| Area                  | Web     | iOS / Android | What is implemented                                                                                                                                |
+| --------------------- | ------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Public landing page   | Working | —             | Responsive problem/solution story, product preview, trust principles, CTAs, and embedded product video with 1x/2x playback.                        |
+| Public live demo      | Working | —             | Judge-friendly dashboard and insights using a clearly labelled fictional worker, Ravi. No sign-in required.                                        |
+| Google sign-in        | Working | Working       | Google OAuth on web; native Google sign-in in the Expo development build.                                                                          |
+| Guided onboarding     | Working | Working       | Web setup flow plus a faster conversational mobile setup with typing or voice.                                                                     |
+| Today                 | Working | Working       | Safe-to-use amount, planning horizon, protected-money explanation, expected payout range, best next step, and upcoming events.                     |
+| Money                 | Working | Working       | Record income/costs, view current balance and weekly figures, inspect recent entries, and plan a payout. Web includes deeper analysis and filters. |
+| Plan                  | Working | Working       | Create and manage bills, mark them paid, and test income or expense shocks.                                                                        |
+| Safety                | Working | Working       | View five planning pockets, protected days, resilience factors, and privacy boundaries.                                                            |
+| Plan Ahead / Insights | Working | Working       | 30-day runway, true take-home, slow-week simulations, and user-initiated summary sharing.                                                          |
+| Money Coach           | Working | Working       | Plan-grounded chat, feedback, speech-to-text questions, and spoken answers.                                                                        |
+| Settings              | Working | Working       | Planning basics, default split percentages, source status controls, theme, and sign-out.                                                           |
 
 ## 1. Fast, guided onboarding — Working
 
@@ -129,10 +129,13 @@ amounts, work needs, and cushion depth. Before confirming, the worker sees:
 - safe-to-use before and after the payout; and
 - protected days before and after the payout.
 
-The user can keep the adaptive recommendation or enter custom percentages that
-must total 100%. Confirmation records the settled income, updates the balance,
-updates all five pockets, funds selected commitments, advances the source's
-next payout date, and stores an audit record in one Convex mutation.
+The user can keep the adaptive recommendation or customise it in the format
+that feels easiest: exact rupee amounts or percentages. The mobile editor
+converts between both views, shows both in the preview, and checks that the
+five rupee amounts equal the payout or that percentages total 100%.
+Confirmation records the settled income, updates the balance, updates all five
+pockets, funds selected commitments, advances the source's next payout date,
+and stores an audit record in one Convex mutation.
 
 The mobile app writes the returned dashboard into its shared query cache, so a
 new payout appears throughout the app immediately. A safely reversible latest

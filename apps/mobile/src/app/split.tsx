@@ -36,7 +36,10 @@ import {
 } from "@/hooks/use-gig-dashboard";
 import { useAuth } from "@/providers/auth-provider";
 
-type AmountKey = "essentials" | "workCosts" | "emergency" | "longTerm" | "flexible";
+type AmountKey =
+  "essentials" | "workCosts" | "emergency" | "longTerm" | "flexible";
+type AllocationUnit = "RUPEES" | "PERCENT";
+type AmountInputs = Record<AmountKey, string>;
 
 /** The five pockets, in display order, with a colour for the stacked bar. */
 const pockets: Array<{
@@ -45,15 +48,127 @@ const pockets: Array<{
   label: string;
   color: ColorValue;
 }> = [
-  { key: "essentialsPct", amountKey: "essentials", label: "Bills", color: colors.primary },
-  { key: "workCostsPct", amountKey: "workCosts", label: "Work costs", color: colors.warn },
-  { key: "emergencyPct", amountKey: "emergency", label: "Cushion", color: colors.good },
-  { key: "longTermPct", amountKey: "longTerm", label: "Savings", color: colors.accent },
-  { key: "flexiblePct", amountKey: "flexible", label: "Flexible pocket", color: colors.borderStrong },
+  {
+    key: "essentialsPct",
+    amountKey: "essentials",
+    label: "Bills",
+    color: colors.primary,
+  },
+  {
+    key: "workCostsPct",
+    amountKey: "workCosts",
+    label: "Work costs",
+    color: colors.warn,
+  },
+  {
+    key: "emergencyPct",
+    amountKey: "emergency",
+    label: "Cushion",
+    color: colors.good,
+  },
+  {
+    key: "longTermPct",
+    amountKey: "longTerm",
+    label: "Savings",
+    color: colors.accent,
+  },
+  {
+    key: "flexiblePct",
+    amountKey: "flexible",
+    label: "Flexible pocket",
+    color: colors.borderStrong,
+  },
 ];
 
 const formatPct = (value: number) =>
   `${Number.isInteger(value) ? value : value.toFixed(1)}%`;
+
+const roundCurrency = (value: number) => Math.round(value * 100) / 100;
+const parseNumber = (value: string) => Number(value.replace(/,/g, "")) || 0;
+const formatInputNumber = (value: number, decimals = 2) =>
+  Number(value.toFixed(decimals)).toString();
+
+const amountsFromPercentages = (
+  payout: number,
+  percentages: SplitPercentages,
+): Record<AmountKey, number> => {
+  const essentials = roundCurrency((payout * percentages.essentialsPct) / 100);
+  const workCosts = roundCurrency((payout * percentages.workCostsPct) / 100);
+  const emergency = roundCurrency((payout * percentages.emergencyPct) / 100);
+  const longTerm = roundCurrency((payout * percentages.longTermPct) / 100);
+  return {
+    essentials,
+    workCosts,
+    emergency,
+    longTerm,
+    flexible: roundCurrency(
+      payout - essentials - workCosts - emergency - longTerm,
+    ),
+  };
+};
+
+const amountInputsFromPercentages = (
+  payout: number,
+  percentages: SplitPercentages,
+): AmountInputs => {
+  const amounts = amountsFromPercentages(payout, percentages);
+  return {
+    essentials: formatInputNumber(amounts.essentials),
+    workCosts: formatInputNumber(amounts.workCosts),
+    emergency: formatInputNumber(amounts.emergency),
+    longTerm: formatInputNumber(amounts.longTerm),
+    flexible: formatInputNumber(amounts.flexible),
+  };
+};
+
+const percentagesFromAmounts = (
+  payout: number,
+  amounts: Record<AmountKey, number>,
+): SplitPercentages => {
+  if (!(payout > 0))
+    return {
+      essentialsPct: 0,
+      workCostsPct: 0,
+      emergencyPct: 0,
+      longTermPct: 0,
+      flexiblePct: 0,
+    };
+
+  return {
+    essentialsPct: (amounts.essentials / payout) * 100,
+    workCostsPct: (amounts.workCosts / payout) * 100,
+    emergencyPct: (amounts.emergency / payout) * 100,
+    longTermPct: (amounts.longTerm / payout) * 100,
+    flexiblePct: (amounts.flexible / payout) * 100,
+  };
+};
+
+const percentageInputsFromAmounts = (
+  payout: number,
+  amounts: Record<AmountKey, number>,
+): Record<keyof SplitPercentages, string> => {
+  const next = percentagesFromAmounts(payout, amounts);
+  const totalCents = Math.round(
+    Object.values(amounts).reduce((sum, value) => sum + value, 0) * 100,
+  );
+  const payoutCents = Math.round(payout * 100);
+  const essentialsPct = Number(next.essentialsPct.toFixed(6));
+  const workCostsPct = Number(next.workCostsPct.toFixed(6));
+  const emergencyPct = Number(next.emergencyPct.toFixed(6));
+  const longTermPct = Number(next.longTermPct.toFixed(6));
+  const flexiblePct =
+    totalCents === payoutCents
+      ? 100 - essentialsPct - workCostsPct - emergencyPct - longTermPct
+      : Number(next.flexiblePct.toFixed(6));
+
+  return {
+    essentialsPct: formatInputNumber(essentialsPct, 6),
+    workCostsPct: formatInputNumber(workCostsPct, 6),
+    emergencyPct: formatInputNumber(emergencyPct, 6),
+    longTermPct: formatInputNumber(longTermPct, 6),
+    flexiblePct: formatInputNumber(flexiblePct, 6),
+  };
+};
 
 export default function PayoutSplit() {
   const client = useQueryClient();
@@ -65,10 +180,13 @@ export default function PayoutSplit() {
   const [receivedAt, setReceivedAt] = useState(new Date());
   const [note, setNote] = useState("");
   const [mode, setMode] = useState<"ADAPTIVE" | "CUSTOM">("ADAPTIVE");
+  const [allocationUnit, setAllocationUnit] =
+    useState<AllocationUnit>("RUPEES");
   const [percentages, setPercentages] = useState<Record<
     keyof SplitPercentages,
     string
   > | null>(null);
+  const [amountInputs, setAmountInputs] = useState<AmountInputs | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
@@ -79,7 +197,7 @@ export default function PayoutSplit() {
     activeSources.find((source) => source.id === sourceId) ?? activeSources[0];
   const manualIncome =
     sourceId === "MANUAL_INCOME" || activeSources.length === 0;
-  const payout = Number(amount) || 0;
+  const payout = parseNumber(amount);
   const defaultValues = d
     ? {
         essentialsPct: String(d.splitRule.essentialsPct),
@@ -95,18 +213,41 @@ export default function PayoutSplit() {
         longTermPct: "5",
         flexiblePct: "15",
       };
-  const values = percentages ?? defaultValues;
-  const custom: SplitPercentages = {
-    essentialsPct: Number(values.essentialsPct),
-    workCostsPct: Number(values.workCostsPct),
-    emergencyPct: Number(values.emergencyPct),
-    longTermPct: Number(values.longTermPct),
-    flexiblePct: Number(values.flexiblePct),
+  const percentageValues = percentages ?? defaultValues;
+  const percentageCustom: SplitPercentages = {
+    essentialsPct: parseNumber(percentageValues.essentialsPct),
+    workCostsPct: parseNumber(percentageValues.workCostsPct),
+    emergencyPct: parseNumber(percentageValues.emergencyPct),
+    longTermPct: parseNumber(percentageValues.longTermPct),
+    flexiblePct: parseNumber(percentageValues.flexiblePct),
   };
-  const customTotal = Object.values(custom).reduce(
+  const defaultAmountInputs = amountInputsFromPercentages(
+    payout,
+    percentageCustom,
+  );
+  const rupeeValues = amountInputs ?? defaultAmountInputs;
+  const rupeeAmounts: Record<AmountKey, number> = {
+    essentials: parseNumber(rupeeValues.essentials),
+    workCosts: parseNumber(rupeeValues.workCosts),
+    emergency: parseNumber(rupeeValues.emergency),
+    longTerm: parseNumber(rupeeValues.longTerm),
+    flexible: parseNumber(rupeeValues.flexible),
+  };
+  const custom =
+    allocationUnit === "PERCENT"
+      ? percentageCustom
+      : percentagesFromAmounts(payout, rupeeAmounts);
+  const percentageTotal = Object.values(percentageCustom).reduce(
     (sum, value) => sum + (value || 0),
     0,
   );
+  const rupeeTotal = roundCurrency(
+    Object.values(rupeeAmounts).reduce((sum, value) => sum + (value || 0), 0),
+  );
+  const customIsComplete =
+    allocationUnit === "PERCENT"
+      ? Math.abs(percentageTotal - 100) < 0.001
+      : Math.round(rupeeTotal * 100) === Math.round(payout * 100);
   const payoutSourceId = manualIncome ? null : selectedSource?.id;
   const adaptive = d
     ? recommendAdaptiveSplit(d, payout, receivedAt, payoutSourceId)
@@ -125,7 +266,7 @@ export default function PayoutSplit() {
             fundedCommitments: [],
           }
         : null;
-  const totalPct = mode === "ADAPTIVE" ? 100 : customTotal;
+  const totalPct = mode === "ADAPTIVE" ? 100 : customIsComplete ? 100 : 0;
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -170,9 +311,11 @@ export default function PayoutSplit() {
       setSubmitError("Choose where this payout came from.");
       return;
     }
-    if (totalPct !== 100) {
+    if (mode === "CUSTOM" && !customIsComplete) {
       setSubmitError(
-        `Your split adds up to ${formatPct(customTotal)}. Make it exactly 100% before recording.`,
+        allocationUnit === "PERCENT"
+          ? `Your split adds up to ${formatPct(percentageTotal)}. Make it exactly 100% before recording.`
+          : `Your pockets add up to ${formatMoney(rupeeTotal)}. Make them equal the ${formatMoney(payout)} payout.`,
       );
       return;
     }
@@ -191,7 +334,10 @@ export default function PayoutSplit() {
 
   const barLabel = used
     ? `Split: ${pockets
-        .map((pocket) => `${pocket.label} ${formatPct(used.percentages[pocket.key])}`)
+        .map(
+          (pocket) =>
+            `${pocket.label} ${formatPct(used.percentages[pocket.key])}`,
+        )
         .join(", ")}`
     : "";
 
@@ -230,8 +376,8 @@ export default function PayoutSplit() {
           </View>
           {!activeSources.length && (
             <Text style={ui.small}>
-              No active source is connected. You can still record cash or
-              client income here.
+              No active source is connected. You can still record cash or client
+              income here.
             </Text>
           )}
         </View>
@@ -298,29 +444,77 @@ export default function PayoutSplit() {
 
           {mode === "CUSTOM" && (
             <>
+              <View style={styles.group}>
+                <Label>Enter your split as</Label>
+                <View style={ui.wrap}>
+                  <Chip
+                    role="radio"
+                    label="₹ Amounts"
+                    selected={allocationUnit === "RUPEES"}
+                    onPress={() => {
+                      setAmountInputs(
+                        amountInputsFromPercentages(payout, percentageCustom),
+                      );
+                      setAllocationUnit("RUPEES");
+                      setSubmitError(null);
+                    }}
+                  />
+                  <Chip
+                    role="radio"
+                    label="% Percentages"
+                    selected={allocationUnit === "PERCENT"}
+                    onPress={() => {
+                      setPercentages(
+                        percentageInputsFromAmounts(payout, rupeeAmounts),
+                      );
+                      setAllocationUnit("PERCENT");
+                      setSubmitError(null);
+                    }}
+                  />
+                </View>
+                <Text style={ui.small}>
+                  Choose the way that is easiest for you. We show both below.
+                </Text>
+              </View>
               <View style={styles.pctGrid}>
                 {pockets.map((pocket) => (
                   <Field
                     key={pocket.key}
                     containerStyle={styles.pctField}
                     label={pocket.label}
-                    suffix="%"
-                    keyboardType="number-pad"
-                    value={values[pocket.key]}
+                    prefix={allocationUnit === "RUPEES" ? "₹" : undefined}
+                    suffix={allocationUnit === "PERCENT" ? "%" : undefined}
+                    keyboardType="decimal-pad"
+                    value={
+                      allocationUnit === "RUPEES"
+                        ? rupeeValues[pocket.amountKey]
+                        : percentageValues[pocket.key]
+                    }
                     onChangeText={(value) => {
                       setSubmitError(null);
-                      setPercentages((current) => ({
-                        ...(current ?? values),
-                        [pocket.key]: value,
-                      }));
+                      if (allocationUnit === "RUPEES") {
+                        setAmountInputs((current) => ({
+                          ...(current ?? rupeeValues),
+                          [pocket.amountKey]: value,
+                        }));
+                      } else {
+                        setPercentages((current) => ({
+                          ...(current ?? percentageValues),
+                          [pocket.key]: value,
+                        }));
+                      }
                     }}
                   />
                 ))}
               </View>
-              <Notice tone={customTotal === 100 ? "good" : "warn"} live>
-                {customTotal === 100
-                  ? "Total is 100%."
-                  : `Total must be 100% (now ${formatPct(customTotal)}).`}
+              <Notice tone={customIsComplete ? "good" : "warn"} live>
+                {allocationUnit === "RUPEES"
+                  ? customIsComplete
+                    ? `Total matches your ${formatMoney(payout)} payout.`
+                    : `Total must be ${formatMoney(payout)} (now ${formatMoney(rupeeTotal)}).`
+                  : customIsComplete
+                    ? "Total is 100%."
+                    : `Total must be 100% (now ${formatPct(percentageTotal)}).`}
               </Notice>
               <Button
                 title="Reset to my usual split"
@@ -328,18 +522,18 @@ export default function PayoutSplit() {
                 size="sm"
                 inline
                 icon={Undo2}
-                onPress={() => setPercentages(null)}
+                onPress={() => {
+                  setPercentages(null);
+                  setAmountInputs(null);
+                  setSubmitError(null);
+                }}
               />
             </>
           )}
 
           {used && totalPct === 100 && (
             <>
-              <View
-                accessible
-                accessibilityLabel={barLabel}
-                style={styles.bar}
-              >
+              <View accessible accessibilityLabel={barLabel} style={styles.bar}>
                 {pockets.map((pocket) => {
                   const pct = used.percentages[pocket.key];
                   return pct > 0 ? (
@@ -400,8 +594,10 @@ export default function PayoutSplit() {
               {used.amounts.flexible > used.afterSafeAmount && (
                 <Notice tone="warn" title="Flexible is not all safe yet">
                   You assigned {formatMoney(used.amounts.flexible)} for personal
-                  spending, but Today will show {formatMoney(used.afterSafeAmount)}
-                  after also checking bills and work costs until the next payout.
+                  spending, but Today will show{" "}
+                  {formatMoney(used.afterSafeAmount)}
+                  after also checking bills and work costs until the next
+                  payout.
                 </Notice>
               )}
             </>

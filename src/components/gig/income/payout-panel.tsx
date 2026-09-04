@@ -40,6 +40,68 @@ export type PayoutSubmission = {
   percentages: SplitPercentages;
 };
 
+type AllocationUnit = "RUPEES" | "PERCENT";
+type AmountKey = keyof Projection["amounts"];
+type AmountInputs = Record<AmountKey, string>;
+
+const roundCurrency = (value: number) => Math.round(value * 100) / 100;
+const inputNumber = (value: number, decimals = 2) =>
+  Number(value.toFixed(decimals)).toString();
+
+function amountsFromPercentages(
+  payout: number,
+  percentages: SplitPercentages,
+): Record<AmountKey, number> {
+  const essentials = roundCurrency((payout * percentages.essentialsPct) / 100);
+  const workCosts = roundCurrency((payout * percentages.workCostsPct) / 100);
+  const emergency = roundCurrency((payout * percentages.emergencyPct) / 100);
+  const longTerm = roundCurrency((payout * percentages.longTermPct) / 100);
+  return {
+    essentials,
+    workCosts,
+    emergency,
+    longTerm,
+    flexible: roundCurrency(
+      payout - essentials - workCosts - emergency - longTerm,
+    ),
+  };
+}
+
+function amountInputsFromPercentages(
+  payout: number,
+  percentages: SplitPercentages,
+): AmountInputs {
+  const amounts = amountsFromPercentages(payout, percentages);
+  return {
+    essentials: inputNumber(amounts.essentials),
+    workCosts: inputNumber(amounts.workCosts),
+    emergency: inputNumber(amounts.emergency),
+    longTerm: inputNumber(amounts.longTerm),
+    flexible: inputNumber(amounts.flexible),
+  };
+}
+
+function percentagesFromAmounts(
+  payout: number,
+  amounts: Record<AmountKey, number>,
+): SplitPercentages {
+  if (!(payout > 0))
+    return {
+      essentialsPct: 0,
+      workCostsPct: 0,
+      emergencyPct: 0,
+      longTermPct: 0,
+      flexiblePct: 0,
+    };
+  return {
+    essentialsPct: (amounts.essentials / payout) * 100,
+    workCostsPct: (amounts.workCosts / payout) * 100,
+    emergencyPct: (amounts.emergency / payout) * 100,
+    longTermPct: (amounts.longTerm / payout) * 100,
+    flexiblePct: (amounts.flexible / payout) * 100,
+  };
+}
+
 export function PayoutPanel({
   dashboard,
   activeSources,
@@ -70,6 +132,9 @@ export function PayoutPanel({
   onAddSource: () => void;
 }) {
   const [formError, setFormError] = useState<string | null>(null);
+  const [allocationUnit, setAllocationUnit] =
+    useState<AllocationUnit>("RUPEES");
+  const [customAmounts, setCustomAmounts] = useState<AmountInputs | null>(null);
   const payoutAmount = Number(payout.amount) || 0;
   const selectedSource =
     activeSources.find((item) => item.id === payout.sourceId) ??
@@ -90,36 +155,55 @@ export function PayoutPanel({
     }),
     [dashboard.splitRule],
   );
-  const custom = customSplit ?? defaultSplit;
-  const projection = useMemo<Projection>(
-    () =>
-      adaptive
-        ? recommendAdaptiveSplit(
-            dashboard,
-            payoutAmount,
-            receivedAt,
-            selectedSource?.id,
-          )
-        : {
-            ...projectPayoutSplit(
-              dashboard,
-              payoutAmount,
-              custom,
-              receivedAt,
-              selectedSource?.id,
-            ),
-            percentages: custom,
-            fundedCommitments: [],
-            reasons: ["Custom percentages selected by you."],
-          },
-    [adaptive, custom, dashboard, payoutAmount, receivedAt, selectedSource?.id],
+  const percentageCustom = customSplit ?? defaultSplit;
+  const defaultAmountInputs = amountInputsFromPercentages(
+    payoutAmount,
+    percentageCustom,
   );
+  const amountValues = customAmounts ?? defaultAmountInputs;
+  const amountNumbers: Record<AmountKey, number> = {
+    essentials: Number(amountValues.essentials) || 0,
+    workCosts: Number(amountValues.workCosts) || 0,
+    emergency: Number(amountValues.emergency) || 0,
+    longTerm: Number(amountValues.longTerm) || 0,
+    flexible: Number(amountValues.flexible) || 0,
+  };
+  const amountTotal = roundCurrency(
+    Object.values(amountNumbers).reduce((sum, value) => sum + value, 0),
+  );
+  const amountTotalValid =
+    Math.round(amountTotal * 100) === Math.round(payoutAmount * 100);
+  const custom =
+    allocationUnit === "RUPEES"
+      ? percentagesFromAmounts(payoutAmount, amountNumbers)
+      : percentageCustom;
+  const projection: Projection = adaptive
+    ? recommendAdaptiveSplit(
+        dashboard,
+        payoutAmount,
+        receivedAt,
+        selectedSource?.id,
+      )
+    : {
+        ...projectPayoutSplit(
+          dashboard,
+          payoutAmount,
+          custom,
+          receivedAt,
+          selectedSource?.id,
+        ),
+        percentages: custom,
+        fundedCommitments: [],
+        reasons: ["Custom split selected by you."],
+      };
   const allocation = projection.percentages;
   const splitTotal = splitFields.reduce(
     (sum, field) => sum + allocation[field.key],
     0,
   );
-  const totalValid = Math.abs(splitTotal - 100) < 0.001;
+  const percentageTotalValid = Math.abs(splitTotal - 100) < 0.001;
+  const totalValid =
+    allocationUnit === "RUPEES" ? amountTotalValid : percentageTotalValid;
 
   const setMode = (allocationMode: PayoutForm["allocationMode"]) => {
     setPayout((current) => ({ ...current, allocationMode }));
@@ -139,7 +223,9 @@ export function PayoutPanel({
     }
     if (!totalValid) {
       setFormError(
-        `Your percentages total ${preciseTotal(splitTotal)}. Adjust them so they total exactly 100%.`,
+        allocationUnit === "RUPEES"
+          ? `Your pockets total ${formatCurrency(amountTotal)}. Adjust them so they equal the ${formatCurrency(payoutAmount)} payout.`
+          : `Your percentages total ${preciseTotal(splitTotal)}. Adjust them so they total exactly 100%.`,
       );
       return;
     }
@@ -244,35 +330,85 @@ export function PayoutPanel({
               <ModeButton
                 active={!adaptive}
                 title="Custom"
-                copy="Choose your own percentages. They must total 100%."
+                copy="Choose exact rupee amounts or percentages."
                 onClick={() => setMode("CUSTOM")}
               />
             </div>
           </fieldset>
 
           {!adaptive && (
-            <div className="grid grid-cols-2 gap-3 rounded-2xl border border-line bg-paper-2 p-4 lg:col-span-2 lg:grid-cols-5">
-              {splitFields.map((field) => (
-                <Input
-                  key={field.key}
-                  label={field.label}
-                  type="number"
-                  suffix="%"
-                  min={0}
-                  max={100}
-                  step="0.5"
-                  required
-                  value={String(custom[field.key])}
-                  onChange={(event) => {
-                    const value = Number(event.target.value);
-                    setCustomSplit((current) => ({
-                      ...(current ?? custom),
-                      [field.key]: value,
-                    }));
-                    setConfirmed(false);
-                  }}
-                />
-              ))}
+            <div className="rounded-2xl border border-line bg-paper-2 p-4 lg:col-span-2">
+              <fieldset>
+                <legend className="brut-label px-1">Enter your split as</legend>
+                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                  <ModeButton
+                    active={allocationUnit === "RUPEES"}
+                    title="₹ Amounts"
+                    copy="Enter the exact rupees for each pocket."
+                    onClick={() => {
+                      setCustomAmounts(
+                        amountInputsFromPercentages(
+                          payoutAmount,
+                          percentageCustom,
+                        ),
+                      );
+                      setAllocationUnit("RUPEES");
+                      setConfirmed(false);
+                      setFormError(null);
+                    }}
+                  />
+                  <ModeButton
+                    active={allocationUnit === "PERCENT"}
+                    title="% Percentages"
+                    copy="Divide the payout using percentages."
+                    onClick={() => {
+                      setCustomSplit(
+                        percentagesFromAmounts(payoutAmount, amountNumbers),
+                      );
+                      setAllocationUnit("PERCENT");
+                      setConfirmed(false);
+                      setFormError(null);
+                    }}
+                  />
+                </div>
+              </fieldset>
+              <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-5">
+                {splitFields.map((field) => (
+                  <Input
+                    key={field.key}
+                    label={field.label}
+                    type="number"
+                    prefix={allocationUnit === "RUPEES" ? "₹" : undefined}
+                    suffix={allocationUnit === "PERCENT" ? "%" : undefined}
+                    min={0}
+                    max={allocationUnit === "PERCENT" ? 100 : payoutAmount}
+                    step={allocationUnit === "PERCENT" ? "0.1" : "0.01"}
+                    required
+                    value={
+                      allocationUnit === "RUPEES"
+                        ? amountValues[field.amountKey]
+                        : String(percentageCustom[field.key])
+                    }
+                    onChange={(event) => {
+                      if (allocationUnit === "RUPEES") {
+                        const value = event.target.value;
+                        setCustomAmounts((current) => ({
+                          ...(current ?? amountValues),
+                          [field.amountKey]: value,
+                        }));
+                      } else {
+                        const value = Number(event.target.value);
+                        setCustomSplit((current) => ({
+                          ...(current ?? percentageCustom),
+                          [field.key]: value,
+                        }));
+                      }
+                      setConfirmed(false);
+                      setFormError(null);
+                    }}
+                  />
+                ))}
+              </div>
               <div className="col-span-2 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-3 lg:col-span-5">
                 <p
                   role="status"
@@ -281,15 +417,23 @@ export function PayoutPanel({
                     totalValid ? "text-good" : "text-bad",
                   )}
                 >
-                  Total {preciseTotal(splitTotal)}
-                  {totalValid ? "" : " · must total 100%"}
+                  {allocationUnit === "RUPEES"
+                    ? `Total ${formatCurrency(amountTotal)} of ${formatCurrency(payoutAmount)}`
+                    : `Total ${preciseTotal(splitTotal)}`}
+                  {totalValid
+                    ? ""
+                    : allocationUnit === "RUPEES"
+                      ? " · must equal the payout"
+                      : " · must total 100%"}
                 </p>
                 <Button
                   variant="secondary"
                   size="sm"
                   onClick={() => {
                     setCustomSplit(null);
+                    setCustomAmounts(null);
                     setConfirmed(false);
+                    setFormError(null);
                   }}
                 >
                   Reset to default
@@ -298,7 +442,7 @@ export function PayoutPanel({
             </div>
           )}
 
-          {payoutAmount > 0 && (
+          {payoutAmount > 0 && (adaptive || totalValid) && (
             <div className="rounded-2xl border border-line bg-paper-2 p-4 lg:col-span-2">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>

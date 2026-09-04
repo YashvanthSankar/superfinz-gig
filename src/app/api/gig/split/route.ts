@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
+  calculateGigDashboard,
   payoutSplitInputSchema,
   projectPayoutSplit,
   recommendAdaptiveSplit,
@@ -64,11 +65,13 @@ export async function POST(request: NextRequest) {
       value: parsed.data.amount,
       metadata: parsed.data.allocationMode,
     });
+  const updatedBundle = await getGigBundle(session.userId).catch(() => null);
   return NextResponse.json(
     {
       split,
       applied: { percentages, ...projection },
       recommendation: adaptive,
+      dashboard: updatedBundle ? calculateGigDashboard(updatedBundle) : null,
     },
     { status: 201 },
   );

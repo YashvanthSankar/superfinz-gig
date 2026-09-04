@@ -5,6 +5,8 @@ import { router } from "expo-router";
 import {
   projectPayoutSplit,
   recommendAdaptiveSplit,
+  type GigDashboardDto,
+  type PayoutSplitDto,
   type SplitPercentages,
 } from "@superfinz/shared";
 import { HandCoins, Undo2 } from "lucide-react-native";
@@ -29,8 +31,10 @@ import { DateField } from "@/components/date-field";
 import { colors, radius } from "@/constants/theme";
 import {
   refreshGigDashboard,
+  setGigDashboard,
   useGigDashboard,
 } from "@/hooks/use-gig-dashboard";
+import { useAuth } from "@/providers/auth-provider";
 
 type AmountKey = "essentials" | "workCosts" | "emergency" | "longTerm" | "flexible";
 
@@ -53,6 +57,7 @@ const formatPct = (value: number) =>
 
 export default function PayoutSplit() {
   const client = useQueryClient();
+  const { user } = useAuth();
   const query = useGigDashboard();
   const [amount, setAmount] = useState("");
   const [amountError, setAmountError] = useState<string | null>(null);
@@ -121,7 +126,10 @@ export default function PayoutSplit() {
 
   const mutation = useMutation({
     mutationFn: () =>
-      apiFetch("/api/gig/split", {
+      apiFetch<{
+        split: PayoutSplitDto;
+        dashboard: GigDashboardDto | null;
+      }>("/api/gig/split", {
         method: "POST",
         body: JSON.stringify({
           sourceId: manualIncome ? null : (selectedSource?.id ?? null),
@@ -135,9 +143,10 @@ export default function PayoutSplit() {
           percentages: mode === "ADAPTIVE" ? adaptive?.percentages : custom,
         }),
       }),
-    onSuccess: async () => {
-      await refreshGigDashboard(client);
+    onSuccess: async ({ dashboard }) => {
+      if (user && dashboard) setGigDashboard(client, user.id, dashboard);
       setSaved(true);
+      await refreshGigDashboard(client);
     },
   });
 

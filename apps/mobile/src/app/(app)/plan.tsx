@@ -19,6 +19,7 @@ import {
   ErrorState,
   Expandable,
   Field,
+  FormSheet,
   IconButton,
   Label,
   ListRow,
@@ -45,11 +46,7 @@ import {
 /* ------------------------------------------------------------------ */
 
 type Scenario =
-  | "BASELINE"
-  | "LOWER_INCOME"
-  | "PAYOUT_DELAY"
-  | "REPAIR"
-  | "TIME_OFF";
+  "BASELINE" | "LOWER_INCOME" | "PAYOUT_DELAY" | "REPAIR" | "TIME_OFF";
 
 const scenarios: Array<{
   value: Scenario;
@@ -378,10 +375,9 @@ export default function Plan() {
       action={
         <IconButton
           icon={Plus}
-          label={showForm ? "Close the bill form" : "Add a bill"}
-          hint="Shows a short form for a new bill"
-          active={showForm}
-          onPress={() => (showForm ? closeForm() : setShowForm(true))}
+          label="Add a bill"
+          hint="Opens a short form in a sheet"
+          onPress={() => setShowForm(true)}
         />
       }
     >
@@ -391,95 +387,96 @@ export default function Plan() {
         </Notice>
       )}
 
-      {showForm && (
-        <Card>
-          <SectionHeader
-            eyebrow="New bill"
-            title="Add a bill"
-            description="Rent, EMI, school fees or anything you cannot miss."
-          />
-          <Field
-            label="Bill name"
-            required
-            value={title}
-            onChangeText={(value) => {
-              setTitle(value);
-              if (errors.title) setErrors((prev) => ({ ...prev, title: undefined }));
-            }}
-            placeholder="Mobile bill"
-            autoCapitalize="sentences"
-            returnKeyType="next"
-            error={errors.title}
-          />
-          <Field
-            label="Amount"
-            required
-            prefix="₹"
-            value={amount}
-            onChangeText={(value) => {
-              setAmount(value);
-              if (errors.amount)
-                setErrors((prev) => ({ ...prev, amount: undefined }));
-            }}
-            keyboardType="decimal-pad"
-            placeholder="500"
-            error={errors.amount}
-          />
-          <DateField
-            label="Due date"
-            value={dueDate}
-            onChange={(value) => value && setDueDate(value)}
-          />
-          <View style={styles.group}>
-            <Label>How often</Label>
-            <View style={ui.wrap}>
-              {recurrenceOptions.map((option) => (
-                <Chip
-                  key={option.value}
-                  role="radio"
-                  label={option.label}
-                  selected={recurrence === option.value}
-                  onPress={() => setRecurrence(option.value)}
-                />
-              ))}
-            </View>
+      <FormSheet
+        visible={showForm}
+        onClose={closeForm}
+        eyebrow="New bill"
+        title="Add a bill"
+        description="Rent, EMI, school fees or anything you cannot miss."
+        busy={create.isPending}
+      >
+        <Field
+          label="Bill name"
+          required
+          value={title}
+          onChangeText={(value) => {
+            setTitle(value);
+            if (errors.title)
+              setErrors((prev) => ({ ...prev, title: undefined }));
+          }}
+          placeholder="Mobile bill"
+          autoCapitalize="sentences"
+          returnKeyType="next"
+          error={errors.title}
+        />
+        <Field
+          label="Amount"
+          required
+          prefix="₹"
+          value={amount}
+          onChangeText={(value) => {
+            setAmount(value);
+            if (errors.amount)
+              setErrors((prev) => ({ ...prev, amount: undefined }));
+          }}
+          keyboardType="decimal-pad"
+          placeholder="500"
+          error={errors.amount}
+        />
+        <DateField
+          label="Due date"
+          value={dueDate}
+          onChange={(value) => value && setDueDate(value)}
+        />
+        <View style={styles.group}>
+          <Label>How often</Label>
+          <View style={ui.wrap}>
+            {recurrenceOptions.map((option) => (
+              <Chip
+                key={option.value}
+                role="radio"
+                label={option.label}
+                selected={recurrence === option.value}
+                onPress={() => setRecurrence(option.value)}
+              />
+            ))}
           </View>
-          <View style={styles.group}>
-            <Label>Priority</Label>
-            <View style={ui.wrap}>
-              {priorityOptions.map((option) => (
-                <Chip
-                  key={option.value}
-                  role="radio"
-                  label={option.label}
-                  selected={priority === option.value}
-                  onPress={() => setPriority(option.value)}
-                />
-              ))}
-            </View>
-            <Text style={ui.caption}>
-              Protected bills are covered before flexible spending.
-            </Text>
+        </View>
+        <View style={styles.group}>
+          <Label>Priority</Label>
+          <View style={ui.wrap}>
+            {priorityOptions.map((option) => (
+              <Chip
+                key={option.value}
+                role="radio"
+                label={option.label}
+                selected={priority === option.value}
+                onPress={() => setPriority(option.value)}
+              />
+            ))}
           </View>
-          <View style={styles.formActions}>
-            <Button
-              title="Cancel"
-              tone="ghost"
-              inline
-              disabled={create.isPending}
-              onPress={closeForm}
-            />
-            <Button
-              title="Save bill"
-              tone="accent"
-              icon={Check}
-              loading={create.isPending}
-              onPress={submit}
-              style={styles.submit}
-            />
-          </View>
-        </Card>
-      )}
+          <Text style={ui.caption}>
+            Protected bills are covered before flexible spending.
+          </Text>
+        </View>
+        <View style={styles.formActions}>
+          <Button
+            title="Cancel"
+            tone="ghost"
+            inline
+            disabled={create.isPending}
+            onPress={closeForm}
+          />
+          <Button
+            title="Save bill"
+            tone="accent"
+            icon={Check}
+            loading={create.isPending}
+            onPress={submit}
+            style={styles.submit}
+          />
+        </View>
+      </FormSheet>
 
       {commitments.length > 0 && (
         <Card>

@@ -39,6 +39,7 @@ export const lightColors = {
   onBad: "#FFFFFF",
   border: "#C9D4E1",
   borderStrong: "#7A8DA5",
+  overlay: "rgba(16,42,67,0.55)",
   white: "#FFFFFF",
 } as const;
 
@@ -71,6 +72,7 @@ export const darkColors = {
   onBad: "#2A0D0B",
   border: "#2E4664",
   borderStrong: "#5E7A9C",
+  overlay: "rgba(2,8,18,0.72)",
   white: "#FFFFFF",
 } as const;
 
@@ -108,6 +110,7 @@ export const colors = {
   onBad: pick("onBad"),
   border: pick("border"),
   borderStrong: pick("borderStrong"),
+  overlay: pick("overlay"),
   white: "#FFFFFF" as ColorValue,
 
   // Legacy aliases kept so existing screens keep compiling. Prefer the names above.

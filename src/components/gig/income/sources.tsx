@@ -71,11 +71,13 @@ export function Sources({
         <Panel
           eyebrow="New income source"
           title="Add only what helps the plan."
+          description="Tell SuperFinz where income usually comes from so expected payouts are easier to understand."
+          busy={busy}
           onClose={closePanel}
         >
           <form
             onSubmit={submitSource}
-            className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+            className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
           >
             <Input
               label="Source name"
@@ -261,13 +263,16 @@ function SourceCard({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-xl font-bold tracking-[-0.02em]">{item.name}</h3>
+            <h3 className="text-xl font-bold tracking-[-0.02em]">
+              {item.name}
+            </h3>
             <Badge variant={status.tone}>{status.label}</Badge>
           </div>
           <p className="mt-1 text-sm text-ink-soft">
             {frequencyLabels[item.frequency]} · {sourceTypeLabels[item.type]} ·{" "}
             <span className="num">
-              {formatCurrency(item.typicalMin)}–{formatCurrency(item.typicalMax)}
+              {formatCurrency(item.typicalMin)}–
+              {formatCurrency(item.typicalMax)}
             </span>
           </p>
         </div>
@@ -279,11 +284,16 @@ function SourceCard({
         </span>
       </div>
       <dl className="mt-4 grid gap-2 border-y border-line py-4 text-sm">
-        <Row label="Connection" value={connectionModeLabel(item.connectionMode)} />
+        <Row
+          label="Connection"
+          value={connectionModeLabel(item.connectionMode)}
+        />
         <Row
           label="Last refresh"
           value={
-            item.lastSyncAt ? formatDateTime(item.lastSyncAt) : "Manual — no sync"
+            item.lastSyncAt
+              ? formatDateTime(item.lastSyncAt)
+              : "Manual — no sync"
           }
         />
         <Row
@@ -308,7 +318,9 @@ function SourceCard({
             />
             <Row
               label="Consent expires"
-              value={item.consentExpiresAt ? formatDate(item.consentExpiresAt) : "—"}
+              value={
+                item.consentExpiresAt ? formatDate(item.consentExpiresAt) : "—"
+              }
             />
           </dl>
         </Disclosure>

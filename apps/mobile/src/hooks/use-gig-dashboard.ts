@@ -7,10 +7,13 @@ import { useAuth } from "@/providers/auth-provider";
 
 export const gigDashboardQueryKey = ["gig-dashboard"] as const;
 
+export const gigDashboardQueryKeyForUser = (userId: string) =>
+  [...gigDashboardQueryKey, userId] as const;
+
 export function useGigDashboard() {
   const { user } = useAuth();
   const query = useQuery({
-    queryKey: [...gigDashboardQueryKey, user?.id ?? "signed-out"],
+    queryKey: gigDashboardQueryKeyForUser(user?.id ?? "signed-out"),
     queryFn: () =>
       apiFetch<{ dashboard: GigDashboardDto }>("/api/gig/dashboard"),
     enabled: Boolean(user?.id),
@@ -24,6 +27,14 @@ export function useGigDashboard() {
   );
 
   return query;
+}
+
+export function setGigDashboard(
+  client: QueryClient,
+  userId: string,
+  dashboard: GigDashboardDto,
+) {
+  client.setQueryData(gigDashboardQueryKeyForUser(userId), { dashboard });
 }
 
 export function refreshGigDashboard(client: QueryClient) {

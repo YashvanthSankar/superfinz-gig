@@ -71,9 +71,6 @@ export function detectCoachSpeechMode(
   if (/\p{Script=Kannada}/u.test(text)) return "Kannada";
   if (/\p{Script=Malayalam}/u.test(text)) return "Malayalam";
 
-  const preferred = profileMode(preferredLanguage);
-  if (preferred) return preferred;
-
   let best: { mode: CoachSpeechMode; count: number } = {
     mode: "English",
     count: 0,
@@ -82,7 +79,14 @@ export function detectCoachSpeechMode(
     const count = text.match(candidate.pattern)?.length ?? 0;
     if (count > best.count) best = { mode: candidate.mode, count };
   }
-  return best.count >= 2 ? best.mode : "English";
+  if (best.count >= 2) return best.mode;
+
+  // A saved profile preference must not turn a clearly English answer into a
+  // different language. Use it only to disambiguate a short code-mixed phrase
+  // that already contains a word from the same language family.
+  const preferred = profileMode(preferredLanguage);
+  if (best.count === 1 && preferred === best.mode) return preferred;
+  return "English";
 }
 
 export function coachSpeechInstructions(mode: CoachSpeechMode) {

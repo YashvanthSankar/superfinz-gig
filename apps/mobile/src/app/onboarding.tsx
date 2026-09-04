@@ -161,6 +161,7 @@ export default function Onboarding() {
   const recorderState = useAudioRecorderState(recorder, 250);
   const stopTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stoppingVoice = useRef(false);
+  const recordingActive = useRef(false);
   const [stage, setStage] = useState<QuickSetupStage>("ABOUT");
   const [draft, setDraft] = useState<QuickSetupDraft>({});
   const [answers, setAnswers] = useState<Answers>({});
@@ -225,9 +226,8 @@ export default function Onboarding() {
   useEffect(
     () => () => {
       if (stopTimer.current) clearTimeout(stopTimer.current);
-      if (recorder.isRecording) void recorder.stop();
     },
-    [recorder],
+    [],
   );
 
   const moveTo = useCallback(
@@ -310,7 +310,7 @@ export default function Onboarding() {
   };
 
   const startVoice = async () => {
-    if (busy || recorder.isRecording) return;
+    if (busy || recordingActive.current) return;
     setError(null);
     try {
       const permission = await requestRecordingPermissionsAsync();
@@ -324,15 +324,18 @@ export default function Onboarding() {
       });
       await recorder.prepareToRecordAsync();
       recorder.record();
+      recordingActive.current = true;
       stopTimer.current = setTimeout(() => void stopVoice(), 25_000);
     } catch {
+      recordingActive.current = false;
       setError("Couldn’t start the microphone. You can still type your answer.");
     }
   };
 
   const stopVoice = async () => {
-    if (stoppingVoice.current || !recorder.isRecording) return;
+    if (stoppingVoice.current || !recordingActive.current) return;
     stoppingVoice.current = true;
+    recordingActive.current = false;
     if (stopTimer.current) clearTimeout(stopTimer.current);
     stopTimer.current = null;
     setError(null);

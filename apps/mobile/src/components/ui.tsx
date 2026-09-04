@@ -1,7 +1,15 @@
-import { useEffect, useState, type PropsWithChildren, type ReactNode } from "react";
 import {
+  useEffect,
+  useState,
+  type PropsWithChildren,
+  type ReactNode,
+} from "react";
+import {
+  AccessibilityInfo,
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Modal as NativeModal,
   Platform,
   Pressable,
   ScrollView,
@@ -28,6 +36,7 @@ import {
   Moon,
   Sun,
   TriangleAlert,
+  X,
   type LucideIcon,
 } from "lucide-react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -41,6 +50,7 @@ import {
   space,
 } from "@/constants/theme";
 import { useAppTheme } from "@/providers/theme-provider";
+import { useTabBarInset } from "@/components/tab-bar";
 
 /* ------------------------------------------------------------------ */
 /* Formatting                                                          */
@@ -79,7 +89,6 @@ export function formatDate(
 ) {
   return new Date(value).toLocaleDateString("en-IN", options);
 }
-
 
 /** True only after `active` has been true for `delay` ms, so quick refetches never flash. */
 function useDelayedFlag(active: boolean, delay = 600) {
@@ -124,6 +133,8 @@ export function Screen({
 }>) {
   const router = useRouter();
   const showRefreshing = useDelayedFlag(refreshing);
+  const tabBarInset = useTabBarInset();
+  const bottomPadding = tabBarInset ? tabBarInset + 20 : 40;
   const showHeader = Boolean(title || back || action || help);
   const content = (
     <View
@@ -131,6 +142,7 @@ export function Screen({
         styles.content,
         !padded && styles.contentFlush,
         !scroll && styles.contentFixed,
+        !scroll && { paddingBottom: tabBarInset ? tabBarInset + 8 : 10 },
       ]}
     >
       {showHeader && (
@@ -142,9 +154,16 @@ export function Screen({
                 accessibilityLabel="Go back"
                 hitSlop={8}
                 onPress={onBack ?? (() => router.back())}
-                style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
+                style={({ pressed }) => [
+                  styles.backButton,
+                  pressed && styles.pressed,
+                ]}
               >
-                <ArrowLeft accessible={false} color={colorString(colors.ink)} size={20} />
+                <ArrowLeft
+                  accessible={false}
+                  color={colorString(colors.ink)}
+                  size={20}
+                />
                 <Text style={styles.backText}>Back</Text>
               </Pressable>
             ) : (
@@ -164,7 +183,10 @@ export function Screen({
                   accessibilityLabel="Updating"
                   style={styles.refreshingBox}
                 >
-                  <ActivityIndicator color={colorString(colors.accent)} size="small" />
+                  <ActivityIndicator
+                    color={colorString(colors.accent)}
+                    size="small"
+                  />
                 </View>
               )}
               {help && (
@@ -172,7 +194,9 @@ export function Screen({
                   icon={CircleHelp}
                   label={`Help with ${help.title}`}
                   hint="Opens a short explanation"
-                  onPress={() => Alert.alert(help.title, help.body, [{ text: "Got it" }])}
+                  onPress={() =>
+                    Alert.alert(help.title, help.body, [{ text: "Got it" }])
+                  }
                 />
               )}
               {action}
@@ -198,7 +222,11 @@ export function Screen({
     <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
       {scroll ? (
         <ScrollView
-          contentContainerStyle={styles.scroll}
+          contentContainerStyle={[
+            styles.scroll,
+            { paddingBottom: bottomPadding },
+          ]}
+          scrollIndicatorInsets={{ bottom: tabBarInset }}
           keyboardShouldPersistTaps="handled"
           automaticallyAdjustKeyboardInsets
           showsVerticalScrollIndicator={false}
@@ -216,16 +244,26 @@ export function Screen({
 /* Surfaces                                                            */
 /* ------------------------------------------------------------------ */
 
-export type CardTone = "default" | "tint" | "navy" | "good" | "warn" | "bad" | "plain";
+export type CardTone =
+  "default" | "tint" | "navy" | "good" | "warn" | "bad" | "plain";
 
 const cardTones: Record<CardTone, ViewStyle> = {
   default: {},
   tint: { backgroundColor: colors.accentSoft, borderColor: colors.accentSoft },
-  navy: { backgroundColor: colors.primary, borderColor: colors.primary, ...shadowLg },
+  navy: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+    ...shadowLg,
+  },
   good: { backgroundColor: colors.goodSoft, borderColor: colors.goodSoft },
   warn: { backgroundColor: colors.warnSoft, borderColor: colors.warnSoft },
   bad: { backgroundColor: colors.badSoft, borderColor: colors.badSoft },
-  plain: { backgroundColor: colors.paper2, borderColor: colors.paper2, shadowOpacity: 0, elevation: 0 },
+  plain: {
+    backgroundColor: colors.paper2,
+    borderColor: colors.paper2,
+    shadowOpacity: 0,
+    elevation: 0,
+  },
 };
 
 export function Card({
@@ -250,7 +288,10 @@ export function Label({
   children,
   tone = "muted",
   style,
-}: PropsWithChildren<{ tone?: "muted" | "accent" | "onPrimary" | "inherit"; style?: StyleProp<TextStyle> }>) {
+}: PropsWithChildren<{
+  tone?: "muted" | "accent" | "onPrimary" | "inherit";
+  style?: StyleProp<TextStyle>;
+}>) {
   return (
     <Text
       style={[
@@ -282,7 +323,9 @@ export function SectionHeader({
   return (
     <View style={styles.sectionHeader}>
       <View style={styles.sectionHeaderText}>
-        {eyebrow && <Label tone={onPrimary ? "onPrimary" : "muted"}>{eyebrow}</Label>}
+        {eyebrow && (
+          <Label tone={onPrimary ? "onPrimary" : "muted"}>{eyebrow}</Label>
+        )}
         <Text
           accessibilityRole="header"
           style={[ui.h2, onPrimary && { color: colors.onPrimary }]}
@@ -290,7 +333,9 @@ export function SectionHeader({
           {title}
         </Text>
         {description && (
-          <Text style={[ui.small, onPrimary && { color: colors.onPrimarySoft }]}>
+          <Text
+            style={[ui.small, onPrimary && { color: colors.onPrimarySoft }]}
+          >
             {description}
           </Text>
         )}
@@ -303,8 +348,109 @@ export function SectionHeader({
 export function Divider({ onPrimary = false }: { onPrimary?: boolean }) {
   return (
     <View
-      style={[styles.divider, onPrimary && { backgroundColor: colors.onPrimaryBorder }]}
+      style={[
+        styles.divider,
+        onPrimary && { backgroundColor: colors.onPrimaryBorder },
+      ]}
     />
+  );
+}
+
+function useReducedMotionEnabled() {
+  const [enabled, setEnabled] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    void AccessibilityInfo.isReduceMotionEnabled().then((value) => {
+      if (mounted) setEnabled(value);
+    });
+    const subscription = AccessibilityInfo.addEventListener(
+      "reduceMotionChanged",
+      setEnabled,
+    );
+    return () => {
+      mounted = false;
+      subscription.remove();
+    };
+  }, []);
+
+  return enabled;
+}
+
+/**
+ * A focused action surface for short forms and settings. It slides up on
+ * phones, remains readable on tablets, avoids the keyboard and keeps the page
+ * underneath from jumping.
+ */
+export function FormSheet({
+  visible,
+  onClose,
+  eyebrow,
+  title,
+  description,
+  busy = false,
+  children,
+}: PropsWithChildren<{
+  visible: boolean;
+  onClose: () => void;
+  eyebrow?: string;
+  title: string;
+  description?: string;
+  busy?: boolean;
+}>) {
+  const reduceMotion = useReducedMotionEnabled();
+  const close = () => {
+    if (!busy) onClose();
+  };
+
+  return (
+    <NativeModal
+      transparent
+      visible={visible}
+      animationType={reduceMotion ? "none" : "slide"}
+      presentationStyle="overFullScreen"
+      statusBarTranslucent
+      onRequestClose={close}
+    >
+      <View accessibilityViewIsModal style={styles.sheetRoot}>
+        <View accessible={false} style={styles.sheetBackdrop} />
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={8}
+          pointerEvents="box-none"
+          style={styles.sheetKeyboard}
+        >
+          <SafeAreaView edges={["bottom"]} style={styles.sheetSurface}>
+            <View style={styles.sheetHeader}>
+              <View style={styles.sheetHeading}>
+                {eyebrow && <Label tone="accent">{eyebrow}</Label>}
+                <Text accessibilityRole="header" style={ui.h2}>
+                  {title}
+                </Text>
+                {description && <Text style={ui.small}>{description}</Text>}
+              </View>
+              <IconButton
+                icon={X}
+                label={`Close ${title}`}
+                hint="Returns to the previous screen"
+                disabled={busy}
+                onPress={close}
+              />
+            </View>
+            <Divider />
+            <ScrollView
+              automaticallyAdjustKeyboardInsets
+              keyboardShouldPersistTaps="handled"
+              nestedScrollEnabled
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.sheetBody}
+            >
+              {children}
+            </ScrollView>
+          </SafeAreaView>
+        </KeyboardAvoidingView>
+      </View>
+    </NativeModal>
   );
 }
 
@@ -380,7 +526,9 @@ export function Stat({
       <Label tone={onPrimary ? "onPrimary" : "muted"}>{label}</Label>
       <Text style={[styles.statValue, { color: valueColor }]}>{value}</Text>
       {help && (
-        <Text style={[ui.small, onPrimary && { color: colors.onPrimarySoft }]}>{help}</Text>
+        <Text style={[ui.small, onPrimary && { color: colors.onPrimarySoft }]}>
+          {help}
+        </Text>
       )}
     </View>
   );
@@ -397,15 +545,26 @@ export function Progress({
   label?: string;
   onPrimary?: boolean;
 }) {
-  const normalized = Math.min(100, Math.max(0, Number.isFinite(value) ? value : 0));
+  const normalized = Math.min(
+    100,
+    Math.max(0, Number.isFinite(value) ? value : 0),
+  );
   return (
     <View
       accessibilityRole="progressbar"
       accessibilityLabel={label}
       accessibilityValue={{ min: 0, max: 100, now: Math.round(normalized) }}
-      style={[styles.track, onPrimary && { backgroundColor: colors.onPrimaryPanel }]}
+      style={[
+        styles.track,
+        onPrimary && { backgroundColor: colors.onPrimaryPanel },
+      ]}
     >
-      <View style={[styles.fill, { width: `${normalized}%`, backgroundColor: tone }]} />
+      <View
+        style={[
+          styles.fill,
+          { width: `${normalized}%`, backgroundColor: tone },
+        ]}
+      />
     </View>
   );
 }
@@ -433,17 +592,44 @@ export function Badge({
   const palette = badgeTones[tone];
   return (
     <View style={[styles.badge, { backgroundColor: palette.bg }]}>
-      {Icon && <Icon accessible={false} color={colorString(palette.fg)} size={13} strokeWidth={2.4} />}
+      {Icon && (
+        <Icon
+          accessible={false}
+          color={colorString(palette.fg)}
+          size={13}
+          strokeWidth={2.4}
+        />
+      )}
       <Text style={[styles.badgeText, { color: palette.fg }]}>{label}</Text>
     </View>
   );
 }
 
 const noticeMeta = {
-  info: { icon: Info, bg: colors.accentSoft, fg: colors.accent, text: colors.ink },
-  good: { icon: CircleCheck, bg: colors.goodSoft, fg: colors.good, text: colors.ink },
-  warn: { icon: TriangleAlert, bg: colors.warnSoft, fg: colors.warn, text: colors.ink },
-  bad: { icon: CircleAlert, bg: colors.badSoft, fg: colors.bad, text: colors.ink },
+  info: {
+    icon: Info,
+    bg: colors.accentSoft,
+    fg: colors.accent,
+    text: colors.ink,
+  },
+  good: {
+    icon: CircleCheck,
+    bg: colors.goodSoft,
+    fg: colors.good,
+    text: colors.ink,
+  },
+  warn: {
+    icon: TriangleAlert,
+    bg: colors.warnSoft,
+    fg: colors.warn,
+    text: colors.ink,
+  },
+  bad: {
+    icon: CircleAlert,
+    bg: colors.badSoft,
+    fg: colors.bad,
+    text: colors.ink,
+  },
 } as const;
 
 /** Inline callout with an icon; use for warnings, confirmations and disclaimers. */
@@ -452,7 +638,11 @@ export function Notice({
   title,
   children,
   live = false,
-}: PropsWithChildren<{ tone?: keyof typeof noticeMeta; title?: string; live?: boolean }>) {
+}: PropsWithChildren<{
+  tone?: keyof typeof noticeMeta;
+  title?: string;
+  live?: boolean;
+}>) {
   const meta = noticeMeta[tone];
   const Icon = meta.icon;
   return (
@@ -461,11 +651,22 @@ export function Notice({
       accessibilityRole={tone === "bad" ? "alert" : undefined}
       style={[styles.notice, { backgroundColor: meta.bg }]}
     >
-      <Icon accessible={false} color={colorString(meta.fg)} size={18} strokeWidth={2.2} />
+      <Icon
+        accessible={false}
+        color={colorString(meta.fg)}
+        size={18}
+        strokeWidth={2.2}
+      />
       <View style={styles.noticeBody}>
-        {title && <Text style={[styles.noticeTitle, { color: meta.text }]}>{title}</Text>}
+        {title && (
+          <Text style={[styles.noticeTitle, { color: meta.text }]}>
+            {title}
+          </Text>
+        )}
         {typeof children === "string" ? (
-          <Text style={[styles.noticeText, { color: meta.text }]}>{children}</Text>
+          <Text style={[styles.noticeText, { color: meta.text }]}>
+            {children}
+          </Text>
         ) : (
           children
         )}
@@ -488,24 +689,41 @@ export type ButtonTone =
   | "dangerSoft"
   | "onPrimary";
 
-const buttonTones: Record<ButtonTone, { container: ViewStyle; text: TextStyle; spinner: ColorValue }> = {
+const buttonTones: Record<
+  ButtonTone,
+  { container: ViewStyle; text: TextStyle; spinner: ColorValue }
+> = {
   accent: {
-    container: { backgroundColor: colors.action, borderColor: colors.action, ...shadow },
+    container: {
+      backgroundColor: colors.action,
+      borderColor: colors.action,
+      ...shadow,
+    },
     text: { color: colors.onAction },
     spinner: colors.onAction,
   },
   ink: {
-    container: { backgroundColor: colors.primary, borderColor: colors.primary, ...shadow },
+    container: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+      ...shadow,
+    },
     text: { color: colors.onPrimary },
     spinner: colors.onPrimary,
   },
   quiet: {
-    container: { backgroundColor: colors.surface, borderColor: colors.borderStrong },
+    container: {
+      backgroundColor: colors.surface,
+      borderColor: colors.borderStrong,
+    },
     text: { color: colors.ink },
     spinner: colors.ink,
   },
   soft: {
-    container: { backgroundColor: colors.accentSoft, borderColor: colors.accentSoft },
+    container: {
+      backgroundColor: colors.accentSoft,
+      borderColor: colors.accentSoft,
+    },
     text: { color: colors.accent },
     spinner: colors.accent,
   },
@@ -525,7 +743,10 @@ const buttonTones: Record<ButtonTone, { container: ViewStyle; text: TextStyle; s
     spinner: colors.bad,
   },
   onPrimary: {
-    container: { backgroundColor: colors.onPrimaryPanel, borderColor: colors.onPrimaryBorder },
+    container: {
+      backgroundColor: colors.onPrimaryPanel,
+      borderColor: colors.onPrimaryBorder,
+    },
     text: { color: colors.onPrimary },
     spinner: colors.onPrimary,
   },
@@ -582,15 +803,34 @@ export function Button({
       {loading ? (
         <ActivityIndicator color={colorString(palette.spinner)} size="small" />
       ) : (
-        Icon && <Icon accessible={false} color={iconColor} size={size === "sm" ? 16 : 18} strokeWidth={2.2} />
+        Icon && (
+          <Icon
+            accessible={false}
+            color={iconColor}
+            size={size === "sm" ? 16 : 18}
+            strokeWidth={2.2}
+          />
+        )
       )}
       <Text
         numberOfLines={1}
-        style={[styles.buttonText, size === "sm" && styles.buttonTextSm, size === "lg" && styles.buttonTextLg, palette.text]}
+        style={[
+          styles.buttonText,
+          size === "sm" && styles.buttonTextSm,
+          size === "lg" && styles.buttonTextLg,
+          palette.text,
+        ]}
       >
         {title}
       </Text>
-      {IconRight && <IconRight accessible={false} color={iconColor} size={size === "sm" ? 16 : 18} strokeWidth={2.2} />}
+      {IconRight && (
+        <IconRight
+          accessible={false}
+          color={iconColor}
+          size={size === "sm" ? 16 : 18}
+          strokeWidth={2.2}
+        />
+      )}
     </Pressable>
   );
 }
@@ -637,15 +877,33 @@ export function IconButton({
       style={({ pressed }) => [
         styles.iconButton,
         tone === "quiet" && styles.iconButtonQuiet,
-        tone === "accent" && { backgroundColor: colors.action, borderColor: colors.action },
-        tone === "onPrimary" && { backgroundColor: colors.onPrimaryPanel, borderColor: colors.onPrimaryBorder },
-        tone === "danger" && { backgroundColor: colors.badSoft, borderColor: colors.badSoft },
-        active && tone === "quiet" && { backgroundColor: colors.accentSoft, borderColor: colors.accent },
+        tone === "accent" && {
+          backgroundColor: colors.action,
+          borderColor: colors.action,
+        },
+        tone === "onPrimary" && {
+          backgroundColor: colors.onPrimaryPanel,
+          borderColor: colors.onPrimaryBorder,
+        },
+        tone === "danger" && {
+          backgroundColor: colors.badSoft,
+          borderColor: colors.badSoft,
+        },
+        active &&
+          tone === "quiet" && {
+            backgroundColor: colors.accentSoft,
+            borderColor: colors.accent,
+          },
         pressed && styles.pressed,
         disabled && styles.disabled,
       ]}
     >
-      <Icon accessible={false} color={colorString(fg)} size={size} strokeWidth={2.1} />
+      <Icon
+        accessible={false}
+        color={colorString(fg)}
+        size={size}
+        strokeWidth={2.1}
+      />
     </Pressable>
   );
 }
@@ -671,12 +929,28 @@ export function Chip({
     <Pressable
       accessibilityRole={role}
       accessibilityLabel={label}
-      accessibilityState={{ selected, checked: role === "button" ? undefined : selected, disabled }}
+      accessibilityState={{
+        selected,
+        checked: role === "button" ? undefined : selected,
+        disabled,
+      }}
       disabled={disabled}
       onPress={onPress}
-      style={({ pressed }) => [styles.chip, selected && styles.chipSelected, pressed && styles.pressed, disabled && styles.disabled]}
+      style={({ pressed }) => [
+        styles.chip,
+        selected && styles.chipSelected,
+        pressed && styles.pressed,
+        disabled && styles.disabled,
+      ]}
     >
-      {Icon && <Icon accessible={false} color={colorString(fg)} size={15} strokeWidth={2.2} />}
+      {Icon && (
+        <Icon
+          accessible={false}
+          color={colorString(fg)}
+          size={15}
+          strokeWidth={2.2}
+        />
+      )}
       <Text style={[styles.chipText, { color: fg }]}>{label}</Text>
     </Pressable>
   );
@@ -710,19 +984,43 @@ export function ListRow({
   accessibilityHint?: string;
 }>) {
   const iconFg =
-    iconTone === "good" ? colors.good : iconTone === "warn" ? colors.warn : iconTone === "bad" ? colors.bad : iconTone === "muted" ? colors.muted : colors.accent;
+    iconTone === "good"
+      ? colors.good
+      : iconTone === "warn"
+        ? colors.warn
+        : iconTone === "bad"
+          ? colors.bad
+          : iconTone === "muted"
+            ? colors.muted
+            : colors.accent;
   const iconBg =
-    iconTone === "good" ? colors.goodSoft : iconTone === "warn" ? colors.warnSoft : iconTone === "bad" ? colors.badSoft : iconTone === "muted" ? colors.paper2 : colors.accentSoft;
+    iconTone === "good"
+      ? colors.goodSoft
+      : iconTone === "warn"
+        ? colors.warnSoft
+        : iconTone === "bad"
+          ? colors.badSoft
+          : iconTone === "muted"
+            ? colors.paper2
+            : colors.accentSoft;
   const showChevron = chevron ?? Boolean(onPress);
   const body = (
     <>
       {Icon && (
         <View style={[styles.rowIcon, { backgroundColor: iconBg }]}>
-          <Icon accessible={false} color={colorString(iconFg)} size={19} strokeWidth={2} />
+          <Icon
+            accessible={false}
+            color={colorString(iconFg)}
+            size={19}
+            strokeWidth={2}
+          />
         </View>
       )}
       <View style={styles.rowText}>
-        <Text numberOfLines={2} style={[styles.rowTitle, destructive && { color: colors.bad }]}>
+        <Text
+          numberOfLines={2}
+          style={[styles.rowTitle, destructive && { color: colors.bad }]}
+        >
           {title}
         </Text>
         {subtitle && (
@@ -735,7 +1033,12 @@ export function ListRow({
       {value && <Text style={styles.rowValue}>{value}</Text>}
       {badge}
       {showChevron && (
-        <ChevronRight accessible={false} color={colorString(colors.muted)} size={18} strokeWidth={2.2} />
+        <ChevronRight
+          accessible={false}
+          color={colorString(colors.muted)}
+          size={18}
+          strokeWidth={2.2}
+        />
       )}
     </>
   );
@@ -748,7 +1051,11 @@ export function ListRow({
       accessibilityLabel={`${title}${subtitle ? `, ${subtitle}` : ""}${value ? `, ${value}` : ""}`}
       accessibilityHint={accessibilityHint}
       onPress={onPress}
-      style={({ pressed }) => [styles.row, last && styles.rowLast, pressed && styles.rowPressed]}
+      style={({ pressed }) => [
+        styles.row,
+        last && styles.rowLast,
+        pressed && styles.rowPressed,
+      ]}
     >
       {body}
     </Pressable>
@@ -783,12 +1090,19 @@ export function Expandable({
           setOpen(next);
           onToggle?.(next);
         }}
-        style={({ pressed }) => [styles.expandableHeader, pressed && styles.pressed]}
+        style={({ pressed }) => [
+          styles.expandableHeader,
+          pressed && styles.pressed,
+        ]}
       >
         <View style={styles.rowText}>
           <Text style={[styles.expandableTitle, { color: fg }]}>{title}</Text>
           {summary && !open && (
-            <Text style={[ui.small, onPrimary && { color: colors.onPrimarySoft }]}>{summary}</Text>
+            <Text
+              style={[ui.small, onPrimary && { color: colors.onPrimarySoft }]}
+            >
+              {summary}
+            </Text>
           )}
         </View>
         <ChevronDown
@@ -834,7 +1148,17 @@ export function Field(
     containerStyle?: StyleProp<ViewStyle>;
   },
 ) {
-  const { label, hint, error, required, prefix, suffix, containerStyle, style, ...inputProps } = props;
+  const {
+    label,
+    hint,
+    error,
+    required,
+    prefix,
+    suffix,
+    containerStyle,
+    style,
+    ...inputProps
+  } = props;
   return (
     <View style={[styles.field, containerStyle]}>
       {label && (
@@ -848,7 +1172,9 @@ export function Field(
         <TextInput
           accessibilityLabel={props.accessibilityLabel ?? label}
           accessibilityHint={props.accessibilityHint ?? hint}
-          accessibilityState={{ ...(props.editable === false ? { disabled: true } : {}) }}
+          accessibilityState={{
+            ...(props.editable === false ? { disabled: true } : {}),
+          }}
           placeholderTextColor={colorString(colors.muted)}
           selectionColor={colorString(colors.accent)}
           {...inputProps}
@@ -860,7 +1186,9 @@ export function Field(
             style,
           ]}
         />
-        {suffix && <Text style={[styles.affix, styles.affixRight]}>{suffix}</Text>}
+        {suffix && (
+          <Text style={[styles.affix, styles.affixRight]}>{suffix}</Text>
+        )}
       </View>
       {error ? (
         <Text accessibilityRole="alert" style={styles.fieldError}>
@@ -901,13 +1229,19 @@ export function ErrorState({
     <SafeAreaView style={styles.loadingSafe}>
       <View accessibilityLiveRegion="assertive" style={styles.center}>
         <View style={[styles.stateIcon, { backgroundColor: colors.badSoft }]}>
-          <CircleAlert accessible={false} color={colorString(colors.bad)} size={24} />
+          <CircleAlert
+            accessible={false}
+            color={colorString(colors.bad)}
+            size={24}
+          />
         </View>
         <Text accessibilityRole="header" style={styles.emptyTitle}>
           {title}
         </Text>
         {body && <Text style={styles.muted}>{body}</Text>}
-        {onRetry && <Button title="Try again" tone="quiet" inline onPress={onRetry} />}
+        {onRetry && (
+          <Button title="Try again" tone="quiet" inline onPress={onRetry} />
+        )}
       </View>
     </SafeAreaView>
   );
@@ -940,14 +1274,26 @@ export function EmptyState({
     <View style={styles.emptyState}>
       {Icon && (
         <View style={styles.stateIcon}>
-          <Icon accessible={false} color={colorString(colors.accent)} size={22} />
+          <Icon
+            accessible={false}
+            color={colorString(colors.accent)}
+            size={22}
+          />
         </View>
       )}
       <Text accessibilityRole="header" style={styles.emptyTitle}>
         {title}
       </Text>
       {body && <Text style={styles.muted}>{body}</Text>}
-      {action && <Button title={action.title} tone="soft" size="sm" inline onPress={action.onPress} />}
+      {action && (
+        <Button
+          title={action.title}
+          tone="soft"
+          size="sm"
+          inline
+          onPress={action.onPress}
+        />
+      )}
     </View>
   );
 }
@@ -995,7 +1341,12 @@ export const ui = StyleSheet.create({
     letterSpacing: -0.2,
   },
   body: { fontSize: 16, color: colors.inkSoft, lineHeight: 24 },
-  bodyStrong: { fontSize: 16, color: colors.ink, lineHeight: 24, fontWeight: "600" },
+  bodyStrong: {
+    fontSize: 16,
+    color: colors.ink,
+    lineHeight: 24,
+    fontWeight: "600",
+  },
   small: {
     fontSize: 13,
     color: colors.muted,
@@ -1018,7 +1369,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.paper,
     justifyContent: "center",
   },
-  scroll: { flexGrow: 1, paddingBottom: 110 },
+  scroll: { flexGrow: 1 },
   content: {
     width: "100%",
     maxWidth: 760,
@@ -1028,7 +1379,7 @@ const styles = StyleSheet.create({
     gap: space.lg,
   },
   contentFlush: { paddingHorizontal: 0 },
-  contentFixed: { flex: 1, paddingBottom: 10 },
+  contentFixed: { flex: 1 },
   pageHeader: { gap: 6, marginBottom: 2 },
   headerRow: {
     minHeight: TOUCH,
@@ -1069,7 +1420,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 23,
   },
-  refreshingBox: { width: TOUCH, height: TOUCH, alignItems: "center", justifyContent: "center" },
+  refreshingBox: {
+    width: TOUCH,
+    height: TOUCH,
+    alignItems: "center",
+    justifyContent: "center",
+  },
 
   card: {
     borderWidth: 1,
@@ -1097,6 +1453,50 @@ const styles = StyleSheet.create({
   },
   sectionHeaderText: { flex: 1, gap: 3 },
   divider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.border },
+  sheetRoot: {
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  sheetBackdrop: {
+    position: "absolute",
+    inset: 0,
+    backgroundColor: colors.overlay,
+  },
+  sheetKeyboard: {
+    flex: 1,
+    width: "100%",
+    justifyContent: "flex-end",
+    alignItems: "center",
+  },
+  sheetSurface: {
+    width: "100%",
+    maxWidth: 760,
+    maxHeight: "92%",
+    overflow: "hidden",
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+    borderWidth: 1,
+    borderBottomWidth: 0,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    ...shadowLg,
+  },
+  sheetHeader: {
+    minHeight: 72,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: space.md,
+    paddingHorizontal: space.lg,
+    paddingTop: space.md,
+    paddingBottom: space.md,
+  },
+  sheetHeading: { flex: 1, minWidth: 0, gap: 3 },
+  sheetBody: {
+    gap: space.md,
+    paddingHorizontal: space.lg,
+    paddingTop: space.lg,
+    paddingBottom: space.xl,
+  },
 
   money: {
     fontSize: 24,
@@ -1184,7 +1584,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  iconButtonQuiet: { backgroundColor: colors.surface, borderColor: colors.border },
+  iconButtonQuiet: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+  },
   chip: {
     minHeight: TOUCH,
     flexDirection: "row",
@@ -1196,7 +1599,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     paddingHorizontal: 14,
   },
-  chipSelected: { borderColor: colors.accent, backgroundColor: colors.accentSoft },
+  chipSelected: {
+    borderColor: colors.accent,
+    backgroundColor: colors.accentSoft,
+  },
   chipText: { fontSize: 14, fontWeight: "600" },
 
   row: {
@@ -1218,7 +1624,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   rowText: { flex: 1, minWidth: 0, gap: 2 },
-  rowTitle: { color: colors.ink, fontSize: 16, lineHeight: 21, fontWeight: "600" },
+  rowTitle: {
+    color: colors.ink,
+    fontSize: 16,
+    lineHeight: 21,
+    fontWeight: "600",
+  },
   rowSubtitle: { color: colors.muted, fontSize: 13, lineHeight: 18 },
   rowValue: {
     color: colors.ink,
@@ -1267,7 +1678,12 @@ const styles = StyleSheet.create({
   },
   affixRight: { left: undefined, right: 13, fontSize: 14 },
   fieldHint: { color: colors.muted, fontSize: 13, lineHeight: 18 },
-  fieldError: { color: colors.bad, fontSize: 13, lineHeight: 18, fontWeight: "600" },
+  fieldError: {
+    color: colors.bad,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: "600",
+  },
 
   center: {
     minHeight: 150,

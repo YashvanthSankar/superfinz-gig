@@ -119,6 +119,7 @@ export default function Coach() {
   const stopTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const warnTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stoppingVoice = useRef(false);
+  const recordingActive = useRef(false);
   const voiceRequest = useRef(0);
   const voiceFile = useRef<File | null>(null);
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
@@ -144,27 +145,23 @@ export default function Coach() {
       if (stopTimer.current) clearTimeout(stopTimer.current);
       if (warnTimer.current) clearTimeout(warnTimer.current);
       voiceRequest.current += 1;
-      voicePlayer.pause();
       void Speech.stop();
       const cachedVoice = voiceFile.current;
       voiceFile.current = null;
       if (cachedVoice) {
         try {
-          voicePlayer.replace(null);
           cachedVoice.delete();
         } catch {
           // The OS can clear cache files before this cleanup runs.
         }
       }
-      if (recorder.isRecording) void recorder.stop();
     },
-    [recorder, voicePlayer],
+    [],
   );
 
   useEffect(() => {
     if (!voicePlayerState.didJustFinish || speakingId === null) return;
     setSpeakingId(null);
-    voicePlayer.replace(null);
     const cachedVoice = voiceFile.current;
     voiceFile.current = null;
     if (cachedVoice) {
@@ -178,7 +175,6 @@ export default function Coach() {
 
   useEffect(() => {
     if (!voicePlayerState.error || speakingId === null) return;
-    voicePlayer.replace(null);
     const cachedVoice = voiceFile.current;
     voiceFile.current = null;
     if (cachedVoice) {
@@ -194,8 +190,11 @@ export default function Coach() {
 
   const stopSpokenReply = async () => {
     voiceRequest.current += 1;
-    voicePlayer.pause();
-    voicePlayer.replace(null);
+    try {
+      voicePlayer.pause();
+    } catch {
+      // Expo owns the native player lifecycle during navigation and refresh.
+    }
     await Speech.stop();
     const cachedVoice = voiceFile.current;
     voiceFile.current = null;
@@ -310,7 +309,7 @@ export default function Coach() {
   };
 
   const startVoice = async () => {
-    if (sending || transcribing || recorder.isRecording) return;
+    if (sending || transcribing || recordingActive.current) return;
     setVoiceError(null);
     await stopSpokenReply();
     try {
@@ -328,10 +327,12 @@ export default function Coach() {
       });
       await recorder.prepareToRecordAsync();
       recorder.record();
+      recordingActive.current = true;
       stopTimer.current = setTimeout(() => {
         void stopVoiceAndAsk();
       }, 30_000);
     } catch {
+      recordingActive.current = false;
       setVoiceError({
         tone: "bad",
         text: "Couldn’t start the microphone. You can still type below.",
@@ -340,8 +341,9 @@ export default function Coach() {
   };
 
   const stopVoiceAndAsk = async () => {
-    if (stoppingVoice.current || !recorder.isRecording) return;
+    if (stoppingVoice.current || !recordingActive.current) return;
     stoppingVoice.current = true;
+    recordingActive.current = false;
     if (stopTimer.current) clearTimeout(stopTimer.current);
     stopTimer.current = null;
     setVoiceError(null);

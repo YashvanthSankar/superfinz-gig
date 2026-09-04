@@ -152,7 +152,9 @@ export function IncomeClient() {
     const trigger = triggerRef.current;
     dismissPanel();
     const fallback = document.getElementById(`${TABS_ID}-tab-${tab}`);
-    (trigger?.isConnected ? trigger : fallback)?.focus();
+    window.requestAnimationFrame(() =>
+      (trigger?.isConnected ? trigger : fallback)?.focus(),
+    );
   };
   const openEntry = (item?: CashEntryDto, trigger?: HTMLElement) => {
     rememberTrigger(trigger);

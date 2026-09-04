@@ -6,6 +6,7 @@ import {
   ArrowRight,
   CalendarClock,
   ChartNoAxesCombined,
+  HandCoins,
   Plus,
   Settings2,
   WalletCards,
@@ -65,6 +66,14 @@ export default function Today() {
     ? (s.protectedDays / s.cushionTargetDays) * 100
     : 0;
   const nextEvents = dashboard.timeline.slice(0, 2);
+  const recentEntries = dashboard.entries
+    .filter((entry) => ["SETTLED", "PAID"].includes(entry.status))
+    .sort(
+      (a, b) =>
+        new Date(b.date).getTime() - new Date(a.date).getTime() ||
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    )
+    .slice(0, 3);
   const today = formatDate(new Date(), {
     weekday: "long",
     day: "numeric",
@@ -162,6 +171,48 @@ export default function Today() {
           onPress={() => router.push("/split")}
         />
       </View>
+
+      <Card padded={false}>
+        <View style={styles.listHeader}>
+          <SectionHeader
+            eyebrow="Just recorded"
+            title="Latest money activity"
+            description="New payouts and costs appear here as soon as they are saved."
+          />
+        </View>
+        <View style={styles.listBody}>
+          {recentEntries.length ? (
+            recentEntries.map((entry, index) => {
+              const income = entry.kind === "INCOME";
+              return (
+                <ListRow
+                  key={entry.id}
+                  icon={income ? HandCoins : WalletCards}
+                  iconTone={income ? "good" : "warn"}
+                  title={
+                    income
+                      ? `${entry.sourceName ?? "Income"} received`
+                      : entry.category
+                  }
+                  subtitle={`${formatDate(entry.date, {
+                    weekday: "short",
+                    day: "numeric",
+                    month: "short",
+                  })} · ${entry.category}`}
+                  value={`${income ? "+" : "−"}${formatMoney(entry.amount)}`}
+                  last={index === recentEntries.length - 1}
+                />
+              );
+            })
+          ) : (
+            <EmptyState
+              icon={HandCoins}
+              title="No money activity yet"
+              body="Record your first payout or cost and it will appear here."
+            />
+          )}
+        </View>
+      </Card>
 
       <Card tone="tint">
         <Label tone="accent">Best next step</Label>

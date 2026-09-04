@@ -9,7 +9,6 @@ import {
   useState,
   type ComponentProps,
   type FormEvent,
-  type KeyboardEvent,
 } from "react";
 import {
   AlertTriangle,
@@ -35,6 +34,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
+import { Modal } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
 import {
   ErrorPanel,
@@ -117,8 +117,6 @@ export function PlanClient() {
   const [scenario, setScenario] = useState<GigScenarioInput>(BASELINE);
   const [announcedAction, setAnnouncedAction] = useState("");
   const addButtonRef = useRef<HTMLButtonElement>(null);
-  const formHeadingRef = useRef<HTMLHeadingElement>(null);
-  const formPanelId = useId();
 
   const scenarioResult = useMemo(() => {
     if (!dashboard) return null;
@@ -135,11 +133,6 @@ export function PlanClient() {
     return () => window.clearTimeout(timer);
   }, [recommendedAction]);
 
-  // Move focus into the add panel when it opens.
-  useEffect(() => {
-    if (showForm) formHeadingRef.current?.focus();
-  }, [showForm]);
-
   if (loading) return <LoadingPanel label="Building your 30-day plan" />;
   if (!dashboard || !scenarioResult)
     return <ErrorPanel message={error ?? "No plan found"} retry={refresh} />;
@@ -150,15 +143,9 @@ export function PlanClient() {
   };
   const closeForm = () => {
     setShowForm(false);
-    addButtonRef.current?.focus();
+    setActionError(null);
+    window.requestAnimationFrame(() => addButtonRef.current?.focus());
   };
-  const onFormKeyDown = (event: KeyboardEvent<HTMLElement>) => {
-    if (event.key === "Escape") {
-      event.preventDefault();
-      closeForm();
-    }
-  };
-
   const create = async (event: FormEvent) => {
     event.preventDefault();
     const amount = Number(form.amount);
@@ -188,7 +175,7 @@ export function PlanClient() {
       });
       setForm(emptyForm());
       setShowForm(false);
-      addButtonRef.current?.focus();
+      window.requestAnimationFrame(() => addButtonRef.current?.focus());
       await refresh();
     } catch (cause) {
       setActionError(
@@ -270,9 +257,9 @@ export function PlanClient() {
             ref={addButtonRef}
             variant="accent"
             size="lg"
+            aria-haspopup="dialog"
             aria-expanded={showForm}
-            aria-controls={showForm ? formPanelId : undefined}
-            onClick={() => (showForm ? closeForm() : openForm())}
+            onClick={openForm}
           >
             <CirclePlus aria-hidden size={18} />
             Add commitment
@@ -325,110 +312,97 @@ export function PlanClient() {
 
       <ForecastChart dashboard={dashboard} />
 
-      {showForm && (
-        <Card
-          id={formPanelId}
-          className="brut-card-lg"
-          onKeyDown={onFormKeyDown}
+      <Modal
+        open={showForm}
+        onClose={closeForm}
+        eyebrow="New commitment"
+        title="Protect a due payment."
+        description="Add rent, EMIs, fees, or any bill with a date. The plan keeps money aside before it is due."
+        busy={busy}
+      >
+        <form
+          onSubmit={create}
+          noValidate
+          className="grid gap-4 sm:grid-cols-2"
         >
-          <div className="min-w-0">
-            <p className="brut-label">New commitment</p>
-            <h2
-              ref={formHeadingRef}
-              tabIndex={-1}
-              className="mt-1 text-xl font-bold tracking-[-0.02em] focus:outline-none"
-            >
-              Protect a due payment.
-            </h2>
-            <p className="mt-1.5 max-w-2xl text-sm leading-6 text-ink-soft">
-              Rent, EMIs, fees, or any bill with a date. The plan keeps money
-              aside for it before it is due. Press Escape to close.
-            </p>
-          </div>
-          <form
-            onSubmit={create}
-            noValidate
-            className="mt-5 grid gap-4 sm:grid-cols-2"
+          <Input
+            label="Name"
+            required
+            autoComplete="off"
+            placeholder="Room rent"
+            value={form.title}
+            onChange={(event) =>
+              setForm((current) => ({
+                ...current,
+                title: event.target.value,
+              }))
+            }
+          />
+          <Input
+            label="Amount"
+            type="number"
+            required
+            min={0}
+            step={1}
+            prefix="₹"
+            placeholder="0"
+            value={form.amount}
+            onChange={(event) =>
+              setForm((current) => ({
+                ...current,
+                amount: event.target.value,
+              }))
+            }
+          />
+          <Input
+            label="Due date"
+            type="date"
+            required
+            value={form.dueDate}
+            onChange={(event) =>
+              setForm((current) => ({
+                ...current,
+                dueDate: event.target.value,
+              }))
+            }
+          />
+          <Select
+            label="Repeats"
+            value={form.recurrence}
+            onChange={(event) =>
+              setForm((current) => ({
+                ...current,
+                recurrence: event.target.value,
+              }))
+            }
           >
-            <Input
-              label="Name"
-              required
-              autoComplete="off"
-              placeholder="Room rent"
-              value={form.title}
-              onChange={(event) =>
-                setForm((current) => ({
-                  ...current,
-                  title: event.target.value,
-                }))
-              }
-            />
-            <Input
-              label="Amount"
-              type="number"
-              required
-              min={0}
-              step={1}
-              prefix="₹"
-              placeholder="0"
-              value={form.amount}
-              onChange={(event) =>
-                setForm((current) => ({
-                  ...current,
-                  amount: event.target.value,
-                }))
-              }
-            />
-            <Input
-              label="Due date"
-              type="date"
-              required
-              value={form.dueDate}
-              onChange={(event) =>
-                setForm((current) => ({
-                  ...current,
-                  dueDate: event.target.value,
-                }))
-              }
-            />
-            <Select
-              label="Repeats"
-              value={form.recurrence}
-              onChange={(event) =>
-                setForm((current) => ({
-                  ...current,
-                  recurrence: event.target.value,
-                }))
-              }
+            <option value="WEEKLY">Weekly</option>
+            <option value="FORTNIGHTLY">Fortnightly</option>
+            <option value="MONTHLY">Monthly</option>
+            <option value="ONE_TIME">One time</option>
+          </Select>
+          {actionError && <ActionError message={actionError} />}
+          <div className="flex flex-col gap-3 sm:col-span-2 sm:flex-row">
+            <Button
+              variant="secondary"
+              size="lg"
+              className="flex-1"
+              onClick={closeForm}
             >
-              <option value="WEEKLY">Weekly</option>
-              <option value="FORTNIGHTLY">Fortnightly</option>
-              <option value="MONTHLY">Monthly</option>
-              <option value="ONE_TIME">One time</option>
-            </Select>
-            {actionError && <ActionError message={actionError} />}
-            <div className="flex flex-col gap-3 sm:col-span-2 sm:flex-row">
-              <Button
-                variant="secondary"
-                size="lg"
-                className="flex-1"
-                onClick={closeForm}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                size="lg"
-                className="flex-1"
-                loading={busy}
-                loadingLabel="Saving"
-              >
-                Add commitment
-              </Button>
-            </div>
-          </form>
-        </Card>
-      )}
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              size="lg"
+              className="flex-1"
+              loading={busy}
+              loadingLabel="Saving"
+            >
+              Add commitment
+            </Button>
+          </div>
+        </form>
+      </Modal>
       {!showForm && actionError && <ActionError message={actionError} />}
 
       <div className="grid gap-5 xl:grid-cols-[1.25fr_.75fr]">
@@ -588,7 +562,11 @@ export function PlanClient() {
         className="rounded-[1.5rem] bg-primary p-5 text-on-primary shadow-lg sm:p-6"
       >
         <div className="flex items-start gap-3">
-          <Gauge aria-hidden className="mt-1 text-accent-on-primary" size={24} />
+          <Gauge
+            aria-hidden
+            className="mt-1 text-accent-on-primary"
+            size={24}
+          />
           <div>
             <p className="brut-label text-on-primary-soft">Scenario tester</p>
             <h2
@@ -824,7 +802,8 @@ const ForecastChart = memo(function ForecastChart({
   ].join(" ");
   const floorY = y(dashboard.profile.safetyBuffer);
   const belowFloor =
-    dashboard.summary.lowestProjectedBalanceLow < dashboard.profile.safetyBuffer;
+    dashboard.summary.lowestProjectedBalanceLow <
+    dashboard.profile.safetyBuffer;
   const actualDays = dashboard.forecast.filter(
     (point) => point.actual !== null,
   ).length;

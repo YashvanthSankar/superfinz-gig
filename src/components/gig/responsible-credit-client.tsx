@@ -6,6 +6,7 @@ import { simulateGigScenario, type GigDashboardDto } from "@superfinz/shared";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Modal } from "@/components/ui/modal";
 
 const SLIDER_MIN = 0;
 const SLIDER_MAX = 10_000;
@@ -45,7 +46,11 @@ export function ResponsibleCreditClient({
   return (
     <section aria-labelledby={headingId} className="space-y-5">
       <div className="flex items-start gap-3">
-        <TriangleAlert aria-hidden size={24} className="mt-1 shrink-0 text-warn" />
+        <TriangleAlert
+          aria-hidden
+          size={24}
+          className="mt-1 shrink-0 text-warn"
+        />
         <div>
           <p className="brut-label">Urgent work-cost check</p>
           <h2
@@ -115,7 +120,10 @@ export function ResponsibleCreditClient({
           Extra settled income you would still need so bills, work costs and
           your buffer stay covered.
         </p>
-        <p role="status" className="mt-2 text-sm font-medium leading-6 text-ink">
+        <p
+          role="status"
+          className="mt-2 text-sm font-medium leading-6 text-ink"
+        >
           {hasGap
             ? `${result.atRiskCommitments.map((item) => item.title).join(", ") || "The safety buffer"} may be uncovered. Do not borrow more than this verified gap.`
             : "Your current protected plan can absorb this cost. No credit comparison is needed."}
@@ -145,9 +153,14 @@ export function ResponsibleCreditClient({
         />
       </div>
 
-      {hasGap && !showTerms && (
+      {hasGap && (
         <div className="flex flex-wrap items-center gap-3">
-          <Button size="lg" onClick={() => setShowTerms(true)}>
+          <Button
+            size="lg"
+            aria-haspopup="dialog"
+            aria-expanded={showTerms}
+            onClick={() => setShowTerms(true)}
+          >
             Compare a simulated last resort
           </Button>
           <span className="text-sm font-medium text-ink-soft">
@@ -156,19 +169,16 @@ export function ResponsibleCreditClient({
         </div>
       )}
 
-      {showTerms && principal > 0 && (
+      <Modal
+        open={showTerms && principal > 0}
+        onClose={() => setShowTerms(false)}
+        eyebrow="Simulated comparison · not an offer"
+        title="Regulated partner placeholder"
+        description="Review the full cost and your rights before considering credit as a last resort."
+        size="lg"
+      >
         <div className="rounded-2xl border border-line bg-paper-2 p-5">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p className="brut-label">
-                Simulated credit comparison · not an offer
-              </p>
-              <h3 className="mt-1 text-xl font-bold tracking-[-0.02em] text-ink">
-                Regulated partner placeholder
-              </h3>
-            </div>
-            <Badge variant="warn">Eligibility not checked</Badge>
-          </div>
+          <Badge variant="warn">Eligibility not checked</Badge>
           <dl className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Term label="Principal" value={formatCurrency(principal)} />
             <Term label="APR" value={`${apr}%`} />
@@ -255,7 +265,7 @@ export function ResponsibleCreditClient({
             </p>
           </div>
         </div>
-      )}
+      </Modal>
     </section>
   );
 }

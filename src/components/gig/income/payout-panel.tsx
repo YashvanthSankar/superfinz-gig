@@ -151,11 +151,13 @@ export function PayoutPanel({
     <Panel
       eyebrow="Plan this payout"
       title="Protect the important things first."
+      description="Enter a payout only after it reaches you, then review where each rupee will go."
+      busy={busy}
       onClose={onClose}
     >
       {activeSources.length === 0 ? (
         <EmptyState
-          className="mt-6"
+          className="mt-0"
           icon={CirclePlus}
           title="No active income source yet"
           description="Payouts are recorded against a source so the forecast knows where money comes from. Add one first."
@@ -167,10 +169,7 @@ export function PayoutPanel({
           }
         />
       ) : (
-        <form
-          onSubmit={handleSubmit}
-          className="mt-6 grid gap-4 lg:grid-cols-2"
-        >
+        <form onSubmit={handleSubmit} className="grid gap-4 lg:grid-cols-2">
           <Select
             label="Active income source"
             required
@@ -294,7 +293,9 @@ export function PayoutPanel({
                 <div>
                   <p className="brut-label">Review every rupee</p>
                   <h3 className="mt-1 text-xl font-bold tracking-[-0.02em]">
-                    {adaptive ? "Recommended for today" : "Your custom allocation"}
+                    {adaptive
+                      ? "Recommended for today"
+                      : "Your custom allocation"}
                   </h3>
                 </div>
                 <Badge variant="good">

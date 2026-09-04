@@ -40,11 +40,17 @@ export function EntryPanel({
     <Panel
       eyebrow={editing ? "Edit money entry" : "Add money entry"}
       title={editing ? "Fix this entry." : "What did you earn or spend?"}
+      description={
+        editing
+          ? "Correct the details and save once. Your plan will update everywhere."
+          : "Add one clear entry. Income increases money now; costs reduce it."
+      }
+      busy={busy}
       onClose={onClose}
     >
       <form
         onSubmit={onSubmit}
-        className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+        className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
       >
         <Select
           label="Entry type"

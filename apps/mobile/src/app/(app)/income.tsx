@@ -29,7 +29,6 @@ import {
   Wallet,
   WalletCards,
   Wrench,
-  X,
   type LucideIcon,
 } from "lucide-react-native";
 import { apiFetch } from "@/lib/api";
@@ -43,6 +42,7 @@ import {
   ErrorState,
   Expandable,
   Field,
+  FormSheet,
   IconButton,
   Label,
   ListRow,
@@ -58,7 +58,7 @@ import {
   type BadgeTone,
 } from "@/components/ui";
 import { DateField } from "@/components/date-field";
-import { TOUCH, colorString, colors } from "@/constants/theme";
+import { TOUCH, colorString, colors, space } from "@/constants/theme";
 import {
   refreshGigDashboard,
   useGigDashboard,
@@ -223,15 +223,16 @@ export default function Income() {
     onSuccess: refresh,
   });
 
-  const toggleForm = () => {
-    create.reset();
-    setSaved(false);
-    setShow((value) => !value);
-  };
   const openForm = () => {
     create.reset();
     setSaved(false);
     setShow(true);
+  };
+  const closeForm = () => {
+    if (create.isPending) return;
+    create.reset();
+    setErrors({});
+    setShow(false);
   };
   const submit = () => {
     const next: FormErrors = {};
@@ -339,11 +340,12 @@ export default function Income() {
 
       <View style={styles.actions}>
         <Button
-          title={show ? "Close form" : "Add a cost"}
+          title="Add a cost"
           tone="quiet"
-          icon={show ? X : Plus}
+          icon={Plus}
           style={styles.actionButton}
-          onPress={toggleForm}
+          accessibilityHint="Opens a short form in a sheet"
+          onPress={openForm}
         />
         <Button
           title="Plan a payout"
@@ -363,99 +365,109 @@ export default function Income() {
         </Notice>
       )}
 
-      {show && (
-        <Card>
-          <SectionHeader
-            eyebrow="New entry"
-            title="Add a cost"
-            description="Costs reduce money now as soon as you save them."
-          />
-          <View style={styles.group}>
-            <Label>Entry type</Label>
-            <View style={ui.wrap}>
-              {kinds.map((item) => (
-                <Chip
-                  key={item.value}
-                  role="radio"
-                  label={item.label}
-                  selected={kind === item.value}
-                  onPress={() => {
-                    setKind(item.value);
-                    setCategory(defaultCategory[item.value]);
-                  }}
-                />
-              ))}
-            </View>
+      <FormSheet
+        visible={show}
+        onClose={closeForm}
+        eyebrow="New entry"
+        title="Add a cost"
+        description="Costs reduce money now as soon as you save them."
+        busy={create.isPending}
+      >
+        <View style={styles.group}>
+          <Label>Entry type</Label>
+          <View style={ui.wrap}>
+            {kinds.map((item) => (
+              <Chip
+                key={item.value}
+                role="radio"
+                label={item.label}
+                selected={kind === item.value}
+                onPress={() => {
+                  setKind(item.value);
+                  setCategory(defaultCategory[item.value]);
+                }}
+              />
+            ))}
           </View>
-          <Field
-            label="Amount"
-            required
-            prefix="₹"
-            keyboardType="decimal-pad"
-            value={amount}
-            onChangeText={(value) => {
-              setAmount(value);
-              if (errors.amount) setErrors((e) => ({ ...e, amount: undefined }));
-            }}
-            placeholder="500"
-            hint="What you paid, in rupees"
-            error={errors.amount}
-          />
-          <Field
-            label="Category"
-            required
-            value={category}
-            onChangeText={(value) => {
-              setCategory(value);
-              if (errors.category)
-                setErrors((e) => ({ ...e, category: undefined }));
-            }}
-            placeholder="Fuel"
-            autoCapitalize="words"
-            hint="A short name you will recognise later"
-            error={errors.category}
-          />
-          <Field
-            label="Note (optional)"
-            value={note}
-            onChangeText={setNote}
-            placeholder="For example, two refills"
-          />
-          <View style={styles.group}>
-            <Label>Payment method</Label>
-            <View style={ui.wrap}>
-              {methods.map((item) => (
-                <Chip
-                  key={item}
-                  role="radio"
-                  label={methodLabel[item]}
-                  selected={method === item}
-                  onPress={() => setMethod(item)}
-                />
-              ))}
-            </View>
+        </View>
+        <Field
+          label="Amount"
+          required
+          prefix="₹"
+          keyboardType="decimal-pad"
+          value={amount}
+          onChangeText={(value) => {
+            setAmount(value);
+            if (errors.amount) setErrors((e) => ({ ...e, amount: undefined }));
+          }}
+          placeholder="500"
+          hint="What you paid, in rupees"
+          error={errors.amount}
+        />
+        <Field
+          label="Category"
+          required
+          value={category}
+          onChangeText={(value) => {
+            setCategory(value);
+            if (errors.category)
+              setErrors((e) => ({ ...e, category: undefined }));
+          }}
+          placeholder="Fuel"
+          autoCapitalize="words"
+          hint="A short name you will recognise later"
+          error={errors.category}
+        />
+        <Field
+          label="Note (optional)"
+          value={note}
+          onChangeText={setNote}
+          placeholder="For example, two refills"
+        />
+        <View style={styles.group}>
+          <Label>Payment method</Label>
+          <View style={ui.wrap}>
+            {methods.map((item) => (
+              <Chip
+                key={item}
+                role="radio"
+                label={methodLabel[item]}
+                selected={method === item}
+                onPress={() => setMethod(item)}
+              />
+            ))}
           </View>
-          <DateField
-            label="Date"
-            value={date}
-            onChange={(value) => value && setDate(value)}
-            maximumDate={new Date()}
+        </View>
+        <DateField
+          label="Date"
+          value={date}
+          onChange={(value) => value && setDate(value)}
+          maximumDate={new Date()}
+        />
+        {create.isError && (
+          <Notice tone="bad" title="Couldn’t save this cost">
+            {create.error instanceof Error
+              ? create.error.message
+              : "Try again."}
+          </Notice>
+        )}
+        <View style={styles.formActions}>
+          <Button
+            title="Cancel"
+            tone="ghost"
+            inline
+            disabled={create.isPending}
+            onPress={closeForm}
           />
-          {create.isError && (
-            <Notice tone="bad" title="Couldn’t save this cost">
-              {create.error instanceof Error
-                ? create.error.message
-                : "Try again."}
-            </Notice>
-          )}
           <Button
             title="Save cost"
             tone="accent"
             loading={create.isPending}
             onPress={submit}
+            style={styles.submit}
           />
-        </Card>
-      )}
+        </View>
+      </FormSheet>
 
       <Card>
         <Expandable title="Income sources" summary={sourcesSummary}>
@@ -463,11 +475,10 @@ export default function Income() {
             <Card padded={false} tone="plain">
               <View style={styles.insetBody}>
                 {d.sources.map((source, index) => {
-                  const status =
-                    sourceStatus[source.status] ?? {
-                      label: humanize(source.status),
-                      tone: "neutral" as const,
-                    };
+                  const status = sourceStatus[source.status] ?? {
+                    label: humanize(source.status),
+                    tone: "neutral" as const,
+                  };
                   const mode = source.prototype
                     ? "Simulated"
                     : source.connectionMode === "MANUAL"
@@ -538,18 +549,18 @@ export default function Income() {
               const income = entry.kind === "INCOME";
               const canUndoPayout = Boolean(
                 entry.payoutSplitId &&
-                  entry.payoutSplitId === latestSplit?.id &&
-                  (latestSplit?.fundedCommitments ?? []).every((funding) =>
-                    d.commitments.some(
-                      (commitment) => commitment.id === funding.id,
-                    ),
-                  ) &&
-                  !d.entries.some(
-                    (item) =>
-                      item.id !== entry.id &&
-                      new Date(item.createdAt).getTime() >
-                        new Date(entry.createdAt).getTime(),
+                entry.payoutSplitId === latestSplit?.id &&
+                (latestSplit?.fundedCommitments ?? []).every((funding) =>
+                  d.commitments.some(
+                    (commitment) => commitment.id === funding.id,
                   ),
+                ) &&
+                !d.entries.some(
+                  (item) =>
+                    item.id !== entry.id &&
+                    new Date(item.createdAt).getTime() >
+                      new Date(entry.createdAt).getTime(),
+                ),
               );
               const canRemove = !entry.payoutSplitId || canUndoPayout;
               const title =
@@ -560,14 +571,15 @@ export default function Income() {
                 ? entry.sourceName?.trim() || methodName(entry.paymentMethod)
                 : methodName(entry.paymentMethod);
               const subtitle = `${kindLabel[entry.kind] ?? humanize(entry.kind)} · ${formatDate(entry.date)} · ${via}`;
-              const status =
-                entryStatus[entry.status] ?? {
-                  label: humanize(entry.status),
-                  tone: "neutral" as const,
-                };
+              const status = entryStatus[entry.status] ?? {
+                label: humanize(entry.status),
+                tone: "neutral" as const,
+              };
               const removing =
                 remove.isPending && remove.variables === entry.id;
-              const actionLabel = entry.payoutSplitId ? "Undo payout" : "Delete";
+              const actionLabel = entry.payoutSplitId
+                ? "Undo payout"
+                : "Delete";
               return (
                 <ListRow
                   key={entry.id}
@@ -705,6 +717,14 @@ const styles = StyleSheet.create({
   summaryValueStrong: { fontSize: 18, lineHeight: 24 },
   actions: { flexDirection: "row", gap: 10 },
   actionButton: { flex: 1, alignSelf: "auto" },
+  formActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: space.sm,
+    marginTop: space.xs,
+  },
+  submit: { flex: 1 },
   group: { gap: 8 },
   listHeader: { paddingHorizontal: 18, paddingTop: 18, paddingBottom: 4 },
   listBody: { paddingHorizontal: 18, paddingBottom: 8, gap: 8 },

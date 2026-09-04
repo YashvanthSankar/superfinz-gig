@@ -1,76 +1,44 @@
 "use client";
 
-import {
-  useEffect,
-  useId,
-  useRef,
-  type KeyboardEvent,
-  type ReactNode,
-} from "react";
-import { AlertCircle, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import type { ReactNode } from "react";
+import { AlertCircle } from "lucide-react";
+import { Modal } from "@/components/ui/modal";
 import { cn } from "@/lib/utils";
 
 /**
- * A form panel that opens inline. On mount it moves focus to its heading and
- * it closes on Escape; the parent returns focus to the trigger on close.
+ * Shared Money action sheet. The parent owns the open state and returns focus
+ * to the button that launched it after close.
  */
 export function Panel({
   eyebrow,
   title,
+  description,
   onClose,
+  busy = false,
   className,
   children,
 }: {
   eyebrow: string;
   title: string;
+  description?: string;
   onClose: () => void;
+  busy?: boolean;
   className?: string;
   children: ReactNode;
 }) {
-  const headingId = useId();
-  const headingRef = useRef<HTMLHeadingElement>(null);
-
-  useEffect(() => {
-    headingRef.current?.focus();
-  }, []);
-
-  const handleKeyDown = (event: KeyboardEvent<HTMLElement>) => {
-    if (event.key !== "Escape") return;
-    event.preventDefault();
-    event.stopPropagation();
-    onClose();
-  };
-
   return (
-    <section
-      aria-labelledby={headingId}
-      onKeyDown={handleKeyDown}
-      className={cn("brut-card-lg p-5 sm:p-6", className)}
+    <Modal
+      open
+      eyebrow={eyebrow}
+      title={title}
+      description={description}
+      size="lg"
+      busy={busy}
+      className={className}
+      onClose={onClose}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="brut-label">{eyebrow}</p>
-          <h2
-            id={headingId}
-            ref={headingRef}
-            tabIndex={-1}
-            className="brut-display mt-1 rounded-md text-2xl sm:text-3xl"
-          >
-            {title}
-          </h2>
-        </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label="Close panel"
-          onClick={onClose}
-        >
-          <X aria-hidden size={19} />
-        </Button>
-      </div>
       {children}
-    </section>
+    </Modal>
   );
 }
 

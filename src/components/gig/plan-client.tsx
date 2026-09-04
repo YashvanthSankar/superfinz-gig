@@ -246,6 +246,12 @@ export function PlanClient() {
       dashboard.profile.safetyBuffer -
       dashboard.summary.forecastIncomeLow30d,
   );
+  const essentialCommitments = dashboard.commitments.filter(
+    (item) => item.essential,
+  );
+  const nonEssentialCommitments = dashboard.commitments.filter(
+    (item) => !item.essential,
+  );
 
   return (
     <div className="space-y-5 sm:space-y-6">
@@ -318,7 +324,7 @@ export function PlanClient() {
         onClose={closeForm}
         eyebrow="New commitment"
         title="Protect a due payment."
-        description="Add essentials like rent and school fees, or optional items like OTT subscriptions. Only essential bills reduce Safe to Spend."
+        description="Add essentials like rent and school fees, or non-essential items like OTT subscriptions. Only essential bills reduce Safe to Spend."
         busy={busy}
       >
         <form
@@ -393,7 +399,7 @@ export function PlanClient() {
             }
           >
             <option value="ESSENTIAL">Essential bill — protect first</option>
-            <option value="OPTIONAL">Optional bill — track only</option>
+            <option value="OPTIONAL">Non-essential bill — track only</option>
           </Select>
           {actionError && <ActionError message={actionError} />}
           <div className="flex flex-col gap-3 sm:col-span-2 sm:flex-row">
@@ -447,69 +453,26 @@ export function PlanClient() {
               }
             />
           ) : (
-            <ul className="mt-4 divide-y divide-line">
-              {dashboard.commitments.map((item) => {
-                const status = COMMITMENT_STATUS[item.status];
-                const rowBusy = busy && busyCommitmentId === item.id;
-                return (
-                  <li
-                    key={item.id}
-                    className="flex flex-wrap items-center gap-3 py-4 first:pt-0 last:pb-0"
-                  >
-                    <span
-                      aria-hidden
-                      className={cn(
-                        "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl",
-                        item.status === "PAID"
-                          ? "bg-good-soft text-good"
-                          : "bg-warn-soft text-warn",
-                      )}
-                    >
-                      <CalendarCheck size={18} />
-                    </span>
-                    <div className="min-w-40 flex-1">
-                      <p className="font-semibold text-ink">{item.title}</p>
-                      <p className="mt-0.5 text-sm text-ink-soft">
-                        Due {formatDate(item.dueDate)} ·{" "}
-                        {RECURRENCE_LABEL[item.recurrence] ??
-                          humanize(item.recurrence)} · {item.essential ? "Essential" : "Optional"}
-                      </p>
-                    </div>
-                    <div className="flex flex-col items-end gap-1 text-right">
-                      <p className="num text-lg font-bold text-ink">
-                        {formatCurrency(item.amount)}
-                      </p>
-                      <Badge variant={status.variant}>{status.label}</Badge>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {item.status !== "PAID" && (
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          disabled={busy && !rowBusy}
-                          loading={rowBusy}
-                          loadingLabel="Marking paid"
-                          onClick={() => void markPaid(item.id)}
-                        >
-                          <Check aria-hidden size={16} />
-                          Mark paid
-                        </Button>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        disabled={busy}
-                        aria-label={`Delete ${item.title}`}
-                        onClick={() => void remove(item)}
-                        className="text-bad hover:bg-bad-soft hover:text-bad"
-                      >
-                        <Trash2 aria-hidden size={17} />
-                      </Button>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
+            <div className="mt-5 space-y-6">
+              <CommitmentGroup
+                title="Essential bills"
+                description="Protected first and included in Safe to Spend."
+                items={essentialCommitments}
+                busy={busy}
+                busyCommitmentId={busyCommitmentId}
+                onMarkPaid={markPaid}
+                onRemove={remove}
+              />
+              <CommitmentGroup
+                title="Non-essential bills"
+                description="Subscriptions and extras you can pause or skip."
+                items={nonEssentialCommitments}
+                busy={busy}
+                busyCommitmentId={busyCommitmentId}
+                onMarkPaid={markPaid}
+                onRemove={remove}
+              />
+            </div>
           )}
         </Card>
 
@@ -759,6 +722,110 @@ export function PlanClient() {
         </div>
       </section>
     </div>
+  );
+}
+
+function CommitmentGroup({
+  title,
+  description,
+  items,
+  busy,
+  busyCommitmentId,
+  onMarkPaid,
+  onRemove,
+}: {
+  title: string;
+  description: string;
+  items: CommitmentDto[];
+  busy: boolean;
+  busyCommitmentId: string | null;
+  onMarkPaid: (id: string) => Promise<void>;
+  onRemove: (item: CommitmentDto) => Promise<void>;
+}) {
+  const headingId = useId();
+  return (
+    <section aria-labelledby={headingId}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 id={headingId} className="font-bold text-ink">
+            {title}
+          </h3>
+          <p className="mt-1 text-sm text-ink-soft">{description}</p>
+        </div>
+        <Badge>
+          {items.length} {items.length === 1 ? "bill" : "bills"}
+        </Badge>
+      </div>
+      {items.length === 0 ? (
+        <p className="mt-3 rounded-xl border border-dashed border-line bg-paper-2 px-4 py-3 text-sm text-ink-soft">
+          None added.
+        </p>
+      ) : (
+        <ul className="mt-3 divide-y divide-line">
+          {items.map((item) => {
+            const status = COMMITMENT_STATUS[item.status];
+            const rowBusy = busy && busyCommitmentId === item.id;
+            return (
+              <li
+                key={item.id}
+                className="flex flex-wrap items-center gap-3 py-4 first:pt-0 last:pb-0"
+              >
+                <span
+                  aria-hidden
+                  className={cn(
+                    "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl",
+                    item.status === "PAID"
+                      ? "bg-good-soft text-good"
+                      : "bg-warn-soft text-warn",
+                  )}
+                >
+                  <CalendarCheck size={18} />
+                </span>
+                <div className="min-w-40 flex-1">
+                  <p className="font-semibold text-ink">{item.title}</p>
+                  <p className="mt-0.5 text-sm text-ink-soft">
+                    Due {formatDate(item.dueDate)} ·{" "}
+                    {RECURRENCE_LABEL[item.recurrence] ??
+                      humanize(item.recurrence)}
+                  </p>
+                </div>
+                <div className="flex flex-col items-end gap-1 text-right">
+                  <p className="num text-lg font-bold text-ink">
+                    {formatCurrency(item.amount)}
+                  </p>
+                  <Badge variant={status.variant}>{status.label}</Badge>
+                </div>
+                <div className="flex items-center gap-2">
+                  {item.status !== "PAID" && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      disabled={busy && !rowBusy}
+                      loading={rowBusy}
+                      loadingLabel="Marking paid"
+                      onClick={() => void onMarkPaid(item.id)}
+                    >
+                      <Check aria-hidden size={16} />
+                      Mark paid
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    disabled={busy}
+                    aria-label={`Delete ${item.title}`}
+                    onClick={() => void onRemove(item)}
+                    className="text-bad hover:bg-bad-soft hover:text-bad"
+                  >
+                    <Trash2 aria-hidden size={17} />
+                  </Button>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
   );
 }
 

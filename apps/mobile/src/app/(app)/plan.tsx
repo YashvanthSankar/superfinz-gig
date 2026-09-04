@@ -137,13 +137,8 @@ type Priority = "ESSENTIAL" | "FLEXIBLE";
 
 const priorityOptions: Array<{ value: Priority; label: string }> = [
   { value: "ESSENTIAL", label: "Essential bill" },
-  { value: "FLEXIBLE", label: "Optional bill" },
+  { value: "FLEXIBLE", label: "Non-essential bill" },
 ];
-
-const priorityLabels: Record<Priority, string> = {
-  ESSENTIAL: "essential",
-  FLEXIBLE: "optional",
-};
 
 type BillStatus = "PAID" | "OVERDUE" | "SOON" | "DUE";
 
@@ -248,7 +243,7 @@ export default function Plan() {
       setNotice(
         essential
           ? `${savedTitle} is now protected in your plan.`
-          : `${savedTitle} was added as optional. It will not reduce Safe to Spend.`,
+          : `${savedTitle} was added as non-essential. It will not reduce Safe to Spend.`,
       );
       await refresh();
     },
@@ -353,10 +348,14 @@ export default function Plan() {
   const commitments = dashboard.commitments;
   const today = startOfToday();
   const unpaid = commitments.filter((item) => item.status !== "PAID");
-  const unpaidTotal = unpaid.reduce((sum, item) => sum + item.amount, 0);
-  const nextDue = [...unpaid].sort(
-    (a, b) => Date.parse(a.dueDate) - Date.parse(b.dueDate),
-  )[0];
+  const essentialBills = commitments.filter((item) => item.essential);
+  const nonEssentialBills = commitments.filter((item) => !item.essential);
+  const essentialDue = unpaid
+    .filter((item) => item.essential)
+    .reduce((sum, item) => sum + item.amount, 0);
+  const nonEssentialDue = unpaid
+    .filter((item) => !item.essential)
+    .reduce((sum, item) => sum + item.amount, 0);
 
   const scenarioInput =
     scenarios.find((item) => item.value === scenario)?.input ??
@@ -370,11 +369,11 @@ export default function Plan() {
     <Screen
       eyebrow="Bills and commitments"
       title="Plan"
-      subtitle="Protect essentials and keep optional subscriptions visible."
+      subtitle="Keep essential and non-essential bills clearly separated."
       refreshing={query.isFetching && Boolean(query.data)}
       help={{
         title: "Your bill plan",
-        body: "Essential bills reduce Safe to Spend. Optional bills and subscriptions stay visible but are not protected. Repeating bills move to their next due date after you mark them paid.",
+        body: "Essential bills reduce Safe to Spend. Non-essential bills and subscriptions stay visible but are not protected. Repeating bills move to their next due date after you mark them paid.",
       }}
       action={
         <IconButton
@@ -396,7 +395,7 @@ export default function Plan() {
         onClose={closeForm}
         eyebrow="New bill"
         title="Add a bill"
-        description="Add essentials like rent or school fees, or optional items like OTT subscriptions."
+        description="Add essentials like rent or school fees, or non-essential items like OTT subscriptions."
         busy={create.isPending}
       >
         <Field
@@ -460,7 +459,7 @@ export default function Plan() {
             ))}
           </View>
           <Text style={ui.caption}>
-            Essential bills are protected first. Optional bills do not reduce Safe to Spend.
+            Essential bills are protected first. Non-essential bills do not reduce Safe to Spend.
           </Text>
         </View>
         <View style={styles.formActions}>
@@ -486,15 +485,23 @@ export default function Plan() {
         <Card>
           <View style={styles.summaryRow}>
             <Stat
-              label="Still to pay"
-              value={formatMoney(unpaidTotal)}
-              help={plural(unpaid.length, "bill unpaid", "bills unpaid")}
+              label="Essential due"
+              value={formatMoney(essentialDue)}
+              help={plural(
+                unpaid.filter((item) => item.essential).length,
+                "essential bill",
+                "essential bills",
+              )}
               style={styles.summaryStat}
             />
             <Stat
-              label="Next due"
-              value={nextDue ? formatDate(nextDue.dueDate) : "Nothing due"}
-              help={nextDue ? nextDue.title : "Every bill is paid"}
+              label="Non-essential due"
+              value={formatMoney(nonEssentialDue)}
+              help={plural(
+                unpaid.filter((item) => !item.essential).length,
+                "non-essential bill",
+                "non-essential bills",
+              )}
               style={styles.summaryStat}
             />
           </View>
@@ -509,64 +516,28 @@ export default function Plan() {
           action={{ title: "Add a bill", onPress: () => setShowForm(true) }}
         />
       ) : (
-        <Card padded={false}>
-          <View style={styles.listHeader}>
-            <SectionHeader
-              eyebrow="Payment calendar"
-              title="Upcoming bills"
-              action={
-                <Badge label={plural(commitments.length, "bill", "bills")} />
-              }
-            />
-          </View>
-          <View style={styles.list}>
-            {commitments.map((item, index) => {
-              const status = billStatus(item, today);
-              const isMarking =
-                markPaid.isPending && markPaid.variables?.id === item.id;
-              return (
-                <ListRow
-                  key={item.id}
-                  icon={CalendarClock}
-                  iconTone={statusIconTones[status]}
-                  title={item.title}
-                  subtitle={`Due ${formatDate(item.dueDate)} · ${recurrenceLabels[item.recurrence]} · ${priorityLabels[item.essential ? "ESSENTIAL" : "FLEXIBLE"]}`}
-                  value={formatMoney(item.amount)}
-                  badge={
-                    <Badge
-                      label={statusLabels[status]}
-                      tone={statusBadgeTones[status]}
-                    />
-                  }
-                  last={index === commitments.length - 1}
-                >
-                  <View style={styles.rowActions}>
-                    {item.status !== "PAID" && (
-                      <Button
-                        title="Mark paid"
-                        size="sm"
-                        tone="quiet"
-                        icon={Check}
-                        inline
-                        loading={isMarking}
-                        disabled={busy && !isMarking}
-                        onPress={() => confirmMarkPaid(item)}
-                      />
-                    )}
-                    <IconButton
-                      icon={Trash2}
-                      tone="danger"
-                      label={`Delete ${item.title}`}
-                      hint="Asks you to confirm first"
-                      disabled={busy}
-                      onPress={() => confirmDelete(item)}
-                    />
-                  </View>
-                </ListRow>
-              );
-            })}
-          </View>
-        </Card>
+        <>
+          <BillGroup
+            title="Essential bills"
+            description="Protected first and included in Safe to Spend."
+            items={essentialBills}
+            today={today}
+            busy={busy}
+            markingId={markPaid.isPending ? markPaid.variables?.id : undefined}
+            onMarkPaid={confirmMarkPaid}
+            onDelete={confirmDelete}
+          />
+          <BillGroup
+            title="Non-essential bills"
+            description="Subscriptions and extras you can pause or skip."
+            items={nonEssentialBills}
+            today={today}
+            busy={busy}
+            markingId={markPaid.isPending ? markPaid.variables?.id : undefined}
+            onMarkPaid={confirmMarkPaid}
+            onDelete={confirmDelete}
+          />
+        </>
       )}
 
       <Card>
@@ -685,6 +656,89 @@ export default function Plan() {
   );
 }
 
+function BillGroup({
+  title,
+  description,
+  items,
+  today,
+  busy,
+  markingId,
+  onMarkPaid,
+  onDelete,
+}: {
+  title: string;
+  description: string;
+  items: CommitmentDto[];
+  today: Date;
+  busy: boolean;
+  markingId?: string;
+  onMarkPaid: (item: CommitmentDto) => void;
+  onDelete: (item: CommitmentDto) => void;
+}) {
+  return (
+    <Card padded={false}>
+      <View style={styles.listHeader}>
+        <SectionHeader
+          eyebrow="Payment calendar"
+          title={title}
+          description={description}
+          action={<Badge label={plural(items.length, "bill", "bills")} />}
+        />
+      </View>
+      {items.length === 0 ? (
+        <Text style={styles.emptyGroup}>None added.</Text>
+      ) : (
+        <View style={styles.list}>
+          {items.map((item, index) => {
+            const status = billStatus(item, today);
+            const isMarking = markingId === item.id;
+            return (
+              <ListRow
+                key={item.id}
+                icon={CalendarClock}
+                iconTone={statusIconTones[status]}
+                title={item.title}
+                subtitle={`Due ${formatDate(item.dueDate)} · ${recurrenceLabels[item.recurrence]}`}
+                value={formatMoney(item.amount)}
+                badge={
+                  <Badge
+                    label={statusLabels[status]}
+                    tone={statusBadgeTones[status]}
+                  />
+                }
+                last={index === items.length - 1}
+              >
+                <View style={styles.rowActions}>
+                  {item.status !== "PAID" && (
+                    <Button
+                      title="Mark paid"
+                      size="sm"
+                      tone="quiet"
+                      icon={Check}
+                      inline
+                      loading={isMarking}
+                      disabled={busy && !isMarking}
+                      onPress={() => onMarkPaid(item)}
+                    />
+                  )}
+                  <IconButton
+                    icon={Trash2}
+                    tone="danger"
+                    label={`Delete ${item.title}`}
+                    hint="Asks you to confirm first"
+                    disabled={busy}
+                    onPress={() => onDelete(item)}
+                  />
+                </View>
+              </ListRow>
+            );
+          })}
+        </View>
+      )}
+    </Card>
+  );
+}
+
 const styles = StyleSheet.create({
   group: { gap: space.sm },
   formActions: {
@@ -703,6 +757,13 @@ const styles = StyleSheet.create({
     paddingBottom: space.sm,
   },
   list: { paddingHorizontal: 18, paddingBottom: space.sm },
+  emptyGroup: {
+    paddingHorizontal: 18,
+    paddingBottom: 18,
+    color: colors.muted,
+    fontSize: 14,
+    lineHeight: 20,
+  },
   rowActions: {
     flexDirection: "row",
     alignItems: "center",

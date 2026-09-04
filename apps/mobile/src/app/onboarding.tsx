@@ -712,7 +712,7 @@ function Review({
         {draft.commitments?.length ? (
           draft.commitments.map((bill) => (
             <Text key={`${bill.title}-${bill.dueDate}`} style={ui.small}>
-              {bill.title} · {formatMoney(bill.amount)} · {dateLabel(bill.dueDate)} · {bill.essential ? "Essential" : "Optional"}
+              {bill.title} · {formatMoney(bill.amount)} · {dateLabel(bill.dueDate)} · {bill.essential ? "Essential" : "Non-essential"}
             </Text>
           ))
         ) : (

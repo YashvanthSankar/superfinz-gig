@@ -69,9 +69,9 @@ export const QUICK_SETUP_QUESTIONS: Record<
   BILLS: {
     title: "Bills and subscriptions",
     question:
-      "What payments are coming up? Say the name, amount, due date, and whether each one is essential or optional.",
+      "What payments are coming up? Say the name, amount, due date, and whether each one is essential or non-essential.",
     example:
-      "For example: Rent ₹6,000 on 10 September, essential; Netflix ₹649 on 15 September, optional",
+      "For example: Rent ₹6,000 on 10 September, essential; Netflix ₹649 on 15 September, non-essential",
   },
   PRIORITY: {
     title: "Your main goal",

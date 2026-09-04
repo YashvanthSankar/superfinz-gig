@@ -934,7 +934,7 @@ function Review({
             <div className="space-y-1 text-sm">
               {draft.commitments.map((bill) => (
                 <p key={`${bill.title}-${bill.dueDate}`} className="text-ink">
-                  <span className="font-semibold">{bill.title}</span> · {money(bill.amount)} · {displayDate(bill.dueDate)} · {bill.essential ? "Essential" : "Optional"}
+                  <span className="font-semibold">{bill.title}</span> · {money(bill.amount)} · {displayDate(bill.dueDate)} · {bill.essential ? "Essential" : "Non-essential"}
                 </p>
               ))}
             </div>

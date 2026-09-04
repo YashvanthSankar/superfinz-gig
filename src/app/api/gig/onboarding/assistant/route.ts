@@ -173,7 +173,7 @@ const stageInstructions: Record<AiStage, string> = {
   MONEY:
     "openingBalance is money available today. currentCushion is emergency money already kept aside. If emergency money is not mentioned, leave it null. Do not add the two values together.",
   BILLS:
-    "Extract upcoming bills and subscriptions. Each needs a short title, positive amount, due date as YYYY-MM-DD, recurrence, and essential. Mark housing, utilities, education, medical needs, insurance, debt payments, and work-critical phone/data as essential=true. Mark OTT/streaming, gaming, entertainment, memberships, and extra subscriptions as essential=false. Follow the user's explicit essential/optional choice. If unclear, use essential=true so necessary money is not under-protected. Use MONTHLY when a normally monthly bill has no stated frequency; use ONE_TIME for a clearly one-off payment. If they say skip/no bills, set skipped true and commitments empty. Do not create incomplete bills.",
+    "Extract upcoming bills and subscriptions. Each needs a short title, positive amount, due date as YYYY-MM-DD, recurrence, and essential. Mark housing, utilities, education, medical needs, insurance, debt payments, and work-critical phone/data as essential=true. Mark OTT/streaming, gaming, entertainment, memberships, and extra subscriptions as essential=false. Follow the user's explicit essential/non-essential choice. If unclear, use essential=true so necessary money is not under-protected. Use MONTHLY when a normally monthly bill has no stated frequency; use ONE_TIME for a clearly one-off payment. If they say skip/no bills, set skipped true and commitments empty. Do not create incomplete bills.",
 };
 
 type OpenAIResponse = {
@@ -387,7 +387,7 @@ function fallbackExtract(stage: AiStage, answer: string): unknown {
     commitments,
     message: skipped
       ? "You can add bills later from your plan."
-      : `I’ve noted ${essentialCount} essential and ${optionalCount} optional payment${commitments.length === 1 ? "" : "s"}.`,
+      : `I’ve noted ${essentialCount} essential and ${optionalCount} non-essential payment${commitments.length === 1 ? "" : "s"}.`,
   };
 }
 
@@ -596,11 +596,11 @@ function normalize(
     accepted: true,
     confirmation: value.skipped
       ? "No problem. You can add bills later from Money Plan."
-      : `I’ve added ${essentialCount} essential and ${optionalCount} optional payment${value.commitments.length === 1 ? "" : "s"}.`,
+      : `I’ve added ${essentialCount} essential and ${optionalCount} non-essential payment${value.commitments.length === 1 ? "" : "s"}.`,
     patch: { commitments: value.skipped ? [] : value.commitments },
     assumptions:
       optionalCount > 0
-        ? ["Optional bills stay visible but do not reduce Safe to Spend."]
+        ? ["Non-essential bills stay visible but do not reduce Safe to Spend."]
         : [],
   };
 }

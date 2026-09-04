@@ -1109,6 +1109,7 @@ export function calculateGigDashboard(
 }
 
 const roundCurrency = (value: number) => Math.round(value * 100) / 100;
+const MIN_ADAPTIVE_INVESTMENT_PCT = 3;
 const pocketBalance = (bundle: GigBundleDto, kind: PocketKind) =>
   bundle.pockets.find((pocket) => pocket.kind === kind)?.currentAmount ?? 0;
 
@@ -1255,11 +1256,15 @@ export function recommendAdaptiveSplit(
   priority.essentials = take(dueGap);
   priority.workCosts = take(workGap);
   priority.emergency = take(Math.max(cushionStep, confidenceReserve));
+  const investmentTargetPct = Math.max(
+    MIN_ADAPTIVE_INVESTMENT_PCT,
+    bundle.splitRule.longTermPct,
+  );
+  priority.longTerm = take((amount * investmentTargetPct) / 100);
   const defaults: Array<[keyof typeof priority, number]> = [
     ["essentials", bundle.splitRule.essentialsPct],
     ["workCosts", bundle.splitRule.workCostsPct],
     ["emergency", bundle.splitRule.emergencyPct],
-    ["longTerm", bundle.splitRule.longTermPct],
     ["flexible", bundle.splitRule.flexiblePct],
   ];
   const distributable = remaining;
@@ -1341,6 +1346,10 @@ export function recommendAdaptiveSplit(
   if (rounded.emergency > 0)
     reasons.push(
       `Add about ${Math.max(0, projection.afterProtectedDays - projection.beforeProtectedDays).toFixed(1)} protected ${Math.abs(projection.afterProtectedDays - projection.beforeProtectedDays - 1) < 0.05 ? "day" : "days"} to the emergency cushion.`,
+    );
+  if (rounded.longTerm > 0)
+    reasons.push(
+      `Keep ${percentages.longTermPct}% as an investment goal. SuperFinz plans this amount but does not invest or move it.`,
     );
   if (!reasons.length)
     reasons.push(
@@ -1487,9 +1496,7 @@ export function simulateGigScenario(
   };
 }
 
-export function deriveGigInsights(
-  dashboard: GigDashboardDto,
-): GigInsightsDto {
+export function deriveGigInsights(dashboard: GigDashboardDto): GigInsightsDto {
   const summary = dashboard.summary;
   const lowestBalanceLow = roundCurrency(summary.lowestProjectedBalanceLow);
   const lowestBalanceHigh = roundCurrency(summary.lowestProjectedBalanceHigh);

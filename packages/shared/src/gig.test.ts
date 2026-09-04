@@ -431,8 +431,54 @@ test("adaptive split fills urgent commitments before flexible spending", () => {
   assert.equal(amountTotal, 3_200);
   assert.equal(percentTotal, 100);
   assert.equal(recommendation.amounts.essentials, 3_200);
+  assert.equal(recommendation.amounts.longTerm, 0);
   assert.equal(recommendation.amounts.flexible, 0);
   assert.equal(recommendation.fundedCommitments[0]?.id, "rent");
+});
+
+test("adaptive split keeps an investment percentage when critical needs leave room", () => {
+  const ready = {
+    ...bundle,
+    commitments: bundle.commitments.map((commitment) => ({
+      ...commitment,
+      fundedAmount: commitment.amount,
+    })),
+    pockets: [
+      {
+        id: "essentials",
+        userId: "user",
+        kind: "ESSENTIALS" as const,
+        currentAmount: 4_000,
+        targetAmount: 4_000,
+        updatedAt: now.toISOString(),
+      },
+      {
+        id: "work",
+        userId: "user",
+        kind: "WORK_COSTS" as const,
+        currentAmount: 1_200,
+        targetAmount: 1_200,
+        updatedAt: now.toISOString(),
+      },
+      {
+        id: "cushion",
+        userId: "user",
+        kind: "EMERGENCY_CUSHION" as const,
+        currentAmount: 2_000,
+        targetAmount: 15_000,
+        updatedAt: now.toISOString(),
+      },
+    ],
+    splitRule: {
+      ...bundle.splitRule,
+      longTermPct: 0,
+      flexiblePct: 20,
+    },
+  };
+  const recommendation = recommendAdaptiveSplit(ready, 1_000, now);
+  assert.equal(recommendation.amounts.longTerm, 30);
+  assert.equal(recommendation.percentages.longTermPct, 3);
+  assert.match(recommendation.reasons.join(" "), /investment goal/i);
 });
 
 test("adaptive split changes after obligations and work costs are funded", () => {

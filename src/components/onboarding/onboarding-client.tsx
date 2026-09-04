@@ -955,7 +955,7 @@ function Review({
           </p>
           {split && (
             <p className="mt-1 text-sm text-ink-soft">
-              Starter split: {split.essentialsPct}% needs · {split.workCostsPct}% work · {split.emergencyPct}% emergency · {split.longTermPct}% future · {split.flexiblePct}% flexible
+              Starter split: {split.essentialsPct}% needs · {split.workCostsPct}% work · {split.emergencyPct}% emergency · {split.longTermPct}% investment · {split.flexiblePct}% flexible
             </p>
           )}
         </ReviewCard>

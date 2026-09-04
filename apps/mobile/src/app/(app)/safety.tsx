@@ -28,7 +28,7 @@ const pocketNames: Record<PocketKind, string> = {
   ESSENTIALS: "Bills and essentials",
   WORK_COSTS: "Work money",
   EMERGENCY_CUSHION: "Emergency cushion",
-  LONG_TERM_SAVINGS: "Long-term savings",
+  LONG_TERM_SAVINGS: "Investment goal",
   FLEXIBLE_SPENDING: "Flexible spending",
 };
 const mainKinds = new Set<PocketKind>([

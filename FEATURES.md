@@ -117,7 +117,8 @@ pockets:
 1. bills and essentials;
 2. fuel and other work costs;
 3. emergency cushion;
-4. long-term savings; and
+4. an investment goal (5% in the starter rule, with a 3% adaptive minimum when
+   urgent needs leave room); and
 5. flexible spending.
 
 The recommendation changes with the payout amount, due bills, existing funded

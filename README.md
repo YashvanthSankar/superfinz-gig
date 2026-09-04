@@ -139,10 +139,15 @@ When money arrives, SuperFinz recommends how to protect it in this order:
 1. overdue and near-term essential commitments;
 2. fuel, data, maintenance, and other earning-enabling costs;
 3. the next day of emergency cushion;
-4. longer-term savings;
+4. a worker-controlled investment goal; and
 5. flexible spending.
 
 This is not a rigid 50/30/20 split. The recommendation changes with the actual payout, due dates, funded commitments, work needs, and current cushion. The worker reviews and confirms every allocation.
+
+When urgent bills, earning costs, and the immediate cushion leave room, the
+adaptive plan reserves at least 3% for the investment goal (the starter rule is
+5%). This is a planning pocket only: SuperFinz does not purchase investments,
+promise returns, or move the worker's money.
 
 ### 4. Plan Ahead and Slow-week Shield
 

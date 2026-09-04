@@ -38,7 +38,7 @@ const splitFields = [
   ["essentialsPct", "Essentials"],
   ["workCostsPct", "Work costs"],
   ["emergencyPct", "Emergency cushion"],
-  ["longTermPct", "Long-term savings"],
+  ["longTermPct", "Investment goal"],
   ["flexiblePct", "Flexible spending"],
 ] as const;
 

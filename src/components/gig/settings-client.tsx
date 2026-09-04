@@ -301,7 +301,7 @@ export function SettingsClient() {
               onChange={(event) => set("emergencyPct", event.target.value)}
             />
             <Input
-              label="Long-term savings"
+              label="Investment goal"
               type="number"
               min={0}
               max={100}

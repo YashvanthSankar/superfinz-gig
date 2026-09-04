@@ -176,7 +176,7 @@ export const splitFields: Array<{
   { key: "essentialsPct", amountKey: "essentials", label: "Essentials" },
   { key: "workCostsPct", amountKey: "workCosts", label: "Work costs" },
   { key: "emergencyPct", amountKey: "emergency", label: "Emergency cushion" },
-  { key: "longTermPct", amountKey: "longTerm", label: "Long-term" },
+  { key: "longTermPct", amountKey: "longTerm", label: "Investment goal" },
   { key: "flexiblePct", amountKey: "flexible", label: "Flexible" },
 ];
 

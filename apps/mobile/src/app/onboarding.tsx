@@ -728,7 +728,7 @@ function Review({
         </Text>
         {split && (
           <Text style={ui.small}>
-            {split.essentialsPct}% needs · {split.workCostsPct}% work · {split.emergencyPct}% emergency · {split.longTermPct}% future · {split.flexiblePct}% flexible
+            {split.essentialsPct}% needs · {split.workCostsPct}% work · {split.emergencyPct}% emergency · {split.longTermPct}% investment · {split.flexiblePct}% flexible
           </Text>
         )}
       </ReviewRow>

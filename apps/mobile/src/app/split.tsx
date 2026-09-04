@@ -69,7 +69,7 @@ const pockets: Array<{
   {
     key: "longTermPct",
     amountKey: "longTerm",
-    label: "Savings",
+    label: "Investment goal",
     color: colors.accent,
   },
   {
@@ -350,7 +350,7 @@ export default function PayoutSplit() {
       refreshing={query.isFetching && Boolean(query.data)}
       help={{
         title: "Plan a payout",
-        body: "SuperFinz suggests how much to keep for bills, work, savings and safe spending. Review it before saving. No real money is moved.",
+        body: "SuperFinz suggests how much to keep for bills, work, emergencies, an investment goal and safe spending. Review it before saving. No money is moved or invested.",
       }}
     >
       <Card>

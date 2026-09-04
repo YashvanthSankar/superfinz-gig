@@ -21,6 +21,7 @@ export function PlanClient() {
   const { dashboard, loading, error, refresh } = useGigDashboard();
   const [showForm, setShowForm] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [busyCommitmentId, setBusyCommitmentId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [form, setForm] = useState({
     title: "",
@@ -80,6 +81,7 @@ export function PlanClient() {
   };
   const markPaid = async (id: string) => {
     setBusy(true);
+    setBusyCommitmentId(id);
     setActionError(null);
     try {
       await jsonRequest("/api/gig/commitments", {
@@ -93,10 +95,12 @@ export function PlanClient() {
       );
     } finally {
       setBusy(false);
+      setBusyCommitmentId(null);
     }
   };
   const remove = async (id: string) => {
     setBusy(true);
+    setBusyCommitmentId(null);
     setActionError(null);
     try {
       await jsonRequest("/api/gig/commitments", {
@@ -110,6 +114,7 @@ export function PlanClient() {
       );
     } finally {
       setBusy(false);
+      setBusyCommitmentId(null);
     }
   };
 
@@ -279,10 +284,13 @@ export function PlanClient() {
                   <button
                     type="button"
                     disabled={busy}
+                    aria-busy={busy && busyCommitmentId === item.id}
                     onClick={() => void markPaid(item.id)}
                     className="min-h-11 border-2 border-ink bg-good-soft px-3 text-xs font-black uppercase"
                   >
-                    Mark paid
+                    {busy && busyCommitmentId === item.id
+                      ? "Marking…"
+                      : "Mark paid"}
                   </button>
                 )}
                 <button

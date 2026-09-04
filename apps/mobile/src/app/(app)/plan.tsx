@@ -306,7 +306,12 @@ export default function Plan() {
                   <Button
                     title="Mark paid"
                     tone="quiet"
-                    loading={markPaid.isPending}
+                    loading={
+                      markPaid.isPending && markPaid.variables === item.id
+                    }
+                    disabled={
+                      markPaid.isPending && markPaid.variables !== item.id
+                    }
                     onPress={() =>
                       Alert.alert(
                         "Mark this bill as paid?",
@@ -324,6 +329,10 @@ export default function Plan() {
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={`Delete ${item.title}`}
+                    accessibilityState={{
+                      disabled: markPaid.isPending || remove.isPending,
+                    }}
+                    disabled={markPaid.isPending || remove.isPending}
                     hitSlop={10}
                     onPress={() =>
                       Alert.alert(
@@ -339,7 +348,11 @@ export default function Plan() {
                         ],
                       )
                     }
-                    style={styles.delete}
+                    style={[
+                      styles.delete,
+                      (markPaid.isPending || remove.isPending) &&
+                        styles.disabled,
+                    ]}
                   >
                     <Text style={styles.deleteText}>Delete</Text>
                   </Pressable>
@@ -497,6 +510,7 @@ const styles = StyleSheet.create({
   choiceText: { color: colors.ink, fontWeight: "600", fontSize: 13 },
   choiceTextActive: { color: colors.ink },
   pressed: { opacity: 0.7 },
+  disabled: { opacity: 0.45 },
   result: { borderRadius: 15, padding: 15, gap: 6 },
   resultGood: { backgroundColor: colors.greenSoft },
   resultWarning: { backgroundColor: colors.accentSoft },

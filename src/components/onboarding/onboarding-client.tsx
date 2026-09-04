@@ -396,8 +396,8 @@ export function OnboardingClient() {
   };
 
   const skipBills = () => {
-    setAnswer("No bills to add right now");
-    void askAssistant("No bills to add right now");
+    setAnswer("No bills or subscriptions to add right now");
+    void askAssistant("No bills or subscriptions to add right now");
   };
 
   const submit = async () => {
@@ -623,7 +623,7 @@ export function OnboardingClient() {
                       disabled={sending || transcribing || recording}
                       className="mt-3 min-h-11 rounded-full border border-line bg-paper-2 px-4 text-sm font-semibold text-ink hover:border-line-strong disabled:opacity-50"
                     >
-                      No bills to add
+                      No bills or subscriptions
                     </button>
                   )}
 
@@ -777,7 +777,7 @@ function SetupSummary({
     },
     {
       stage: "BILLS",
-      label: "Important bills",
+      label: "Bills and subscriptions",
       value: draft.commitments ? `${draft.commitments.length} added` : "",
     },
     {
@@ -929,12 +929,12 @@ function Review({
             {money(draft.currentCushion)} already kept for emergencies
           </p>
         </ReviewCard>
-        <ReviewCard title="Important bills" onEdit={() => onEdit("BILLS")}>
+        <ReviewCard title="Bills and subscriptions" onEdit={() => onEdit("BILLS")}>
           {draft.commitments?.length ? (
             <div className="space-y-1 text-sm">
               {draft.commitments.map((bill) => (
                 <p key={`${bill.title}-${bill.dueDate}`} className="text-ink">
-                  <span className="font-semibold">{bill.title}</span> · {money(bill.amount)} · {displayDate(bill.dueDate)}
+                  <span className="font-semibold">{bill.title}</span> · {money(bill.amount)} · {displayDate(bill.dueDate)} · {bill.essential ? "Essential" : "Optional"}
                 </p>
               ))}
             </div>

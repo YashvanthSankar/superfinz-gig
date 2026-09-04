@@ -1444,7 +1444,7 @@ export function simulateGigScenario(
   let uncovered = gap;
   const atRiskCommitments: GigScenarioResult["atRiskCommitments"] = [];
   for (const item of [...dashboard.commitments]
-    .filter((item) => item.status !== "PAID")
+    .filter((item) => item.essential && item.status !== "PAID")
     .sort(
       (a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime(),
     )) {

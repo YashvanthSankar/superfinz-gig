@@ -67,10 +67,11 @@ export const QUICK_SETUP_QUESTIONS: Record<
     example: "For example: ₹5,000 available and ₹1,000 kept for emergencies",
   },
   BILLS: {
-    title: "Important bills",
+    title: "Bills and subscriptions",
     question:
-      "What important payment is coming up? Say its name, amount and due date. You can mention more than one or skip for now.",
-    example: "For example: Rent ₹6,000 on 10 September; electricity ₹900 on 14 September",
+      "What payments are coming up? Say the name, amount, due date, and whether each one is essential or optional.",
+    example:
+      "For example: Rent ₹6,000 on 10 September, essential; Netflix ₹649 on 15 September, optional",
   },
   PRIORITY: {
     title: "Your main goal",
@@ -134,6 +135,7 @@ export const quickSetupCommitmentSchema = z.object({
   amount: z.number().positive().max(100_000_000),
   dueDate: dateOnly,
   recurrence: z.enum(COMMITMENT_RECURRENCES),
+  essential: z.boolean().default(true),
 });
 
 export type QuickSetupCommitment = z.infer<
@@ -289,8 +291,8 @@ export function buildQuickOnboardingPayload(draft: QuickSetupDraft) {
       amount: bill.amount,
       dueDate: new Date(`${bill.dueDate}T12:00:00`).toISOString(),
       recurrence: bill.recurrence,
-      essential: true,
-      priority: Math.min(index + 1, 5),
+      essential: bill.essential,
+      priority: bill.essential ? Math.min(index + 1, 3) : 5,
       autopay: false,
     })),
     splitRule: { ...split, enabled: true },

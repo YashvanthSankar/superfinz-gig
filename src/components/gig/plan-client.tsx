@@ -105,6 +105,7 @@ const emptyForm = () => ({
   amount: "",
   dueDate: futureDate(7),
   recurrence: "MONTHLY",
+  essential: true,
 });
 
 export function PlanClient() {
@@ -168,8 +169,8 @@ export function PlanClient() {
           amount,
           dueDate: new Date(`${form.dueDate}T12:00:00`).toISOString(),
           recurrence: form.recurrence,
-          essential: true,
-          priority: 1,
+          essential: form.essential,
+          priority: form.essential ? 1 : 5,
           autopay: false,
         }),
       });
@@ -317,7 +318,7 @@ export function PlanClient() {
         onClose={closeForm}
         eyebrow="New commitment"
         title="Protect a due payment."
-        description="Add rent, EMIs, fees, or any bill with a date. The plan keeps money aside before it is due."
+        description="Add essentials like rent and school fees, or optional items like OTT subscriptions. Only essential bills reduce Safe to Spend."
         busy={busy}
       >
         <form
@@ -380,6 +381,19 @@ export function PlanClient() {
             <option value="FORTNIGHTLY">Fortnightly</option>
             <option value="MONTHLY">Monthly</option>
             <option value="ONE_TIME">One time</option>
+          </Select>
+          <Select
+            label="Bill type"
+            value={form.essential ? "ESSENTIAL" : "OPTIONAL"}
+            onChange={(event) =>
+              setForm((current) => ({
+                ...current,
+                essential: event.target.value === "ESSENTIAL",
+              }))
+            }
+          >
+            <option value="ESSENTIAL">Essential bill — protect first</option>
+            <option value="OPTIONAL">Optional bill — track only</option>
           </Select>
           {actionError && <ActionError message={actionError} />}
           <div className="flex flex-col gap-3 sm:col-span-2 sm:flex-row">
@@ -458,7 +472,7 @@ export function PlanClient() {
                       <p className="mt-0.5 text-sm text-ink-soft">
                         Due {formatDate(item.dueDate)} ·{" "}
                         {RECURRENCE_LABEL[item.recurrence] ??
-                          humanize(item.recurrence)}
+                          humanize(item.recurrence)} · {item.essential ? "Essential" : "Optional"}
                       </p>
                     </div>
                     <div className="flex flex-col items-end gap-1 text-right">

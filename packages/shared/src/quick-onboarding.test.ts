@@ -28,6 +28,14 @@ const completeDraft: QuickSetupDraft = {
       amount: 900,
       dueDate: "2026-09-14",
       recurrence: "MONTHLY",
+      essential: true,
+    },
+    {
+      title: "Netflix",
+      amount: 649,
+      dueDate: "2026-09-15",
+      recurrence: "MONTHLY",
+      essential: false,
     },
   ],
   primaryPriority: "WORK_EXPENSES",
@@ -51,6 +59,9 @@ test("quick setup builds a valid goal-based onboarding payload", () => {
   assert.equal(payload.splitRule.workCostsPct, 25);
   assert.equal(payload.safetyBuffer, 500);
   assert.equal(payload.commitments[0]?.title, "Electricity");
+  assert.equal(payload.commitments[0]?.essential, true);
+  assert.equal(payload.commitments[1]?.essential, false);
+  assert.equal(payload.commitments[1]?.priority, 5);
   assert.equal(payload.sources[0]?.name, "Zomato");
 });
 

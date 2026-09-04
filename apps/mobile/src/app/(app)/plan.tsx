@@ -136,13 +136,13 @@ const recurrenceLabels: Record<CommitmentRecurrence, string> = {
 type Priority = "ESSENTIAL" | "FLEXIBLE";
 
 const priorityOptions: Array<{ value: Priority; label: string }> = [
-  { value: "ESSENTIAL", label: "Protect first" },
-  { value: "FLEXIBLE", label: "Flexible" },
+  { value: "ESSENTIAL", label: "Essential bill" },
+  { value: "FLEXIBLE", label: "Optional bill" },
 ];
 
 const priorityLabels: Record<Priority, string> = {
-  ESSENTIAL: "protected",
-  FLEXIBLE: "flexible",
+  ESSENTIAL: "essential",
+  FLEXIBLE: "optional",
 };
 
 type BillStatus = "PAID" | "OVERDUE" | "SOON" | "DUE";
@@ -245,7 +245,11 @@ export default function Plan() {
       setTitle("");
       setAmount("");
       closeForm();
-      setNotice(`${savedTitle} is now protected in your plan.`);
+      setNotice(
+        essential
+          ? `${savedTitle} is now protected in your plan.`
+          : `${savedTitle} was added as optional. It will not reduce Safe to Spend.`,
+      );
       await refresh();
     },
     onError: (cause) =>
@@ -366,11 +370,11 @@ export default function Plan() {
     <Screen
       eyebrow="Bills and commitments"
       title="Plan"
-      subtitle="Keep important bills visible and protected."
+      subtitle="Protect essentials and keep optional subscriptions visible."
       refreshing={query.isFetching && Boolean(query.data)}
       help={{
         title: "Your bill plan",
-        body: "Add payments you cannot miss. When you mark a repeating bill as paid, SuperFinz creates its next due date automatically.",
+        body: "Essential bills reduce Safe to Spend. Optional bills and subscriptions stay visible but are not protected. Repeating bills move to their next due date after you mark them paid.",
       }}
       action={
         <IconButton
@@ -392,7 +396,7 @@ export default function Plan() {
         onClose={closeForm}
         eyebrow="New bill"
         title="Add a bill"
-        description="Rent, EMI, school fees or anything you cannot miss."
+        description="Add essentials like rent or school fees, or optional items like OTT subscriptions."
         busy={create.isPending}
       >
         <Field
@@ -443,7 +447,7 @@ export default function Plan() {
           </View>
         </View>
         <View style={styles.group}>
-          <Label>Priority</Label>
+          <Label>Bill type</Label>
           <View style={ui.wrap}>
             {priorityOptions.map((option) => (
               <Chip
@@ -456,7 +460,7 @@ export default function Plan() {
             ))}
           </View>
           <Text style={ui.caption}>
-            Protected bills are covered before flexible spending.
+            Essential bills are protected first. Optional bills do not reduce Safe to Spend.
           </Text>
         </View>
         <View style={styles.formActions}>
@@ -501,7 +505,7 @@ export default function Plan() {
         <EmptyState
           icon={CalendarClock}
           title="No bills yet"
-          body="Add rent, EMI or school fees so they stay protected."
+          body="Add essentials like rent and electricity, or optional subscriptions like OTT."
           action={{ title: "Add a bill", onPress: () => setShowForm(true) }}
         />
       ) : (

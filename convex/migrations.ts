@@ -166,3 +166,59 @@ export const repairGigSourceNextPayout = mutation({
     return { sourceId: source._id, nextPayoutAt: args.nextPayoutAt, updatedAt };
   },
 });
+
+/**
+ * Clears application data for known users while preserving their Google
+ * identities, so the next sign-in starts onboarding from the beginning.
+ */
+export const resetUsersForOnboarding = mutation({
+  args: {
+    serverKey: v.string(),
+    emails: v.array(v.string()),
+  },
+  handler: async (ctx, args) => {
+    assertServerKey(args.serverKey);
+    const results: Array<{ email: string; found: boolean; deleted: number }> = [];
+
+    for (const rawEmail of new Set(args.emails.map((email) => email.toLowerCase()))) {
+      const user = await ctx.db
+        .query("users")
+        .withIndex("by_email", (q) => q.eq("email", rawEmail))
+        .unique();
+      if (!user) {
+        results.push({ email: rawEmail, found: false, deleted: 0 });
+        continue;
+      }
+
+      const userId = user._id;
+      const collections = await Promise.all([
+        ctx.db.query("profiles").withIndex("by_user_id", (q) => q.eq("userId", userId)).collect(),
+        ctx.db.query("mobileSessions").withIndex("by_user_id", (q) => q.eq("userId", userId)).collect(),
+        ctx.db.query("transactions").withIndex("by_user_date", (q) => q.eq("userId", userId)).collect(),
+        ctx.db.query("budgets").withIndex("by_user_period", (q) => q.eq("userId", userId)).collect(),
+        ctx.db.query("goals").withIndex("by_user_created", (q) => q.eq("userId", userId)).collect(),
+        ctx.db.query("gigProfiles").withIndex("by_user_id", (q) => q.eq("userId", userId)).collect(),
+        ctx.db.query("gigIncomeSources").withIndex("by_user_id", (q) => q.eq("userId", userId)).collect(),
+        ctx.db.query("gigCashEntries").withIndex("by_user_date", (q) => q.eq("userId", userId)).collect(),
+        ctx.db.query("gigCommitments").withIndex("by_user_due", (q) => q.eq("userId", userId)).collect(),
+        ctx.db.query("gigPockets").withIndex("by_user_kind", (q) => q.eq("userId", userId)).collect(),
+        ctx.db.query("gigSplitRules").withIndex("by_user_id", (q) => q.eq("userId", userId)).collect(),
+        ctx.db.query("gigPayoutSplits").withIndex("by_user_received", (q) => q.eq("userId", userId)).collect(),
+        ctx.db.query("gigPreferences").withIndex("by_user_id", (q) => q.eq("userId", userId)).collect(),
+        ctx.db.query("gigNotificationStates").withIndex("by_user", (q) => q.eq("userId", userId)).collect(),
+        ctx.db.query("gigOutcomeEvents").withIndex("by_user_created", (q) => q.eq("userId", userId)).collect(),
+      ]);
+      let deleted = 0;
+      for (const documents of collections) {
+        for (const document of documents) {
+          await ctx.db.delete(document._id);
+          deleted += 1;
+        }
+      }
+      await ctx.db.patch(user._id, { onboarded: false, updatedAt: Date.now() });
+      results.push({ email: rawEmail, found: true, deleted });
+    }
+
+    return results;
+  },
+});

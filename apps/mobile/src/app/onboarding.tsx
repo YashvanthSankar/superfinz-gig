@@ -537,12 +537,14 @@ export default function Onboarding() {
 
             {stage === "BILLS" && (
               <Button
-                title="No bills to add"
+                title="No bills or subscriptions"
                 tone="soft"
                 size="sm"
                 inline
                 disabled={busy || recording}
-                onPress={() => void askAssistant("No bills to add right now")}
+                onPress={() =>
+                  void askAssistant("No bills or subscriptions to add right now")
+                }
               />
             )}
 
@@ -706,11 +708,11 @@ function Review({
           {formatMoney(draft.currentCushion ?? 0)} already kept for emergencies
         </Text>
       </ReviewRow>
-      <ReviewRow title="Important bills" onEdit={() => onEdit("BILLS")}>
+      <ReviewRow title="Bills and subscriptions" onEdit={() => onEdit("BILLS")}>
         {draft.commitments?.length ? (
           draft.commitments.map((bill) => (
             <Text key={`${bill.title}-${bill.dueDate}`} style={ui.small}>
-              {bill.title} · {formatMoney(bill.amount)} · {dateLabel(bill.dueDate)}
+              {bill.title} · {formatMoney(bill.amount)} · {dateLabel(bill.dueDate)} · {bill.essential ? "Essential" : "Optional"}
             </Text>
           ))
         ) : (

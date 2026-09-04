@@ -230,7 +230,33 @@ test("a 5000 payout with a 1000 flexible allocation updates Today safely", () =>
     "zomato",
   );
   assert.equal(projection.amounts.flexible, 1_000);
-  assert.equal(projection.afterSafeAmount, 1_110);
+  assert.equal(projection.beforeSafeAmount, 240);
+  assert.equal(projection.afterSafeAmount, 1_240);
+});
+
+test("a flexible pocket remains available even when future needs are underfunded", () => {
+  const dashboard = calculateGigDashboard(
+    {
+      ...bundle,
+      profile: { ...bundle.profile, currentBalance: 4_400 },
+      commitments: [
+        { ...bundle.commitments[0], amount: 9_000, dueDate: now.toISOString() },
+      ],
+      pockets: [
+        {
+          id: "flexible",
+          userId: "user",
+          kind: "FLEXIBLE_SPENDING",
+          currentAmount: 750,
+          targetAmount: 1_050,
+          updatedAt: now.toISOString(),
+        },
+      ],
+    },
+    now,
+  );
+  assert.equal(dashboard.summary.safeToSpend, 750);
+  assert.equal(dashboard.summary.protectedMoney, 3_650);
 });
 
 test("flexible bills do not reduce protected safe-to-spend money", () => {

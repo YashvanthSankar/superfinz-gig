@@ -775,16 +775,26 @@ export function calculateGigDashboard(
     pocketAmount("WORK_COSTS") +
     pocketAmount("EMERGENCY_CUSHION") +
     pocketAmount("LONG_TERM_SAVINGS");
-  const protectedMoney = Math.min(
+  const requiredProtectedMoney = Math.min(
     bundle.profile.currentBalance,
     protectedPocketMoney +
       unfundedCommitments +
       unfundedWorkCosts +
       safetyBufferGap,
   );
-  const safeToSpend = Math.max(
+  // Money explicitly assigned to Flexible Spending must remain usable. Future
+  // funding gaps are still shown as warnings, but cannot silently relabel a
+  // user-approved flexible allocation as protected money.
+  const safeToSpend = Math.min(
+    bundle.profile.currentBalance,
+    Math.max(
+      pocketAmount("FLEXIBLE_SPENDING"),
+      bundle.profile.currentBalance - requiredProtectedMoney,
+    ),
+  );
+  const protectedMoney = Math.max(
     0,
-    bundle.profile.currentBalance - protectedMoney,
+    bundle.profile.currentBalance - safeToSpend,
   );
   const weekStart = new Date(now.getTime() - 6 * 86_400_000);
   const weekEntries = bundle.entries.filter(

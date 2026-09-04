@@ -49,7 +49,7 @@ const pockets: Array<{
   { key: "workCostsPct", amountKey: "workCosts", label: "Work costs", color: colors.warn },
   { key: "emergencyPct", amountKey: "emergency", label: "Cushion", color: colors.good },
   { key: "longTermPct", amountKey: "longTerm", label: "Savings", color: colors.accent },
-  { key: "flexiblePct", amountKey: "flexible", label: "Free to use", color: colors.borderStrong },
+  { key: "flexiblePct", amountKey: "flexible", label: "Flexible pocket", color: colors.borderStrong },
 ];
 
 const formatPct = (value: number) =>
@@ -107,9 +107,12 @@ export default function PayoutSplit() {
     (sum, value) => sum + (value || 0),
     0,
   );
-  const adaptive = d ? recommendAdaptiveSplit(d, payout, receivedAt) : null;
+  const payoutSourceId = manualIncome ? null : selectedSource?.id;
+  const adaptive = d
+    ? recommendAdaptiveSplit(d, payout, receivedAt, payoutSourceId)
+    : null;
   const customProjection = d
-    ? projectPayoutSplit(d, payout, custom, receivedAt)
+    ? projectPayoutSplit(d, payout, custom, receivedAt, payoutSourceId)
     : null;
   const used =
     mode === "ADAPTIVE"
@@ -393,6 +396,13 @@ export default function PayoutSplit() {
               </View>
               {used.reasons.length > 0 && (
                 <Text style={ui.small}>{used.reasons.join(" ")}</Text>
+              )}
+              {used.amounts.flexible > used.afterSafeAmount && (
+                <Notice tone="warn" title="Flexible is not all safe yet">
+                  You assigned {formatMoney(used.amounts.flexible)} for personal
+                  spending, but Today will show {formatMoney(used.afterSafeAmount)}
+                  after also checking bills and work costs until the next payout.
+                </Notice>
               )}
             </>
           )}

@@ -5,12 +5,49 @@ import {
   DEFAULT_GIG_PREFERENCES,
   deriveGigInsights,
   deriveGigNotifications,
+  nextExpectedPayoutAt,
+  projectPayoutSplit,
   recommendAdaptiveSplit,
   simulateGigScenario,
   type GigBundleDto,
 } from "./gig";
 
 const now = new Date("2026-09-03T06:00:00.000Z");
+
+test("an early payout keeps an already-future payout date", () => {
+  const received = Date.parse("2026-09-04T04:30:00.000Z");
+  const scheduled = Date.parse("2026-09-11T06:30:00.000Z");
+  assert.equal(nextExpectedPayoutAt("WEEKLY", scheduled, received), scheduled);
+  assert.equal(nextExpectedPayoutAt("WEEKLY", scheduled, received), scheduled);
+});
+
+test("an on-time or late payout advances the schedule exactly as needed", () => {
+  const scheduled = Date.parse("2026-09-11T06:30:00.000Z");
+  assert.equal(
+    nextExpectedPayoutAt("WEEKLY", scheduled, scheduled),
+    Date.parse("2026-09-18T06:30:00.000Z"),
+  );
+  assert.equal(
+    nextExpectedPayoutAt(
+      "WEEKLY",
+      scheduled,
+      Date.parse("2026-09-26T06:30:00.000Z"),
+    ),
+    Date.parse("2026-10-02T06:30:00.000Z"),
+  );
+});
+
+test("monthly payout dates keep their calendar anchor", () => {
+  assert.equal(
+    nextExpectedPayoutAt(
+      "MONTHLY",
+      Date.parse("2026-01-31T06:30:00.000Z"),
+      Date.parse("2026-01-31T06:30:00.000Z"),
+    ),
+    Date.parse("2026-02-28T06:30:00.000Z"),
+  );
+});
+
 const bundle: GigBundleDto = {
   profile: {
     id: "profile",
@@ -106,6 +143,94 @@ test("safe-to-spend protects commitments, work costs, and the safety buffer", ()
   assert.equal(dashboard.summary.safeToSpend, 1_800);
   assert.equal(dashboard.summary.expectedPayoutMin, 2_100);
   assert.equal(dashboard.summary.expectedPayoutMax, 3_400);
+});
+
+test("a 5000 payout with a 1000 flexible allocation updates Today safely", () => {
+  const receivedAt = new Date("2026-09-04T04:33:00.000Z");
+  const liveLikeBundle: GigBundleDto = {
+    ...bundle,
+    profile: {
+      ...bundle.profile,
+      currentBalance: 6_100,
+      safetyBuffer: 500,
+      weeklyWorkCosts: 4_000,
+    },
+    sources: [
+      {
+        ...bundle.sources[0],
+        id: "zomato",
+        name: "Zomato",
+        nextPayoutAt: "2026-09-11T06:30:00.000Z",
+        typicalMin: 4_200,
+        typicalMax: 7_800,
+      },
+    ],
+    commitments: [
+      {
+        ...bundle.commitments[0],
+        amount: 2_500,
+        fundedAmount: 1_620,
+        dueDate: "2026-09-11T05:30:00.000Z",
+      },
+    ],
+    pockets: [
+      {
+        id: "essentials",
+        userId: "user",
+        kind: "ESSENTIALS",
+        currentAmount: 2_500,
+        targetAmount: 2_500,
+        updatedAt: receivedAt.toISOString(),
+      },
+      {
+        id: "work",
+        userId: "user",
+        kind: "WORK_COSTS",
+        currentAmount: 2_620,
+        targetAmount: 4_000,
+        updatedAt: receivedAt.toISOString(),
+      },
+      {
+        id: "emergency",
+        userId: "user",
+        kind: "EMERGENCY_CUSHION",
+        currentAmount: 160,
+        targetAmount: 500,
+        updatedAt: receivedAt.toISOString(),
+      },
+      {
+        id: "savings",
+        userId: "user",
+        kind: "LONG_TERM_SAVINGS",
+        currentAmount: 80,
+        targetAmount: 24_000,
+        updatedAt: receivedAt.toISOString(),
+      },
+      {
+        id: "flexible",
+        userId: "user",
+        kind: "FLEXIBLE_SPENDING",
+        currentAmount: 240,
+        targetAmount: 900,
+        updatedAt: receivedAt.toISOString(),
+      },
+    ],
+  };
+  const projection = projectPayoutSplit(
+    liveLikeBundle,
+    5_000,
+    {
+      essentialsPct: 45,
+      workCostsPct: 15,
+      emergencyPct: 10,
+      longTermPct: 10,
+      flexiblePct: 20,
+    },
+    receivedAt,
+    "zomato",
+  );
+  assert.equal(projection.amounts.flexible, 1_000);
+  assert.equal(projection.afterSafeAmount, 1_110);
 });
 
 test("flexible bills do not reduce protected safe-to-spend money", () => {

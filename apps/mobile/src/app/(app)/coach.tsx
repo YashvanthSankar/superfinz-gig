@@ -123,12 +123,13 @@ export default function Coach() {
   const voiceRequest = useRef(0);
   const voiceFile = useRef<File | null>(null);
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
-  const recorderState = useAudioRecorderState(recorder, 250);
+  const recorderState = useAudioRecorderState(recorder, 100);
   const voicePlayer = useAudioPlayer(null, { updateInterval: 250 });
   const voicePlayerState = useAudioPlayerStatus(voicePlayer);
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
+  const [startingVoice, setStartingVoice] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const [speakingId, setSpeakingId] = useState<number | null>(null);
   const [voiceLoadingId, setVoiceLoadingId] = useState<number | null>(null);
@@ -309,11 +310,15 @@ export default function Coach() {
   };
 
   const startVoice = async () => {
-    if (sending || transcribing || recordingActive.current) return;
+    if (sending || startingVoice || transcribing || recordingActive.current)
+      return;
+    setStartingVoice(true);
     setVoiceError(null);
-    await stopSpokenReply();
     try {
-      const permission = await requestRecordingPermissionsAsync();
+      const [permission] = await Promise.all([
+        requestRecordingPermissionsAsync(),
+        stopSpokenReply(),
+      ]);
       if (!permission.granted) {
         Alert.alert(
           "Microphone is off",
@@ -337,6 +342,8 @@ export default function Coach() {
         tone: "bad",
         text: "Couldn’t start the microphone. You can still type below.",
       });
+    } finally {
+      setStartingVoice(false);
     }
   };
 
@@ -442,6 +449,8 @@ export default function Coach() {
   const hasConversation = messages.length > 0;
   const status = recording
     ? "Listening… tap Stop when you finish (up to 30 seconds)"
+    : startingVoice
+      ? "Starting microphone…"
     : transcribing
       ? "Transcribing…"
       : voiceLoadingId !== null
@@ -594,7 +603,7 @@ export default function Coach() {
               tone={recording ? "danger" : "accent"}
               label={recording ? "Stop recording" : "Ask by voice"}
               hint="Records for up to 30 seconds and shows the transcript here"
-              disabled={sending || transcribing}
+              disabled={sending || startingVoice || transcribing}
               onPress={() =>
                 recording ? void stopVoiceAndAsk() : void startVoice()
               }

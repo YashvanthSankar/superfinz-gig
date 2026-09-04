@@ -6,6 +6,7 @@ import {
 } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import { v } from "convex/values";
+import { nextExpectedPayoutAt } from "@superfinz/shared";
 
 type ReadCtx = QueryCtx | MutationCtx;
 
@@ -626,33 +627,6 @@ function nextCommitmentDue(dueDate: number, recurrence: string, after: number) {
   while (next.getTime() <= after);
   return next.getTime();
 }
-function nextSourcePayout(source: Doc<"gigIncomeSources">, after: number) {
-  if (!["DAILY", "WEEKLY", "FORTNIGHTLY", "MONTHLY"].includes(source.frequency))
-    return null;
-  const next = new Date(source.nextPayoutAt ?? after);
-  const anchorDay = next.getDate();
-  const addMonth = () => {
-    next.setDate(1);
-    next.setMonth(next.getMonth() + 1);
-    const lastDay = new Date(
-      next.getFullYear(),
-      next.getMonth() + 1,
-      0,
-    ).getDate();
-    next.setDate(Math.min(anchorDay, lastDay));
-  };
-  const advance = () => {
-    if (source.frequency === "DAILY") next.setDate(next.getDate() + 1);
-    else if (source.frequency === "WEEKLY") next.setDate(next.getDate() + 7);
-    else if (source.frequency === "FORTNIGHTLY")
-      next.setDate(next.getDate() + 14);
-    else if (source.frequency === "MONTHLY") addMonth();
-  };
-  do advance();
-  while (next.getTime() <= after);
-  return next.getTime();
-}
-
 export const createEntry = mutation({
   args: {
     serverKey: v.string(),
@@ -1451,7 +1425,11 @@ export const applyPayoutSplit = mutation({
       updatedAt: now,
     });
     if (linkedSource) {
-      const nextPayoutAt = nextSourcePayout(linkedSource, args.receivedAt);
+      const nextPayoutAt = nextExpectedPayoutAt(
+        linkedSource.frequency,
+        linkedSource.nextPayoutAt,
+        args.receivedAt,
+      );
       await ctx.db.patch(linkedSource._id, {
         lastSyncAt: now,
         ...(nextPayoutAt ? { nextPayoutAt } : {}),

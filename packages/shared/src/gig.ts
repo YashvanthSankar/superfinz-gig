@@ -66,6 +66,46 @@ export type GigWorkType = (typeof GIG_WORK_TYPES)[number];
 export type GigPriority = (typeof GIG_PRIORITIES)[number];
 export type GigSourceType = (typeof GIG_SOURCE_TYPES)[number];
 export type GigFrequency = (typeof GIG_FREQUENCIES)[number];
+
+/**
+ * Advances an income source only when a received payout reaches or passes the
+ * source's currently scheduled date. An early or partial payout must not push
+ * an already-future schedule forward again.
+ */
+export function nextExpectedPayoutAt(
+  frequency: string,
+  currentNextPayoutAt: number | null | undefined,
+  receivedAt: number,
+): number | null {
+  if (!["DAILY", "WEEKLY", "FORTNIGHTLY", "MONTHLY"].includes(frequency))
+    return null;
+  if (
+    currentNextPayoutAt !== null &&
+    currentNextPayoutAt !== undefined &&
+    currentNextPayoutAt > receivedAt
+  )
+    return currentNextPayoutAt;
+
+  const next = new Date(currentNextPayoutAt ?? receivedAt);
+  const anchorDay = next.getUTCDate();
+  const advance = () => {
+    if (frequency === "DAILY") next.setUTCDate(next.getUTCDate() + 1);
+    else if (frequency === "WEEKLY") next.setUTCDate(next.getUTCDate() + 7);
+    else if (frequency === "FORTNIGHTLY")
+      next.setUTCDate(next.getUTCDate() + 14);
+    else {
+      next.setUTCDate(1);
+      next.setUTCMonth(next.getUTCMonth() + 1);
+      const lastDay = new Date(
+        Date.UTC(next.getUTCFullYear(), next.getUTCMonth() + 1, 0),
+      ).getUTCDate();
+      next.setUTCDate(Math.min(anchorDay, lastDay));
+    }
+  };
+  do advance();
+  while (next.getTime() <= receivedAt);
+  return next.getTime();
+}
 export type ConnectionMode = (typeof CONNECTION_MODES)[number];
 export type CashEntryKind = (typeof CASH_ENTRY_KINDS)[number];
 export type CommitmentRecurrence = (typeof COMMITMENT_RECURRENCES)[number];
@@ -1077,6 +1117,7 @@ export function projectPayoutSplit(
   amount: number,
   percentages: SplitPercentages,
   nowInput: Date | string = new Date(),
+  sourceId?: string | null,
 ) {
   const safeAmount = Math.max(0, amount);
   const essentials = roundCurrency(
@@ -1109,6 +1150,20 @@ export function projectPayoutSplit(
       ...pocket,
       currentAmount: pocket.currentAmount + additions[pocket.kind],
     })),
+    sources: bundle.sources.map((source) => {
+      if (!sourceId || source.id !== sourceId) return source;
+      const nextPayoutAt = nextExpectedPayoutAt(
+        source.frequency,
+        source.nextPayoutAt ? new Date(source.nextPayoutAt).getTime() : null,
+        new Date(nowInput).getTime(),
+      );
+      return {
+        ...source,
+        nextPayoutAt: nextPayoutAt
+          ? new Date(nextPayoutAt).toISOString()
+          : source.nextPayoutAt,
+      };
+    }),
   };
   const before = calculateGigDashboard(bundle, nowInput);
   const after = calculateGigDashboard(projectedBundle, nowInput);
@@ -1125,6 +1180,7 @@ export function recommendAdaptiveSplit(
   bundle: GigBundleDto,
   amountInput: number,
   nowInput: Date | string = new Date(),
+  sourceId?: string | null,
 ): AdaptiveSplitRecommendation {
   const amount = roundCurrency(Math.max(0, amountInput));
   const dashboard = calculateGigDashboard(bundle, nowInput);
@@ -1266,7 +1322,13 @@ export function recommendAdaptiveSplit(
       });
     newEssentialMoney -= funding;
   }
-  const projection = projectPayoutSplit(bundle, amount, percentages, nowInput);
+  const projection = projectPayoutSplit(
+    bundle,
+    amount,
+    percentages,
+    nowInput,
+    sourceId,
+  );
   const reasons: string[] = [];
   if (dueGap > 0)
     reasons.push(

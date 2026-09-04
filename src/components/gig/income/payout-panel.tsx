@@ -94,14 +94,25 @@ export function PayoutPanel({
   const projection = useMemo<Projection>(
     () =>
       adaptive
-        ? recommendAdaptiveSplit(dashboard, payoutAmount, receivedAt)
+        ? recommendAdaptiveSplit(
+            dashboard,
+            payoutAmount,
+            receivedAt,
+            selectedSource?.id,
+          )
         : {
-            ...projectPayoutSplit(dashboard, payoutAmount, custom, receivedAt),
+            ...projectPayoutSplit(
+              dashboard,
+              payoutAmount,
+              custom,
+              receivedAt,
+              selectedSource?.id,
+            ),
             percentages: custom,
             fundedCommitments: [],
             reasons: ["Custom percentages selected by you."],
           },
-    [adaptive, custom, dashboard, payoutAmount, receivedAt],
+    [adaptive, custom, dashboard, payoutAmount, receivedAt, selectedSource?.id],
   );
   const allocation = projection.percentages;
   const splitTotal = splitFields.reduce(

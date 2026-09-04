@@ -34,6 +34,7 @@ export async function POST(request: NextRequest) {
     bundle,
     parsed.data.amount,
     parsed.data.receivedAt,
+    parsed.data.sourceId,
   );
   const percentages =
     parsed.data.allocationMode === "ADAPTIVE"
@@ -44,6 +45,7 @@ export async function POST(request: NextRequest) {
     parsed.data.amount,
     percentages,
     parsed.data.receivedAt,
+    parsed.data.sourceId,
   );
   const split = await applyGigPayoutSplit(session.userId, {
     ...parsed.data,

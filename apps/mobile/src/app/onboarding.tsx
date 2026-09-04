@@ -158,7 +158,7 @@ export default function Onboarding() {
     [user?.id],
   );
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
-  const recorderState = useAudioRecorderState(recorder, 250);
+  const recorderState = useAudioRecorderState(recorder, 100);
   const stopTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stoppingVoice = useRef(false);
   const recordingActive = useRef(false);
@@ -173,6 +173,7 @@ export default function Onboarding() {
   const [ready, setReady] = useState(false);
   const [sending, setSending] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [startingVoice, setStartingVoice] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
 
   const currentIndex = stageIndex(stage);
@@ -183,7 +184,7 @@ export default function Onboarding() {
       100,
   );
   const allAssumptions = Object.values(assumptions).flat();
-  const busy = sending || transcribing || saving;
+  const busy = sending || startingVoice || transcribing || saving;
   const recording = recorderState.isRecording;
 
   useEffect(() => {
@@ -311,6 +312,7 @@ export default function Onboarding() {
 
   const startVoice = async () => {
     if (busy || recordingActive.current) return;
+    setStartingVoice(true);
     setError(null);
     try {
       const permission = await requestRecordingPermissionsAsync();
@@ -329,6 +331,8 @@ export default function Onboarding() {
     } catch {
       recordingActive.current = false;
       setError("Couldn’t start the microphone. You can still type your answer.");
+    } finally {
+      setStartingVoice(false);
     }
   };
 
@@ -544,11 +548,19 @@ export default function Onboarding() {
 
             <View style={styles.actions}>
               <Button
-                title={recording ? "Stop" : transcribing ? "Transcribing…" : "Speak"}
+                title={
+                  recording
+                    ? "Stop"
+                    : startingVoice
+                      ? "Starting…"
+                      : transcribing
+                        ? "Transcribing…"
+                        : "Speak"
+                }
                 icon={recording ? Square : Mic}
                 tone={recording ? "dangerSoft" : "quiet"}
                 style={styles.action}
-                disabled={sending || transcribing || saving}
+                disabled={sending || startingVoice || transcribing || saving}
                 onPress={() => (recording ? void stopVoice() : void startVoice())}
               />
               <Button
@@ -557,7 +569,9 @@ export default function Onboarding() {
                 tone="accent"
                 style={styles.action}
                 loading={sending}
-                disabled={recording || transcribing || !answer.trim()}
+                disabled={
+                  startingVoice || recording || transcribing || !answer.trim()
+                }
                 onPress={() => void askAssistant()}
               />
             </View>

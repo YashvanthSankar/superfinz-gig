@@ -144,3 +144,25 @@ export const importGoals = mutation({
     return args.records.length;
   },
 });
+
+/** Server-only repair for a payout date affected by an earlier schedule bug. */
+export const repairGigSourceNextPayout = mutation({
+  args: {
+    serverKey: v.string(),
+    userId: v.string(),
+    sourceId: v.id("gigIncomeSources"),
+    nextPayoutAt: v.number(),
+  },
+  handler: async (ctx, args) => {
+    assertServerKey(args.serverKey);
+    const source = await ctx.db.get(args.sourceId);
+    if (!source || source.userId !== args.userId)
+      throw new Error("Income source not found");
+    const updatedAt = Date.now();
+    await ctx.db.patch(source._id, {
+      nextPayoutAt: args.nextPayoutAt,
+      updatedAt,
+    });
+    return { sourceId: source._id, nextPayoutAt: args.nextPayoutAt, updatedAt };
+  },
+});

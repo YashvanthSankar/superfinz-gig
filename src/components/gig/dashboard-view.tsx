@@ -7,8 +7,14 @@ import {
   ShieldCheck,
   WalletCards,
 } from "lucide-react";
-import type { GigDashboardDto } from "@superfinz/shared";
-import { formatCurrency } from "@/lib/utils";
+import {
+  QUICK_SETUP_DASHBOARD_COPY,
+  type GigDashboardDto,
+} from "@superfinz/shared";
+import { Button } from "@/components/ui/button";
+import { CardHeader } from "@/components/ui/card";
+import { Disclosure } from "@/components/ui/disclosure";
+import { cn, formatCurrency } from "@/lib/utils";
 
 export function GigDashboardView({
   dashboard,
@@ -25,10 +31,14 @@ export function GigDashboardView({
   const latest = dashboard.payoutSplits[0];
   const planHref = demo ? "/login" : "/dashboard/plan";
   const moneyHref = demo ? "/login" : "/dashboard/income";
+  const payoutHref = demo ? "/login" : "/dashboard/income?panel=payout";
   const insightsHref = demo ? "/demo/insights" : "/dashboard/insights";
+  const coverDays = Math.floor(s.protectedDays);
+  const personalized =
+    QUICK_SETUP_DASHBOARD_COPY[dashboard.profile.primaryPriority];
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 sm:space-y-6">
       <header>
         <p className="text-sm font-medium text-mute">
           {new Date().toLocaleDateString("en-IN", {
@@ -37,95 +47,101 @@ export function GigDashboardView({
             month: "long",
           })}
         </p>
-        <h1 className="mt-1 text-3xl font-bold tracking-[-0.04em] sm:text-4xl">
+        <h1 className="brut-display mt-1 text-3xl sm:text-4xl">
           Hello, {dashboard.profile.preferredName}
         </h1>
-        <p className="mt-2 max-w-xl text-ink-soft">
-          Here is today&apos;s simple money plan.
-        </p>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <span className="rounded-full border border-line bg-surface px-3 py-1 text-xs font-semibold text-accent-ink">
+            Your focus · {personalized.focus}
+          </span>
+          <p className="max-w-xl leading-7 text-ink-soft">
+            {personalized.introduction}
+          </p>
+        </div>
       </header>
 
       <section
-        className="overflow-hidden rounded-[1.5rem] bg-ink p-5 text-paper shadow-[var(--shadow-hard-lg)] sm:p-7"
+        className="overflow-hidden rounded-[1.5rem] bg-primary p-5 text-on-primary shadow-lg sm:p-7"
         aria-labelledby="safe-heading"
       >
         <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p id="safe-heading" className="text-sm font-semibold text-paper-2">
+            <h2 id="safe-heading" className="text-sm font-semibold text-on-primary-soft">
               You can safely use
-            </p>
+            </h2>
             <p className="num mt-1 text-5xl font-bold tracking-[-0.06em] sm:text-6xl">
               {formatCurrency(s.safeToSpend)}
             </p>
-            <p className="mt-2 text-lg font-semibold text-paper-2">
+            <p className="mt-2 text-lg font-semibold text-on-primary-soft">
               until {nextDay}, without touching bills or work money
             </p>
           </div>
-          <div className="rounded-2xl border border-paper-2 bg-white/5 p-4 lg:min-w-64">
-            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-paper-2">
+          <div className="rounded-2xl border border-on-primary/15 bg-on-primary/10 p-4 lg:min-w-64">
+            <p className="brut-label text-on-primary-soft">
               Next payout estimate
             </p>
             <p className="num mt-1 text-xl font-bold">
               {formatCurrency(s.expectedPayoutMin)}–
               {formatCurrency(s.expectedPayoutMax)}
             </p>
-            <p className="mt-1 text-xs text-paper-2">
+            <p className="mt-1 text-xs text-on-primary-soft">
               Not counted until the money arrives
             </p>
           </div>
         </div>
 
-        <details className="mt-6 border-t border-paper-2 pt-4">
-          <summary className="w-fit text-sm font-semibold text-paper">
-            See how this was calculated
-          </summary>
-          <div className="mt-4 max-w-lg space-y-2 text-sm text-paper-2">
+        <Disclosure
+          tone="plain"
+          title="See how this was calculated"
+          className="mt-6 border-t border-on-primary/20 pt-1"
+        >
+          <div className="max-w-lg space-y-2 text-sm text-on-primary-soft">
             <MoneyLine label="Money available" value={s.availableBalance} />
             <MoneyLine
               label="Kept aside for your plan"
               value={-s.protectedMoney}
             />
-            <div className="border-t border-paper-2 pt-2">
+            <div className="border-t border-on-primary/20 pt-2">
               <MoneyLine label="Safe to use now" value={s.safeToSpend} strong />
             </div>
           </div>
-        </details>
+        </Disclosure>
       </section>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <Link
-          href={moneyHref}
-          className="flex min-h-14 items-center justify-center gap-2 rounded-xl bg-accent px-5 font-semibold text-paper shadow-[var(--shadow-sm)] transition hover:-translate-y-px hover:shadow-[var(--shadow-md)]"
-        >
-          <CirclePlus aria-hidden size={20} />
-          Add income or work cost
-        </Link>
-        <Link
-          href={demo ? "/login" : "/dashboard/income?panel=payout"}
-          className="flex min-h-14 items-center justify-center gap-2 rounded-xl border border-ink bg-surface px-5 font-semibold text-ink shadow-[var(--shadow-sm)] transition hover:bg-paper-2"
-        >
-          <WalletCards aria-hidden size={20} />
-          Plan a payout
-        </Link>
+        <Button asChild variant="accent" size="xl">
+          <Link href={moneyHref}>
+            <CirclePlus aria-hidden size={20} />
+            Add income or work cost
+          </Link>
+        </Button>
+        <Button asChild variant="secondary" size="xl">
+          <Link href={payoutHref}>
+            <WalletCards aria-hidden size={20} />
+            Plan a payout
+          </Link>
+        </Button>
       </div>
 
-      <section className="brut-card bg-accent-soft p-5 sm:p-6">
-        <p className="text-xs font-semibold uppercase tracking-[0.08em] text-accent">
+      <section
+        className="rounded-[1.25rem] border border-line bg-accent-soft p-5 shadow-sm sm:p-6"
+        aria-labelledby="next-step-title"
+      >
+        <p className="brut-label text-accent-ink">
           Best next step
         </p>
-        <h2 className="mt-2 text-xl font-bold sm:text-2xl">
+        <h2 id="next-step-title" className="mt-1 text-xl font-bold tracking-[-0.02em] sm:text-2xl">
           {dashboard.recommendation.title}
         </h2>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-ink-soft">
           {dashboard.recommendation.body}
         </p>
-        <Link
-          className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl bg-ink px-4 text-sm font-semibold text-paper"
-          href={planHref}
-        >
-          {dashboard.recommendation.action}
-          <ArrowRight aria-hidden size={16} />
-        </Link>
+        <Button asChild variant="primary" className="mt-4">
+          <Link href={planHref}>
+            {dashboard.recommendation.action}
+            <ArrowRight aria-hidden size={16} />
+          </Link>
+        </Button>
       </section>
 
       <section
@@ -141,7 +157,7 @@ export function GigDashboardView({
         <SimpleCard
           icon={ShieldCheck}
           label="Emergency cover"
-          value={`${Math.floor(s.protectedDays)} ${Math.floor(s.protectedDays) === 1 ? "day" : "days"}`}
+          value={`${coverDays} ${coverDays === 1 ? "day" : "days"}`}
           detail={`Your goal is ${s.cushionTargetDays} days`}
           progress={Math.min(
             100,
@@ -150,16 +166,19 @@ export function GigDashboardView({
         />
       </section>
 
-      <section className="brut-card flex flex-col gap-5 bg-accent-soft p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+      <section
+        className="flex flex-col gap-5 rounded-[1.25rem] border border-line bg-accent-soft p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-6"
+        aria-labelledby="plan-ahead-title"
+      >
         <div className="flex items-start gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-surface text-accent">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-surface text-accent-ink shadow-sm">
             <ChartNoAxesCombined aria-hidden size={22} />
           </span>
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-accent">
+            <p className="brut-label text-accent-ink">
               Plan ahead
             </p>
-            <h2 className="mt-1 text-xl font-bold sm:text-2xl">
+            <h2 id="plan-ahead-title" className="mt-1 text-xl font-bold tracking-[-0.02em] sm:text-2xl">
               See the next 30 days before they happen.
             </h2>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-ink-soft">
@@ -168,33 +187,30 @@ export function GigDashboardView({
             </p>
           </div>
         </div>
-        <Link
-          href={insightsHref}
-          className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-xl bg-ink px-5 font-semibold text-paper"
-        >
-          Open insights
-          <ArrowRight aria-hidden size={17} />
-        </Link>
+        <Button asChild variant="primary" size="lg" className="shrink-0">
+          <Link href={insightsHref}>
+            Open insights
+            <ArrowRight aria-hidden size={17} />
+          </Link>
+        </Button>
       </section>
 
       <section className="brut-card p-5 sm:p-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-mute">
-              Coming up
-            </p>
-            <h2 className="mt-1 text-xl font-bold">Your next money events</h2>
-          </div>
-          <CalendarClock aria-hidden size={22} className="text-accent" />
-        </div>
+        <CardHeader
+          eyebrow="Coming up"
+          title="Your next money events"
+          action={
+            <CalendarClock aria-hidden size={22} className="text-accent-ink" />
+          }
+        />
         {nextEvents.length ? (
-          <div className="mt-4 divide-y divide-ink">
+          <ul className="mt-4 divide-y divide-line">
             {nextEvents.map((event) => (
-              <div
+              <li
                 key={event.id}
                 className="grid min-h-16 grid-cols-[1fr_auto] items-center gap-3 py-3"
               >
-                <div>
+                <div className="min-w-0">
                   <p className="font-semibold">{event.title}</p>
                   <p className="mt-0.5 text-sm text-mute">
                     {new Date(event.date).toLocaleDateString("en-IN", {
@@ -210,19 +226,22 @@ export function GigDashboardView({
                     ? formatCurrency(event.amountMin)
                     : `${formatCurrency(event.amountMin)}–${formatCurrency(event.amountMax)}`}
                 </p>
-              </div>
+              </li>
             ))}
-          </div>
+          </ul>
         ) : (
-          <p className="mt-4 text-sm text-ink-soft">
+          <p className="mt-4 text-sm leading-6 text-ink-soft">
             Add a payout date or bill to see what comes next.
           </p>
         )}
       </section>
 
-      <details className="brut-card p-5 sm:p-6">
-        <summary className="font-semibold">More about my plan</summary>
-        <div className="mt-5 grid gap-4 sm:grid-cols-3">
+      <Disclosure
+        tone="card"
+        title="More about my plan"
+        summary="Income estimate, resilience check, and money kept aside"
+      >
+        <div className="grid gap-4 sm:grid-cols-3">
           <SmallMetric
             label="30-day income estimate"
             value={`${formatCurrency(s.forecastIncomeLow30d)}–${formatCurrency(s.forecastIncomeHigh30d)}`}
@@ -240,14 +259,14 @@ export function GigDashboardView({
           />
         </div>
         {latest && (
-          <p className="mt-5 border-t border-ink pt-4 text-sm text-ink-soft">
+          <p className="mt-5 border-t border-line pt-4 text-sm leading-6 text-ink-soft">
             Latest payout plan: {formatCurrency(latest.amount)} from{" "}
             {latest.sourceName}. SuperFinz only planned it; no money was moved.
           </p>
         )}
-      </details>
+      </Disclosure>
 
-      <p className="text-xs text-mute">
+      <p className="text-xs leading-5 text-mute">
         Forecasts are estimates. SuperFinz is a planning prototype, not a bank
         or lender.
       </p>
@@ -267,7 +286,10 @@ function MoneyLine({
   const display = `${value < 0 ? "− " : ""}${formatCurrency(Math.abs(value))}`;
   return (
     <p
-      className={`flex justify-between gap-6 ${strong ? "font-semibold text-paper" : ""}`}
+      className={cn(
+        "flex justify-between gap-6",
+        strong && "font-semibold text-on-primary",
+      )}
     >
       <span>{label}</span>
       <span className="num font-semibold">{display}</span>
@@ -290,11 +312,13 @@ function SimpleCard({
 }) {
   return (
     <article className="brut-card p-5 sm:p-6">
-      <div className="flex items-center gap-3 text-accent">
+      <div className="flex items-center gap-3 text-accent-ink">
         <Icon aria-hidden size={21} />
-        <p className="text-sm font-semibold">{label}</p>
+        <h3 className="text-sm font-semibold">{label}</h3>
       </div>
-      <p className="num mt-3 text-3xl font-bold tracking-[-0.04em]">{value}</p>
+      <p className="num mt-3 text-3xl font-bold tracking-[-0.04em] text-ink">
+        {value}
+      </p>
       {progress !== undefined && (
         <div
           className="mt-4 h-2 overflow-hidden rounded-full bg-paper-2"
@@ -310,7 +334,7 @@ function SimpleCard({
           />
         </div>
       )}
-      <p className="mt-3 text-sm text-ink-soft">{detail}</p>
+      <p className="mt-3 text-sm leading-6 text-ink-soft">{detail}</p>
     </article>
   );
 }
@@ -326,11 +350,9 @@ function SmallMetric({
 }) {
   return (
     <div>
-      <p className="text-xs font-semibold uppercase tracking-[0.06em] text-mute">
-        {label}
-      </p>
+      <h3 className="brut-label">{label}</h3>
       <p className="num mt-1 text-lg font-semibold">{value}</p>
-      <p className="mt-1 text-xs text-ink-soft">{help}</p>
+      <p className="mt-1 text-xs leading-5 text-ink-soft">{help}</p>
     </div>
   );
 }

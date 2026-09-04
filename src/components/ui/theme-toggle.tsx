@@ -41,7 +41,7 @@ export function ThemeToggle({
       aria-pressed={dark}
       title={dark ? "Switch to light mode" : "Switch to dark mode"}
       className={cn(
-        "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-ink bg-paper px-3 text-sm font-semibold text-ink shadow-[var(--shadow-sm)] transition-[background-color,border-color,box-shadow] duration-200 hover:bg-paper-2 hover:shadow-[var(--shadow-md)]",
+        "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-line-strong bg-surface px-3 text-sm font-semibold text-ink shadow-sm transition-[background-color,border-color,box-shadow] duration-200 hover:bg-paper-2 hover:shadow-md",
         compact && "min-w-11 px-0",
         className,
       )}

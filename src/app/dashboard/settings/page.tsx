@@ -1,3 +1,8 @@
+import type { Metadata } from "next";
 import { SettingsClient } from "@/components/gig/settings-client";
 
-export default function SettingsPage() { return <SettingsClient />; }
+export const metadata: Metadata = { title: "Settings" };
+
+export default function SettingsPage() {
+  return <SettingsClient />;
+}

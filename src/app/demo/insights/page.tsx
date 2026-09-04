@@ -1,5 +1,8 @@
+import type { Metadata } from "next";
 import { InsightsClient } from "@/components/gig/insights-client";
 import { createGigDemo } from "@/lib/gig-demo";
+
+export const metadata: Metadata = { title: "Demo insights" };
 
 export default function DemoInsightsPage() {
   return (

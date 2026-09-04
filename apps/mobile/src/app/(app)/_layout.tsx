@@ -8,39 +8,42 @@ import {
   type LucideIcon,
 } from "lucide-react-native";
 import type { ColorValue } from "react-native";
-import { colors } from "@/constants/theme";
+import { colorString, colors } from "@/constants/theme";
 
 const Icon = ({
   icon: Glyph,
   color,
+  focused,
 }: {
   icon: LucideIcon;
   color: ColorValue;
+  focused: boolean;
 }) => (
   <Glyph
     accessible={false}
-    color={color as string}
+    color={colorString(color)}
     size={23}
-    strokeWidth={2.5}
+    strokeWidth={focused ? 2.4 : 1.9}
   />
 );
+
 export default function AppLayout() {
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.accent,
-        tabBarInactiveTintColor: colors.muted,
+        tabBarActiveTintColor: colorString(colors.accent),
+        tabBarInactiveTintColor: colorString(colors.muted),
         tabBarHideOnKeyboard: true,
         tabBarStyle: {
           backgroundColor: colors.surface,
           borderTopColor: colors.border,
           borderTopWidth: 1,
-          minHeight: 70,
-          paddingTop: 7,
+          minHeight: 72,
+          paddingTop: 8,
         },
-        tabBarItemStyle: { minHeight: 52 },
-        tabBarLabelStyle: { fontSize: 11, fontWeight: "600" },
+        tabBarItemStyle: { minHeight: 52, paddingVertical: 2 },
+        tabBarLabelStyle: { fontSize: 12, fontWeight: "600", marginTop: 2 },
       }}
     >
       <Tabs.Screen
@@ -48,7 +51,9 @@ export default function AppLayout() {
         options={{
           title: "Today",
           tabBarAccessibilityLabel: "Today tab",
-          tabBarIcon: ({ color }) => <Icon icon={House} color={color} />,
+          tabBarIcon: ({ color, focused }) => (
+            <Icon icon={House} color={color} focused={focused} />
+          ),
         }}
       />
       <Tabs.Screen
@@ -56,7 +61,9 @@ export default function AppLayout() {
         options={{
           title: "Money",
           tabBarAccessibilityLabel: "Money tab",
-          tabBarIcon: ({ color }) => <Icon icon={WalletCards} color={color} />,
+          tabBarIcon: ({ color, focused }) => (
+            <Icon icon={WalletCards} color={color} focused={focused} />
+          ),
         }}
       />
       <Tabs.Screen
@@ -64,8 +71,8 @@ export default function AppLayout() {
         options={{
           title: "Plan",
           tabBarAccessibilityLabel: "Plan tab",
-          tabBarIcon: ({ color }) => (
-            <Icon icon={CalendarClock} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <Icon icon={CalendarClock} color={color} focused={focused} />
           ),
         }}
       />
@@ -74,7 +81,9 @@ export default function AppLayout() {
         options={{
           title: "Safety",
           tabBarAccessibilityLabel: "Safety tab",
-          tabBarIcon: ({ color }) => <Icon icon={ShieldCheck} color={color} />,
+          tabBarIcon: ({ color, focused }) => (
+            <Icon icon={ShieldCheck} color={color} focused={focused} />
+          ),
         }}
       />
       <Tabs.Screen
@@ -82,8 +91,8 @@ export default function AppLayout() {
         options={{
           title: "Coach",
           tabBarAccessibilityLabel: "Coach tab",
-          tabBarIcon: ({ color }) => (
-            <Icon icon={MessageCircle} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <Icon icon={MessageCircle} color={color} focused={focused} />
           ),
         }}
       />

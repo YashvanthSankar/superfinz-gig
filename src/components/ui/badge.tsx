@@ -4,12 +4,12 @@ import { HTMLAttributes } from "react";
 type Variant = "default" | "accent" | "good" | "bad" | "warn" | "ink";
 
 const MAP: Record<Variant, string> = {
-  default: "bg-paper text-ink",
-  accent: "bg-accent text-paper",
-  good: "bg-good-soft text-good",
-  bad: "bg-bad-soft text-bad",
-  warn: "bg-warn-soft text-ink",
-  ink: "bg-ink text-paper",
+  default: "border-line bg-paper-2 text-ink-soft",
+  accent: "border-transparent bg-accent-soft text-accent-ink",
+  good: "border-transparent bg-good-soft text-good",
+  bad: "border-transparent bg-bad-soft text-bad",
+  warn: "border-transparent bg-warn-soft text-warn",
+  ink: "border-transparent bg-primary text-on-primary",
 };
 
 export function Badge({
@@ -21,7 +21,7 @@ export function Badge({
   return (
     <span
       className={cn(
-        "inline-flex min-h-7 items-center gap-1 rounded-full border border-ink px-2.5 py-1 text-[11px] font-semibold tracking-wide",
+        "inline-flex min-h-7 items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold leading-tight",
         MAP[variant],
         className,
       )}

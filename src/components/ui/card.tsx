@@ -13,6 +13,38 @@ export function Card({
   );
 }
 
+/** Top row of a card: eyebrow + title on the left, optional action on the right. */
+export function CardHeader({
+  eyebrow,
+  title,
+  description,
+  action,
+  className,
+  as: Heading = "h2",
+}: {
+  eyebrow?: string;
+  title: string;
+  description?: string;
+  action?: React.ReactNode;
+  className?: string;
+  as?: "h2" | "h3";
+}) {
+  return (
+    <div className={cn("flex items-start justify-between gap-4", className)}>
+      <div className="min-w-0">
+        {eyebrow && <p className="brut-label">{eyebrow}</p>}
+        <Heading className={cn("text-xl font-bold tracking-[-0.02em]", eyebrow && "mt-1")}>
+          {title}
+        </Heading>
+        {description && (
+          <p className="mt-1.5 max-w-2xl text-sm leading-6 text-ink-soft">{description}</p>
+        )}
+      </div>
+      {action && <div className="shrink-0">{action}</div>}
+    </div>
+  );
+}
+
 export function CardTitle({
   className,
   children,

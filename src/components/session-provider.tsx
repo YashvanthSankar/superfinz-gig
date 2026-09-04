@@ -8,14 +8,18 @@ export function Providers({ children }: { children: React.ReactNode }) {
       {children}
       <Toaster
         position="top-center"
+        closeButton
+        gap={10}
         toastOptions={{
+          duration: 4500,
           style: {
-            background: "var(--paper)",
+            background: "var(--surface)",
             color: "var(--ink)",
-            border: "2px solid var(--ink)",
-            borderRadius: "2px",
-            boxShadow: "4px 4px 0 var(--ink)",
-            fontWeight: 600,
+            border: "1px solid var(--border)",
+            borderRadius: "14px",
+            boxShadow: "var(--shadow-md)",
+            fontWeight: 500,
+            fontSize: "14px",
           },
         }}
       />

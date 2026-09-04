@@ -6,6 +6,7 @@ import {
   ArrowLeft,
   Check,
   Gauge,
+  Info,
   Share2,
   ShieldCheck,
   TriangleAlert,
@@ -17,7 +18,10 @@ import {
   type GigDashboardDto,
   type GigScenarioInput,
 } from "@superfinz/shared";
-import { formatCurrency } from "@/lib/utils";
+import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { cn, formatCurrency } from "@/lib/utils";
 
 const scenarios: Array<{
   id: string;
@@ -85,30 +89,38 @@ export function InsightsClient({
   demo?: boolean;
 }) {
   const [selectedId, setSelectedId] = useState(scenarios[0].id);
-  const [shareStatus, setShareStatus] = useState("");
+  const [sharing, setSharing] = useState(false);
   const insights = useMemo(() => deriveGigInsights(dashboard), [dashboard]);
-  const selected = scenarios.find((item) => item.id === selectedId)!;
+  const selected = scenarios.find((item) => item.id === selectedId) ?? scenarios[0];
   const scenario = useMemo(
     () => simulateGigScenario(dashboard, selected.input),
     [dashboard, selected],
   );
-  const workCostWidth = Math.min(100, insights.earnings.workCostPerHundred);
-  const keepWidth = Math.max(
+
+  const keptPerHundred = Math.max(
     0,
-    Math.min(100, insights.earnings.keptPerHundred),
+    Math.min(100, Math.round(insights.earnings.keptPerHundred)),
   );
+  const workCostPerHundred = Math.max(
+    0,
+    Math.min(100, Math.round(insights.earnings.workCostPerHundred)),
+  );
+
   const statusLabel =
     insights.outlook.status === "ON_TRACK"
       ? "Plan holds"
       : insights.outlook.status === "WATCH"
         ? "Watch closely"
         : "Action needed";
-  const statusClass =
+  const statusVariant =
     insights.outlook.status === "ON_TRACK"
-      ? "bg-good-soft text-good"
+      ? "good"
       : insights.outlook.status === "WATCH"
-        ? "bg-warn-soft text-warn"
-        : "bg-bad-soft text-bad";
+        ? "warn"
+        : "bad";
+
+  // The plan holds only when nothing needs covering and there is still room to spend.
+  const planHolds = scenario.earningTarget <= 0 && scenario.safeToSpend > 0;
 
   const shareSummary = [
     "My SuperFinz plan",
@@ -120,35 +132,37 @@ export function InsightsClient({
   ].join("\n");
 
   async function sharePlan() {
-    setShareStatus("");
+    if (sharing) return;
+    setSharing(true);
     try {
       if (navigator.share) {
         await navigator.share({ title: "My SuperFinz plan", text: shareSummary });
-        setShareStatus("Summary shared.");
+        toast.success("Summary shared");
         return;
       }
       await navigator.clipboard.writeText(shareSummary);
-      setShareStatus("Summary copied. You choose where to send it.");
+      toast.success("Summary copied. You choose where to send it.");
     } catch (cause) {
       if (cause instanceof DOMException && cause.name === "AbortError") return;
-      setShareStatus("Could not open sharing. Please try again.");
+      toast.error("Could not open sharing. Please try again.");
+    } finally {
+      setSharing(false);
     }
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 sm:space-y-6">
       <header>
-        <Link
-          href={backHref}
-          className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-ink bg-surface px-4 text-sm font-semibold text-ink transition-colors hover:bg-paper-2"
-        >
-          <ArrowLeft aria-hidden size={17} />
-          Back
-        </Link>
-        <p className="mt-6 text-xs font-semibold uppercase tracking-[0.1em] text-accent">
+        <Button asChild variant="secondary">
+          <Link href={backHref}>
+            <ArrowLeft aria-hidden size={17} />
+            Back
+          </Link>
+        </Button>
+        <p className="mt-6 brut-label text-accent-ink">
           SuperFinz Plus preview
         </p>
-        <h1 className="mt-2 max-w-3xl text-3xl font-bold tracking-[-0.04em] sm:text-5xl">
+        <h1 className="brut-display mt-2 max-w-3xl text-3xl sm:text-5xl">
           Plan further than today.
         </h1>
         <p className="mt-3 max-w-2xl text-base leading-7 text-ink-soft">
@@ -158,30 +172,32 @@ export function InsightsClient({
       </header>
 
       {demo && (
-        <div className="rounded-2xl border border-warn bg-warn-soft p-4 text-sm font-semibold text-ink">
-          Previewing Ravi&apos;s fictional data. Nothing here connects to a bank,
-          moves money, or applies for credit.
+        <div className="flex items-start gap-3 rounded-xl border border-line bg-warn-soft px-4 py-3 text-sm font-medium text-warn">
+          <Info aria-hidden size={18} className="mt-0.5 shrink-0" />
+          <p>
+            Previewing Ravi&apos;s fictional data. Nothing here connects to a
+            bank, moves money, or applies for credit.
+          </p>
         </div>
       )}
 
       <section className="grid gap-4 lg:grid-cols-[1.25fr_0.75fr]">
-        <article className="overflow-hidden rounded-3xl bg-ink p-5 text-paper shadow-[var(--shadow-md)] sm:p-7">
+        <article
+          className="overflow-hidden rounded-[1.5rem] bg-primary p-5 text-on-primary shadow-lg sm:p-7"
+          aria-labelledby="runway-title"
+        >
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p className="text-sm font-semibold text-paper-2">
+              <p className="text-sm font-semibold text-on-primary-soft">
                 30-day runway
               </p>
-              <h2 className="mt-1 text-2xl font-bold">
+              <h2 id="runway-title" className="mt-1 text-2xl font-bold tracking-[-0.02em]">
                 {insights.outlook.title}
               </h2>
             </div>
-            <span
-              className={`rounded-full px-3 py-1.5 text-xs font-bold ${statusClass}`}
-            >
-              {statusLabel}
-            </span>
+            <Badge variant={statusVariant}>{statusLabel}</Badge>
           </div>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-paper-2">
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-on-primary-soft">
             {insights.outlook.body}
           </p>
           <div className="mt-6 grid gap-3 sm:grid-cols-3">
@@ -201,37 +217,51 @@ export function InsightsClient({
               value={formatCurrency(insights.outlook.safetyFloor)}
             />
           </div>
-          <p className="mt-4 text-xs leading-5 text-paper-2">
+          <p className="mt-4 text-xs leading-5 text-on-primary-soft">
             {insights.month.confidence.toLowerCase()} confidence · expected
             income remains an estimate and is never added to today&apos;s safe
             amount.
           </p>
         </article>
 
-        <article className="brut-card p-5 sm:p-6">
-          <div className="flex items-center gap-3 text-accent">
+        <article className="brut-card p-5 sm:p-6" aria-labelledby="earnings-title">
+          <div className="flex items-center gap-3 text-accent-ink">
             <WalletCards aria-hidden size={22} />
-            <p className="text-sm font-semibold">True earnings lens</p>
+            <h2 id="earnings-title" className="text-sm font-semibold">
+              True earnings lens
+            </h2>
           </div>
-          <p className="mt-5 text-sm text-ink-soft">
-            For every ₹100 earned
-          </p>
+          <p className="mt-5 text-sm text-ink-soft">For every ₹100 earned</p>
           <p className="num mt-1 text-4xl font-bold tracking-[-0.05em]">
-            ₹{Math.max(0, Math.round(insights.earnings.keptPerHundred))}
-            <span className="ml-2 text-base font-semibold text-ink-soft">
+            {formatCurrency(keptPerHundred)}
+            <span className="ml-2 text-base font-semibold tracking-normal text-ink-soft">
               stays after work costs
             </span>
           </p>
           <div
+            role="img"
+            aria-label={`Of every ₹100 earned, ${formatCurrency(keptPerHundred)} is kept and ${formatCurrency(workCostPerHundred)} goes to work costs`}
             className="mt-5 flex h-3 overflow-hidden rounded-full bg-paper-2"
-            aria-label={`${Math.round(keepWidth)} percent kept and ${Math.round(workCostWidth)} percent used for work costs`}
           >
-            <span className="h-full bg-accent" style={{ width: `${keepWidth}%` }} />
+            <span
+              className="h-full bg-accent"
+              style={{ width: `${keptPerHundred}%` }}
+            />
             <span
               className="h-full bg-warn"
-              style={{ width: `${workCostWidth}%` }}
+              style={{ width: `${workCostPerHundred}%` }}
             />
           </div>
+          <ul className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs font-medium text-ink-soft">
+            <li className="flex items-center gap-2">
+              <span aria-hidden className="h-2.5 w-2.5 rounded-full bg-accent" />
+              Kept · {formatCurrency(keptPerHundred)}
+            </li>
+            <li className="flex items-center gap-2">
+              <span aria-hidden className="h-2.5 w-2.5 rounded-full bg-warn" />
+              Work costs · {formatCurrency(workCostPerHundred)}
+            </li>
+          </ul>
           <div className="mt-4 grid grid-cols-2 gap-3">
             <Metric label="Take-home" value={formatCurrency(insights.earnings.net)} />
             <Metric
@@ -249,14 +279,14 @@ export function InsightsClient({
 
       <section className="brut-card p-5 sm:p-7" aria-labelledby="shield-title">
         <div className="flex items-start gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent-ink">
             <ShieldCheck aria-hidden size={23} />
           </span>
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-accent">
+            <p className="brut-label text-accent-ink">
               Slow-week Shield
             </p>
-            <h2 id="shield-title" className="mt-1 text-2xl font-bold">
+            <h2 id="shield-title" className="mt-1 text-2xl font-bold tracking-[-0.02em]">
               Test a change before it happens.
             </h2>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-ink-soft">
@@ -266,43 +296,57 @@ export function InsightsClient({
           </div>
         </div>
 
-        <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div
+          className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
+          role="group"
+          aria-label="Choose a situation to test"
+        >
           {scenarios.map((item) => {
             const active = item.id === selectedId;
             return (
-              <button
+              <Button
                 key={item.id}
-                type="button"
+                variant="outline"
                 aria-pressed={active}
                 onClick={() => setSelectedId(item.id)}
-                className={`min-h-28 cursor-pointer rounded-2xl border p-4 text-left transition-colors focus-visible:outline-offset-2 ${
-                  active
-                    ? "border-accent bg-accent-soft text-ink"
-                    : "border-ink bg-surface text-ink hover:bg-paper-2"
-                }`}
+                className={cn(
+                  "h-auto min-h-28 flex-col items-stretch justify-start whitespace-normal rounded-2xl p-4 text-left",
+                  active && "border-accent bg-accent-soft",
+                )}
               >
                 <span className="flex items-center justify-between gap-2 font-semibold">
                   {item.label}
-                  {active && <Check aria-hidden size={18} className="text-accent" />}
+                  {active && (
+                    <Check aria-hidden size={18} className="shrink-0 text-accent-ink" />
+                  )}
                 </span>
-                <span className="mt-2 block text-xs leading-5 text-ink-soft">
+                <span className="mt-2 block text-xs font-normal leading-5 text-ink-soft">
                   {item.detail}
                 </span>
-              </button>
+              </Button>
             );
           })}
         </div>
 
+        <p role="status" className="sr-only">
+          Result for {selected.label}: {planHolds ? "plan holds" : "action needed"}
+        </p>
+
         <div
-          className={`mt-5 rounded-2xl border p-5 ${scenario.earningTarget > 0 ? "border-warn bg-warn-soft" : "border-good bg-good-soft"}`}
-          aria-live="polite"
+          className={cn(
+            "mt-5 rounded-2xl p-5",
+            planHolds ? "bg-good-soft text-good" : "bg-warn-soft text-warn",
+          )}
         >
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-ink-soft">
-                Result for {selected.label}
+              <p className="brut-label text-current">
+                {planHolds ? "Result · gap covered" : "Result · action needed"}
               </p>
-              <p className="mt-2 text-sm text-ink-soft">Safe to spend</p>
+              <p className="mt-1 text-sm font-medium text-ink-soft">
+                {selected.label}
+              </p>
+              <p className="mt-3 text-sm text-ink-soft">Safe to spend</p>
               <p className="num text-4xl font-bold tracking-[-0.05em]">
                 {formatCurrency(scenario.safeToSpend)}
               </p>
@@ -319,48 +363,58 @@ export function InsightsClient({
               </p>
             </div>
           </div>
-          <div className="mt-5 border-t border-ink pt-4">
+          <div className="mt-5 border-t border-line pt-4">
             <p className="flex items-start gap-2 text-sm font-semibold">
-              {scenario.earningTarget > 0 ? (
-                <TriangleAlert aria-hidden size={18} className="mt-0.5 shrink-0" />
-              ) : (
+              {planHolds ? (
                 <Check aria-hidden size={18} className="mt-0.5 shrink-0" />
+              ) : (
+                <TriangleAlert aria-hidden size={18} className="mt-0.5 shrink-0" />
               )}
-              {scenario.recommendedAction}
+              <span className="text-ink">{scenario.recommendedAction}</span>
             </p>
             {scenario.atRiskCommitments.length > 0 && (
               <p className="mt-2 text-xs leading-5 text-ink-soft">
-                Check first: {scenario.atRiskCommitments.slice(0, 2).map((item) => item.title).join(", ")}.
+                Check first:{" "}
+                {scenario.atRiskCommitments
+                  .slice(0, 2)
+                  .map((item) => item.title)
+                  .join(", ")}
+                .
               </p>
             )}
           </div>
         </div>
       </section>
 
-      <section className="brut-card flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+      <section
+        className="brut-card flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6"
+        aria-labelledby="share-title"
+      >
         <div className="flex items-start gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-paper-2 text-accent">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-paper-2 text-accent-ink">
             <Share2 aria-hidden size={21} />
           </span>
           <div>
-            <h2 className="text-xl font-bold">Share only when you choose</h2>
+            <h2 id="share-title" className="text-xl font-bold tracking-[-0.02em]">
+              Share only when you choose
+            </h2>
             <p className="mt-1 max-w-xl text-sm leading-6 text-ink-soft">
               Create a short plan summary for your family or financial
               counsellor. SuperFinz never reads your contacts.
             </p>
-            <p className="mt-1 text-xs text-mute" aria-live="polite">
-              {shareStatus}
-            </p>
           </div>
         </div>
-        <button
-          type="button"
+        <Button
+          variant="accent"
+          size="lg"
           onClick={sharePlan}
-          className="inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl bg-accent px-5 font-semibold text-paper transition-opacity hover:opacity-90"
+          loading={sharing}
+          loadingLabel="Preparing your summary"
+          className="shrink-0"
         >
           <Share2 aria-hidden size={18} />
           Share my summary
-        </button>
+        </Button>
       </section>
 
       <p className="flex items-start gap-2 text-xs leading-5 text-mute">
@@ -383,11 +437,19 @@ function Metric({
 }) {
   return (
     <div
-      className={`rounded-2xl border p-4 ${
-        dark ? "border-paper-2 bg-white/5" : "border-ink bg-surface"
-      }`}
+      className={cn(
+        "rounded-2xl border p-4",
+        dark
+          ? "border-on-primary/15 bg-on-primary/10"
+          : "border-line bg-surface",
+      )}
     >
-      <p className={`text-xs font-semibold ${dark ? "text-paper-2" : "text-mute"}`}>
+      <p
+        className={cn(
+          "text-xs font-semibold",
+          dark ? "text-on-primary-soft" : "text-mute",
+        )}
+      >
         {label}
       </p>
       <p className="num mt-1 text-xl font-bold">{value}</p>

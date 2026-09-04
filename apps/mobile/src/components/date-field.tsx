@@ -3,14 +3,17 @@ import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import DateTimePicker, {
   type DateTimePickerEvent,
 } from "@react-native-community/datetimepicker";
-import { Label } from "@/components/ui";
-import { colors } from "@/constants/theme";
+import { CalendarDays, X } from "lucide-react-native";
+import { IconButton, Label } from "@/components/ui";
+import { colorString, colors, radius } from "@/constants/theme";
 
 export function DateField({
   label,
   value,
   onChange,
   optional = false,
+  hint,
+  error,
   maximumDate,
   minimumDate,
 }: {
@@ -18,21 +21,27 @@ export function DateField({
   value: Date | null;
   onChange: (date: Date | null) => void;
   optional?: boolean;
+  hint?: string;
+  error?: string | null;
   maximumDate?: Date;
   minimumDate?: Date;
 }) {
   const [open, setOpen] = useState(false);
   const handleChange = (event: DateTimePickerEvent, date?: Date) => {
-    setOpen(false);
+    if (Platform.OS !== "ios") setOpen(false);
     if (event.type === "set" && date) onChange(date);
+    if (event.type === "dismissed") setOpen(false);
   };
   const formatted = value
     ? value.toLocaleDateString("en-IN", {
+        weekday: "short",
         day: "numeric",
         month: "short",
         year: "numeric",
       })
-    : "No date";
+    : optional
+      ? "No date"
+      : "Choose a date";
   return (
     <View style={styles.wrapper}>
       <Label>{label}</Label>
@@ -41,62 +50,82 @@ export function DateField({
           accessibilityRole="button"
           accessibilityLabel={`${label}: ${formatted}`}
           accessibilityHint="Opens the date picker"
-          style={({ pressed }) => [styles.control, pressed && styles.pressed]}
-          onPress={() => setOpen(true)}
+          accessibilityState={{ expanded: open }}
+          style={({ pressed }) => [
+            styles.control,
+            Boolean(error) && styles.controlError,
+            pressed && styles.pressed,
+          ]}
+          onPress={() => setOpen((current) => !current)}
         >
-          <Text style={styles.text}>{formatted}</Text>
+          <CalendarDays
+            accessible={false}
+            color={colorString(colors.muted)}
+            size={18}
+          />
+          <Text style={[styles.text, !value && styles.placeholder]}>
+            {formatted}
+          </Text>
         </Pressable>
         {optional && value && (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`Clear ${label}`}
-            hitSlop={8}
+          <IconButton
+            icon={X}
+            label={`Clear ${label}`}
             onPress={() => onChange(null)}
-            style={({ pressed }) => [styles.clear, pressed && styles.pressed]}
-          >
-            <Text style={styles.clearText}>CLEAR</Text>
-          </Pressable>
+          />
         )}
       </View>
+      {error ? (
+        <Text accessibilityRole="alert" style={styles.error}>
+          {error}
+        </Text>
+      ) : hint ? (
+        <Text style={styles.hint}>{hint}</Text>
+      ) : null}
       {open && (
-        <DateTimePicker
-          accessibilityLabel={label}
-          value={value ?? new Date()}
-          mode="date"
-          display={Platform.OS === "ios" ? "compact" : "default"}
-          maximumDate={maximumDate}
-          minimumDate={minimumDate}
-          onChange={handleChange}
-        />
+        <View style={styles.pickerWrap}>
+          <DateTimePicker
+            accessibilityLabel={label}
+            value={value ?? new Date()}
+            mode="date"
+            display={Platform.OS === "ios" ? "inline" : "default"}
+            maximumDate={maximumDate}
+            minimumDate={minimumDate}
+            onChange={handleChange}
+          />
+        </View>
       )}
     </View>
   );
 }
+
 const styles = StyleSheet.create({
   wrapper: { gap: 6 },
-  row: { flexDirection: "row", gap: 8 },
+  row: { flexDirection: "row", alignItems: "center", gap: 8 },
   control: {
     flex: 1,
     minHeight: 50,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
+    borderColor: colors.borderStrong,
+    borderRadius: radius.md,
     backgroundColor: colors.surface,
     paddingHorizontal: 13,
-    justifyContent: "center",
   },
-  text: { color: colors.ink, fontSize: 16, fontWeight: "700" },
-  clear: {
-    minWidth: 54,
-    minHeight: 50,
+  controlError: { borderColor: colors.bad, backgroundColor: colors.badSoft },
+  text: { flex: 1, color: colors.ink, fontSize: 16, fontWeight: "600" },
+  placeholder: { color: colors.muted, fontWeight: "500" },
+  hint: { color: colors.muted, fontSize: 13, lineHeight: 18 },
+  error: { color: colors.bad, fontSize: 13, lineHeight: 18, fontWeight: "600" },
+  pickerWrap: {
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 12,
-    backgroundColor: colors.paper,
-    paddingHorizontal: 10,
-    alignItems: "center",
-    justifyContent: "center",
+    borderRadius: radius.lg,
+    backgroundColor: colors.surface,
+    paddingHorizontal: 6,
+    overflow: "hidden",
   },
-  clearText: { color: colors.red, fontSize: 10, fontWeight: "700" },
-  pressed: { opacity: 0.6 },
+  pressed: { opacity: 0.7 },
 });

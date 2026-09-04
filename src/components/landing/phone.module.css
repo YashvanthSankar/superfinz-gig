@@ -1,30 +1,36 @@
+/*
+  Decorative phone mock. Sized by --ph-w; every inner dimension is in
+  container-query inline units (1cqi = 1% of --ph-w, reference 282px), so the
+  mock scales with its width instead of a transform and never leaves dead space.
+*/
 .phone {
   --ph-w: 300px;
-  position: relative; width: var(--ph-w); aspect-ratio: 300 / 620; border-radius: 44px; padding: 10px;
+  position: relative; width: var(--ph-w); aspect-ratio: 300 / 620; border-radius: 15.6cqi; padding: 3.55cqi;
+  container-type: inline-size;
   background: #0B1526; box-shadow: 0 0 0 1px rgba(255,255,255,0.10), 0 30px 80px rgba(2, 8, 20, 0.55);
   font-family: var(--font-geist-sans), system-ui, sans-serif; color: #122033;
 }
-.island { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); width: 96px; height: 26px; border-radius: 16px; background: #0B1526; z-index: 2; }
+.island { position: absolute; top: 7.1cqi; left: 50%; transform: translateX(-50%); width: 34cqi; height: 9.2cqi; border-radius: 5.7cqi; background: #0B1526; z-index: 2; }
 .screen {
-  position: relative; height: 100%; border-radius: 36px; background: #F7F9FC; padding: 58px 18px 18px; overflow: hidden;
-  display: flex; flex-direction: column; gap: 6px; font-size: 13px;
+  position: relative; height: 100%; border-radius: 12.8cqi; background: #F7F9FC; padding: 20.6cqi 6.4cqi 6.4cqi; overflow: hidden;
+  display: flex; flex-direction: column; gap: 2.1cqi; font-size: 4.6cqi;
 }
-.topbar { display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 14px; color: #122033; margin-bottom: 8px; }
-.dot { width: 26px; height: 26px; border-radius: 50%; background: #102A43; }
-.kicker { margin: 0; font-size: 12px; color: #46566C; }
-.hero { margin: 0; font-family: var(--font-gatwick), var(--font-geist-sans), sans-serif; font-weight: 800; font-size: 44px; letter-spacing: -0.04em; line-height: 1; color: #102A43; font-variant-numeric: tabular-nums; }
-.sub { margin: 2px 0 8px; font-size: 12px; line-height: 1.4; color: #46566C; }
-.lines { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-.lines li { display: flex; justify-content: space-between; padding: 10px 12px; border-radius: 12px; background: #FFFFFF; border: 1px solid #D6E0EB; font-variant-numeric: tabular-nums; }
+.topbar { display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 4.96cqi; color: #122033; margin-bottom: 2.84cqi; }
+.dot { width: 9.2cqi; height: 9.2cqi; border-radius: 50%; background: #102A43; }
+.kicker { margin: 0; font-size: 4.26cqi; color: #46566C; }
+.hero { margin: 0; font-family: var(--font-geist-sans), sans-serif; font-weight: 800; font-size: 15.6cqi; letter-spacing: -0.04em; line-height: 1; color: #102A43; font-variant-numeric: tabular-nums; }
+.sub { margin: 0.7cqi 0 2.84cqi; font-size: 4.26cqi; line-height: 1.4; color: #46566C; }
+.lines { list-style: none; margin: 0; padding: 0; display: grid; gap: 2.1cqi; }
+.lines li { display: flex; justify-content: space-between; padding: 3.55cqi 4.26cqi; border-radius: 4.26cqi; background: #FFFFFF; border: 1px solid #D6E0EB; font-variant-numeric: tabular-nums; }
 .lines b { font-weight: 600; }
 .strong { border-color: #102A43 !important; }
 .strong b { color: #1D4ED8; }
 .ok { color: #087A55; }
-.meter { margin-top: 8px; padding: 12px; border-radius: 12px; background: #EEF3F8; display: grid; gap: 8px; }
-.meterHead { display: flex; justify-content: space-between; font-size: 12px; }
-.meterBar { height: 6px; border-radius: 999px; background: #D6E0EB; overflow: hidden; }
+.meter { margin-top: 2.84cqi; padding: 4.26cqi; border-radius: 4.26cqi; background: #EEF3F8; display: grid; gap: 2.84cqi; }
+.meterHead { display: flex; justify-content: space-between; font-size: 4.26cqi; }
+.meterBar { height: 2.1cqi; border-radius: 999px; background: #D6E0EB; overflow: hidden; }
 .meterBar i { display: block; height: 100%; background: #2563EB; }
-.tabs { margin-top: auto; display: flex; justify-content: space-between; font-size: 10px; color: #64748B; padding: 8px 4px 0; border-top: 1px solid #D6E0EB; }
+.tabs { margin-top: auto; display: flex; justify-content: space-between; font-size: 4.26cqi; color: #64748B; padding: 2.84cqi 1.4cqi 0; border-top: 1px solid #D6E0EB; }
 .tabOn { color: #1D4ED8; font-weight: 600; }
-.button { margin-top: auto; text-align: center; padding: 14px; border-radius: 12px; background: #2563EB; color: #fff; font-weight: 600; font-size: 14px; }
-.note { margin: auto 0 0; font-size: 11px; color: #46566C; }
+.button { margin-top: auto; text-align: center; padding: 4.96cqi; border-radius: 4.26cqi; background: #2563EB; color: #fff; font-weight: 600; font-size: 4.96cqi; }
+.note { margin: auto 0 0; font-size: 4.26cqi; color: #46566C; }

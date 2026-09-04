@@ -443,7 +443,7 @@ The implementation clamps protected money to the current balance, avoids double-
 1. **Experience layer:** workers use the same simple product through Next.js web, native iOS, or native Android. Manual cash and payout entry works today; consented Account Aggregator and platform feeds are the planned scale path.
 2. **Server trust boundary:** authenticated Next.js routes validate requests, enforce ownership, and call one shared TypeScript and Zod decision engine. No database or AI secret is shipped to a client.
 3. **Decision core:** the deterministic engine calculates safe-to-spend, adaptive payout protection, forecasts, shock scenarios, resilience factors, and the next non-credit action. Web, mobile, APIs, and tests use the same contracts.
-4. **Managed services:** Convex stores user-owned financial records and sessions. Google verifies identity. OpenAI can explain a bounded plan and transcribe a short, user-initiated voice question, but it cannot access the database or create financial figures; a deterministic fallback always remains available. Speech output uses the device's accessibility-friendly voice service.
+4. **Managed services:** Convex stores user-owned financial records and sessions. Google verifies identity. OpenAI can explain a bounded plan, transcribe a short user-initiated voice question, and generate a spoken reply, but it cannot access the database or create financial figures; a deterministic fallback always remains available. Speech generation uses the saved language preference plus code-mix detection for Hinglish, Tanglish, Telugu-English, Kannada-English, and Malayalam-English. Generated audio is processed on demand and is not stored by SuperFinz; device speech remains an availability fallback.
 5. **Closed resilience loop:** each settled payout or cost triggers the same sequence—observe, protect, calculate, prepare, explain, confirm, and learn—so every product surface stays synchronized.
 
 **Use the diagram:** [edit in Excalidraw](docs/architecture/superfinz-full-architecture.excalidraw) · [download SVG for decks](docs/architecture/superfinz-full-architecture.svg) · [download PNG](docs/architecture/superfinz-full-architecture.png)
@@ -483,7 +483,7 @@ flowchart TB
 | Database | Convex | Users, sessions, gig profiles, ledger, commitments, pockets, sources, rules, splits, preferences, outcomes |
 | Web auth | NextAuth | Google OAuth and secure web session cookie |
 | Native auth | Google Sign-In, JWT, SecureStore | Short access token and rotating refresh session |
-| Coach | OpenAI Responses + transcription APIs, device TTS | Plan-grounded explanations with optional voice input and spoken output |
+| Coach | OpenAI Responses, transcription, and speech APIs; device fallback | Plan-grounded explanations with optional multilingual voice input and language-aware spoken output |
 
 ### Security boundaries
 

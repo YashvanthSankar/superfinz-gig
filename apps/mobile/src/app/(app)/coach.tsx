@@ -1,23 +1,27 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   View,
 } from "react-native";
 import {
+  Bot,
   CircleHelp,
   Clock3,
-  MessageCircle,
   Mic,
   PiggyBank,
+  RotateCcw,
+  Send,
+  Share2,
   ShieldCheck,
   Square,
+  ThumbsDown,
+  ThumbsUp,
   Volume2,
   type LucideIcon,
 } from "lucide-react-native";
@@ -25,14 +29,28 @@ import {
   RecordingPresets,
   requestRecordingPermissionsAsync,
   setAudioModeAsync,
+  useAudioPlayer,
+  useAudioPlayerStatus,
   useAudioRecorder,
   useAudioRecorderState,
 } from "expo-audio";
-import { File } from "expo-file-system";
+import { File, Paths } from "expo-file-system";
 import * as Speech from "expo-speech";
-import { Button, Card, Field, Label, Screen } from "@/components/ui";
-import { apiFetch, apiUpload } from "@/lib/api";
-import { colors, shadow } from "@/constants/theme";
+import {
+  Button,
+  Card,
+  Divider,
+  Expandable,
+  Field,
+  IconButton,
+  ListRow,
+  Notice,
+  Screen,
+  SectionHeader,
+  ui,
+} from "@/components/ui";
+import { apiBinary, apiFetch, apiUpload } from "@/lib/api";
+import { colorString, colors, radius, space } from "@/constants/theme";
 
 type Message = {
   id: number;
@@ -45,6 +63,8 @@ type Suggestion = {
   prompt: string;
   icon: LucideIcon;
 };
+type VoiceNotice = { tone: "warn" | "bad"; text: string };
+type Feedback = "up" | "down";
 
 const suggestions: Suggestion[] = [
   {
@@ -97,35 +117,104 @@ export default function Coach() {
   const list = useRef<ScrollView>(null);
   const nextMessageId = useRef(1);
   const stopTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const warnTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stoppingVoice = useRef(false);
+  const voiceRequest = useRef(0);
+  const voiceFile = useRef<File | null>(null);
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const recorderState = useAudioRecorderState(recorder, 250);
+  const voicePlayer = useAudioPlayer(null, { updateInterval: 250 });
+  const voicePlayerState = useAudioPlayerStatus(voicePlayer);
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const [speakingId, setSpeakingId] = useState<number | null>(null);
-  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const [voiceLoadingId, setVoiceLoadingId] = useState<number | null>(null);
+  const [voiceError, setVoiceError] = useState<VoiceNotice | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [emptyWarning, setEmptyWarning] = useState(false);
+  const [feedback, setFeedback] = useState<
+    Record<number, Feedback | undefined>
+  >({});
 
   useEffect(
     () => () => {
       if (stopTimer.current) clearTimeout(stopTimer.current);
+      if (warnTimer.current) clearTimeout(warnTimer.current);
+      voiceRequest.current += 1;
+      voicePlayer.pause();
       void Speech.stop();
+      const cachedVoice = voiceFile.current;
+      voiceFile.current = null;
+      if (cachedVoice) {
+        try {
+          voicePlayer.replace(null);
+          cachedVoice.delete();
+        } catch {
+          // The OS can clear cache files before this cleanup runs.
+        }
+      }
       if (recorder.isRecording) void recorder.stop();
     },
-    [recorder],
+    [recorder, voicePlayer],
   );
 
-  const speak = async (content: string, messageId: number) => {
-    if (speakingId === messageId) {
-      await Speech.stop();
-      setSpeakingId(null);
-      return;
+  useEffect(() => {
+    if (!voicePlayerState.didJustFinish || speakingId === null) return;
+    setSpeakingId(null);
+    voicePlayer.replace(null);
+    const cachedVoice = voiceFile.current;
+    voiceFile.current = null;
+    if (cachedVoice) {
+      try {
+        cachedVoice.delete();
+      } catch {
+        // Cache cleanup is best-effort.
+      }
     }
+  }, [speakingId, voicePlayer, voicePlayerState.didJustFinish]);
+
+  useEffect(() => {
+    if (!voicePlayerState.error || speakingId === null) return;
+    voicePlayer.replace(null);
+    const cachedVoice = voiceFile.current;
+    voiceFile.current = null;
+    if (cachedVoice) {
+      try {
+        cachedVoice.delete();
+      } catch {
+        // Cache cleanup is best-effort.
+      }
+    }
+    setSpeakingId(null);
+    setVoiceError({ tone: "bad", text: "Couldn’t play that answer aloud." });
+  }, [speakingId, voicePlayer, voicePlayerState.error]);
+
+  const stopSpokenReply = async () => {
+    voiceRequest.current += 1;
+    voicePlayer.pause();
+    voicePlayer.replace(null);
     await Speech.stop();
-    const plain = plainCoachText(content);
+    const cachedVoice = voiceFile.current;
+    voiceFile.current = null;
+    if (cachedVoice) {
+      try {
+        cachedVoice.delete();
+      } catch {
+        // Cache cleanup is best-effort.
+      }
+    }
+    setSpeakingId(null);
+    setVoiceLoadingId(null);
+  };
+
+  const speakWithDeviceFallback = (plain: string, messageId: number) => {
+    setVoiceError({
+      tone: "warn",
+      text: "Natural voice is unavailable, so this reply is using your device voice.",
+    });
     setSpeakingId(messageId);
     Speech.speak(plain, {
       language: speechLanguage(plain),
@@ -135,9 +224,48 @@ export default function Coach() {
       onStopped: () => setSpeakingId(null),
       onError: () => {
         setSpeakingId(null);
-        setVoiceError("Couldn’t play that answer aloud.");
+        setVoiceError({ tone: "bad", text: "Couldn’t play that answer aloud." });
       },
     });
+  };
+
+  const speak = async (content: string, messageId: number) => {
+    if (speakingId === messageId || voiceLoadingId === messageId) {
+      await stopSpokenReply();
+      return;
+    }
+    await stopSpokenReply();
+    const plain = plainCoachText(content);
+    const requestId = ++voiceRequest.current;
+    setVoiceError(null);
+    setVoiceLoadingId(messageId);
+    try {
+      const audio = await apiBinary("/api/gig/coach/speak", {
+        method: "POST",
+        body: JSON.stringify({ text: plain }),
+      });
+      if (requestId !== voiceRequest.current) return;
+
+      const cachedVoice = new File(
+        Paths.cache,
+        `superfinz-coach-${Date.now()}.mp3`,
+      );
+      cachedVoice.create({ overwrite: true, intermediates: true });
+      cachedVoice.write(new Uint8Array(audio));
+      voiceFile.current = cachedVoice;
+      await setAudioModeAsync({
+        allowsRecording: false,
+        playsInSilentMode: true,
+      });
+      voicePlayer.replace(cachedVoice.uri);
+      voicePlayer.play();
+      setVoiceLoadingId(null);
+      setSpeakingId(messageId);
+    } catch {
+      if (requestId !== voiceRequest.current) return;
+      setVoiceLoadingId(null);
+      speakWithDeviceFallback(plain, messageId);
+    }
   };
 
   const ask = async (
@@ -184,8 +312,7 @@ export default function Coach() {
   const startVoice = async () => {
     if (sending || transcribing || recorder.isRecording) return;
     setVoiceError(null);
-    await Speech.stop();
-    setSpeakingId(null);
+    await stopSpokenReply();
     try {
       const permission = await requestRecordingPermissionsAsync();
       if (!permission.granted) {
@@ -205,7 +332,10 @@ export default function Coach() {
         void stopVoiceAndAsk();
       }, 30_000);
     } catch {
-      setVoiceError("Couldn’t start the microphone. You can still type below.");
+      setVoiceError({
+        tone: "bad",
+        text: "Couldn’t start the microphone. You can still type below.",
+      });
     }
   };
 
@@ -243,24 +373,101 @@ export default function Coach() {
       await ask(result.transcript, true, true);
     } catch (cause) {
       setTranscribing(false);
-      setVoiceError(
-        cause instanceof Error
-          ? cause.message
-          : "Couldn’t understand that. Please try again.",
-      );
+      setVoiceError({
+        tone: "bad",
+        text:
+          cause instanceof Error
+            ? cause.message
+            : "Couldn’t understand that. Please try again.",
+      });
     } finally {
       stoppingVoice.current = false;
     }
   };
 
+  const submit = () => {
+    if (!text.trim()) {
+      setEmptyWarning(true);
+      if (warnTimer.current) clearTimeout(warnTimer.current);
+      warnTimer.current = setTimeout(() => setEmptyWarning(false), 3000);
+      return;
+    }
+    void ask(text);
+  };
+
+  const changeText = (value: string) => {
+    setText(value);
+    if (emptyWarning) setEmptyWarning(false);
+  };
+
+  const shareAnswer = async (content: string) => {
+    try {
+      await Share.share({ message: plainCoachText(content) });
+    } catch {
+      // The share sheet was dismissed or is unavailable; nothing to recover.
+    }
+  };
+
+  const rate = (id: number, value: Feedback) =>
+    setFeedback((current) => ({
+      ...current,
+      [id]: current[id] === value ? undefined : value,
+    }));
+
+  const clearConversation = () => {
+    Alert.alert(
+      "Clear this conversation?",
+      "The messages on this screen will be removed.",
+      [
+        { text: "Keep", style: "cancel" },
+        {
+          text: "Clear",
+          style: "destructive",
+          onPress: () => {
+            void stopSpokenReply();
+            setMessages([]);
+            setFeedback({});
+            setFailed(null);
+            setError(null);
+            setVoiceError(null);
+          },
+        },
+      ],
+    );
+  };
+
+  const recording = recorderState.isRecording;
+  const hasConversation = messages.length > 0;
+  const status = recording
+    ? "Listening… tap Stop when you finish (up to 30 seconds)"
+    : transcribing
+      ? "Transcribing…"
+      : voiceLoadingId !== null
+        ? "Preparing the voice…"
+        : sending
+          ? "Checking your plan…"
+          : null;
+
   return (
     <Screen
-      title="Money Coach"
+      eyebrow="Money coach"
+      title="Coach"
       subtitle="Simple answers using your current plan."
       help={{
-        title: "Your Money Coach",
-        body: "Type or tap the microphone and speak. Coach explains the numbers already saved in SuperFinz. It cannot move money, approve loans, or see information outside this app.",
+        title: "Coach",
+        body: "Type or tap the microphone and speak. The coach explains the numbers already saved in SuperFinz. It cannot move money, approve loans or see information outside this app.",
       }}
+      action={
+        hasConversation ? (
+          <IconButton
+            icon={RotateCcw}
+            label="Clear conversation"
+            hint="Removes the messages on this screen"
+            disabled={sending}
+            onPress={clearConversation}
+          />
+        ) : undefined
+      }
       scroll={false}
     >
       <KeyboardAvoidingView
@@ -274,495 +481,301 @@ export default function Coach() {
           }
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.messages}
+          contentContainerStyle={styles.thread}
           onContentSizeChange={() => {
-            if (messages.length || sending)
-              list.current?.scrollToEnd({ animated: true });
+            if (hasConversation) list.current?.scrollToEnd({ animated: true });
           }}
         >
-          {!messages.length && !sending ? (
-            <View style={styles.start}>
-              <Card style={styles.welcome}>
-                <View style={styles.welcomeHeading}>
-                  <View style={styles.coachIcon}>
-                    <MessageCircle
-                      accessible={false}
-                      color={colors.white}
-                      size={23}
-                      strokeWidth={2.2}
-                    />
-                  </View>
-                  <View style={styles.welcomeCopy}>
-                    <Text
-                      accessibilityRole="header"
-                      style={styles.welcomeTitle}
-                    >
-                      What would you like to understand?
-                    </Text>
-                    <Text style={styles.welcomeBody}>
-                      Type or speak about spending, payouts, bills, or your
-                      safety money.
+          {hasConversation ? (
+            <View style={styles.conversation}>
+              {messages.map((message) =>
+                message.role === "user" ? (
+                  <View
+                    key={message.id}
+                    accessible
+                    accessibilityLabel={`You: ${message.content}`}
+                    style={styles.userBubble}
+                  >
+                    <Text style={[ui.body, ui.num, styles.userText]}>
+                      {message.content}
                     </Text>
                   </View>
-                </View>
-                <View style={styles.safetyNote}>
-                  <ShieldCheck
-                    accessible={false}
-                    color={colors.accent as string}
-                    size={18}
-                    strokeWidth={2.2}
+                ) : (
+                  <CoachMessage
+                    key={message.id}
+                    content={message.content}
+                    reading={
+                      speakingId === message.id ||
+                      voiceLoadingId === message.id
+                    }
+                    feedback={feedback[message.id]}
+                    onSpeak={() => void speak(message.content, message.id)}
+                    onShare={() => void shareAnswer(message.content)}
+                    onRate={(value) => rate(message.id, value)}
                   />
-                  <Text style={styles.safetyText}>
-                    Coach gives guidance only. Your question and a small summary
-                    of this plan may be sent to our AI provider. It never moves
-                    your money.
-                  </Text>
-                </View>
-              </Card>
-
-              <View style={styles.questionSection}>
-                <Label>CHOOSE A QUESTION</Label>
-                <View style={styles.suggestionList}>
-                  {suggestions.map((item) => (
-                    <SuggestionButton
-                      key={item.title}
-                      suggestion={item}
-                      disabled={sending}
-                      onPress={() => ask(item.prompt)}
-                    />
-                  ))}
-                </View>
-              </View>
+                ),
+              )}
+              <Expandable
+                title="More questions"
+                summary="Pick another common question"
+              >
+                <SuggestionList onPick={(prompt) => void ask(prompt)} />
+              </Expandable>
             </View>
           ) : (
-            <View style={styles.conversation}>
-              {messages.map((message) => (
-                <View
-                  key={message.id}
-                  style={
-                    message.role === "user"
-                      ? styles.userMessage
-                      : styles.coachMessage
-                  }
-                >
-                  <Text style={styles.speaker}>
-                    {message.role === "user" ? "You" : "Coach"}
-                  </Text>
-                  <View
-                    accessible
-                    accessibilityLabel={`${message.role === "user" ? "You" : "Coach"}: ${message.role === "assistant" ? plainCoachText(message.content) : message.content}`}
-                    style={[
-                      styles.bubble,
-                      message.role === "user" ? styles.user : styles.assistant,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.message,
-                        message.role === "user" && styles.userMessageText,
-                      ]}
-                    >
-                      {message.role === "assistant"
-                        ? plainCoachText(message.content)
-                        : message.content}
-                    </Text>
-                  </View>
-                  {message.role === "assistant" && (
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={
-                        speakingId === message.id
-                          ? "Stop reading this answer"
-                          : "Read this answer aloud"
-                      }
-                      accessibilityState={{
-                        selected: speakingId === message.id,
-                      }}
-                      onPress={() => void speak(message.content, message.id)}
-                      style={({ pressed }) => [
-                        styles.listenButton,
-                        pressed && styles.pressed,
-                      ]}
-                    >
-                      {speakingId === message.id ? (
-                        <Square
-                          accessible={false}
-                          color={colors.accent as string}
-                          size={15}
-                        />
-                      ) : (
-                        <Volume2
-                          accessible={false}
-                          color={colors.accent as string}
-                          size={17}
-                        />
-                      )}
-                      <Text style={styles.listenText}>
-                        {speakingId === message.id ? "Stop voice" : "Listen"}
-                      </Text>
-                    </Pressable>
-                  )}
-                </View>
-              ))}
-              {sending && (
-                <View
-                  accessibilityLiveRegion="polite"
-                  style={styles.coachMessage}
-                >
-                  <Text style={styles.speaker}>Coach</Text>
-                  <View
-                    style={[styles.bubble, styles.assistant, styles.thinking]}
-                  >
-                    <ActivityIndicator color={colors.accent} size="small" />
-                    <Text style={styles.message}>
-                      Checking your latest plan…
-                    </Text>
-                  </View>
-                </View>
-              )}
-              {error && (
-                <Card
-                  accessibilityLiveRegion="assertive"
-                  style={styles.errorCard}
-                >
-                  <Text accessibilityRole="alert" style={styles.errorTitle}>
-                    Couldn’t get an answer
-                  </Text>
-                  <Text style={styles.error}>{error}</Text>
-                  {failed && (
-                    <Button
-                      title="Try again"
-                      tone="quiet"
-                      onPress={() => ask(failed, false)}
-                    />
-                  )}
-                </Card>
-              )}
+            <View style={styles.start}>
+              <Card tone="tint">
+                <SectionHeader
+                  eyebrow="Ask anything"
+                  title="What would you like to understand?"
+                  description="Type or speak about spending, payouts, bills or your safety money."
+                />
+                <Divider />
+                <Notice tone="info">
+                  Your question and a short summary of your plan may be sent to
+                  our AI provider; the coach never moves your money.
+                </Notice>
+              </Card>
+              <View style={styles.section}>
+                <SectionHeader eyebrow="Try asking" title="Common questions" />
+                <SuggestionList onPick={(prompt) => void ask(prompt)} />
+              </View>
             </View>
           )}
         </ScrollView>
 
-        {(recorderState.isRecording || transcribing || voiceError) && (
-          <View
-            accessibilityLiveRegion={voiceError ? "assertive" : "polite"}
-            style={[
-              styles.voiceStatus,
-              voiceError && styles.voiceStatusError,
-            ]}
-          >
-            {transcribing ? (
-              <ActivityIndicator color={colors.accent} size="small" />
-            ) : (
-              <Mic
-                accessible={false}
-                color={(voiceError ? colors.red : colors.accent) as string}
-                size={18}
-              />
-            )}
-            <Text
-              accessibilityRole={voiceError ? "alert" : undefined}
-              style={[
-                styles.voiceStatusText,
-                voiceError && styles.voiceStatusErrorText,
-              ]}
-            >
-              {voiceError
-                ? voiceError
-                : transcribing
-                  ? "Turning your recording into text…"
-                  : `Listening… ${Math.min(30, Math.floor(recorderState.durationMillis / 1000))} of 30 seconds`}
-            </Text>
-          </View>
-        )}
-
-        <View style={styles.composer}>
-          <View style={styles.inputWrap}>
+        <View style={styles.footer}>
+          {error && (
+            <Notice tone="bad" title="Couldn’t get an answer">
+              <View style={styles.noticeStack}>
+                <Text style={styles.noticeText}>{error}</Text>
+                {failed && (
+                  <Button
+                    title="Retry"
+                    size="sm"
+                    tone="soft"
+                    inline
+                    loading={sending}
+                    onPress={() => void ask(failed, false)}
+                  />
+                )}
+              </View>
+            </Notice>
+          )}
+          {voiceError && (
+            <Notice tone={voiceError.tone}>{voiceError.text}</Notice>
+          )}
+          {emptyWarning && (
+            <Notice tone="warn" live>
+              Type or say a question first.
+            </Notice>
+          )}
+          {status && (
+            <Notice tone="info" live>
+              {status}
+            </Notice>
+          )}
+          <View style={styles.composer}>
             <Field
+              containerStyle={styles.input}
               accessibilityLabel="Ask the money coach"
               accessibilityHint="Type a question about your current money plan"
               value={text}
-              onChangeText={setText}
-              placeholder="Type your question"
+              onChangeText={changeText}
+              placeholder="Ask a question"
               maxLength={400}
-              onSubmitEditing={() => ask(text)}
+              onSubmitEditing={submit}
               returnKeyType="send"
             />
+            <IconButton
+              icon={recording ? Square : Mic}
+              tone={recording ? "danger" : "accent"}
+              label={recording ? "Stop recording" : "Ask by voice"}
+              hint="Records for up to 30 seconds and shows the transcript here"
+              disabled={sending || transcribing}
+              onPress={() =>
+                recording ? void stopVoiceAndAsk() : void startVoice()
+              }
+            />
+            <Button
+              title="Send"
+              tone="accent"
+              icon={Send}
+              size="md"
+              inline
+              loading={sending}
+              disabled={recording || transcribing}
+              onPress={submit}
+              style={styles.send}
+            />
           </View>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={
-              recorderState.isRecording
-                ? "Stop recording and ask"
-                : "Start a voice question"
-            }
-            accessibilityHint="Records for up to 30 seconds and shows the transcript in this chat"
-            accessibilityState={{ disabled: sending || transcribing }}
-            disabled={sending || transcribing}
-            onPress={() =>
-              recorderState.isRecording
-                ? void stopVoiceAndAsk()
-                : void startVoice()
-            }
-            style={({ pressed }) => [
-              styles.micButton,
-              recorderState.isRecording && styles.micButtonRecording,
-              pressed && styles.pressed,
-              (sending || transcribing) && styles.disabled,
-            ]}
-          >
-            {transcribing ? (
-              <ActivityIndicator color={colors.white} size="small" />
-            ) : recorderState.isRecording ? (
-              <Square accessible={false} color={colors.white} size={18} />
-            ) : (
-              <Mic accessible={false} color={colors.white} size={20} />
-            )}
-          </Pressable>
-          <Button
-            title="Send"
-            loading={sending}
-            disabled={!text.trim() || recorderState.isRecording || transcribing}
-            onPress={() => ask(text)}
-          />
+          <Text style={[ui.caption, styles.disclosure]}>
+            Replies are read by an AI voice. Recordings are not saved.
+          </Text>
         </View>
-        <Text style={styles.voicePrivacy}>
-          Voice is sent only for transcription and is not saved by SuperFinz.
-        </Text>
       </KeyboardAvoidingView>
     </Screen>
   );
 }
 
-function SuggestionButton({
-  suggestion,
-  disabled,
-  onPress,
+function CoachMessage({
+  content,
+  reading,
+  feedback,
+  onSpeak,
+  onShare,
+  onRate,
 }: {
-  suggestion: Suggestion;
-  disabled: boolean;
-  onPress: () => void;
+  content: string;
+  reading: boolean;
+  feedback: Feedback | undefined;
+  onSpeak: () => void;
+  onShare: () => void;
+  onRate: (value: Feedback) => void;
 }) {
-  const Icon = suggestion.icon;
+  const plain = plainCoachText(content);
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={suggestion.title}
-      accessibilityHint={suggestion.detail}
-      accessibilityState={{ disabled }}
-      disabled={disabled}
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.suggestion,
-        pressed && styles.pressed,
-        disabled && styles.disabled,
-      ]}
-    >
-      <View style={styles.suggestionIcon}>
-        <Icon
+    <View style={styles.coachRow}>
+      <View accessible={false} style={styles.avatar}>
+        <Bot
           accessible={false}
-          color={colors.accent as string}
-          size={20}
-          strokeWidth={2.1}
+          color={colorString(colors.onPrimary)}
+          size={16}
+          strokeWidth={2.2}
         />
       </View>
-      <View style={styles.suggestionCopy}>
-        <Text style={styles.suggestionTitle}>{suggestion.title}</Text>
-        <Text style={styles.suggestionDetail}>{suggestion.detail}</Text>
+      <View style={styles.coachColumn}>
+        <View
+          accessible
+          accessibilityLabel={`Coach: ${plain}`}
+          style={styles.coachBubble}
+        >
+          <Text style={[ui.body, ui.num, styles.coachText]}>{plain}</Text>
+        </View>
+        <View style={styles.actions}>
+          <IconButton
+            icon={reading ? Square : Volume2}
+            tone="ghost"
+            label={reading ? "Stop reading" : "Listen"}
+            hint="Reads this answer aloud"
+            active={reading}
+            size={18}
+            onPress={onSpeak}
+          />
+          <IconButton
+            icon={Share2}
+            tone="ghost"
+            label="Share answer"
+            hint="Opens the share sheet, where you can copy the text"
+            size={18}
+            onPress={onShare}
+          />
+          <IconButton
+            icon={ThumbsUp}
+            tone="ghost"
+            label="Helpful"
+            active={feedback === "up"}
+            size={18}
+            onPress={() => onRate("up")}
+          />
+          <IconButton
+            icon={ThumbsDown}
+            tone="ghost"
+            label="Not helpful"
+            active={feedback === "down"}
+            size={18}
+            onPress={() => onRate("down")}
+          />
+          {feedback && (
+            <Text style={styles.actionNote}>Thanks for the feedback</Text>
+          )}
+        </View>
       </View>
-      <Text accessible={false} style={styles.chevron}>
-        ›
-      </Text>
-    </Pressable>
+    </View>
+  );
+}
+
+function SuggestionList({ onPick }: { onPick: (prompt: string) => void }) {
+  return (
+    <Card padded={false}>
+      <View style={styles.listBody}>
+        {suggestions.map((item, index) => (
+          <ListRow
+            key={item.title}
+            icon={item.icon}
+            title={item.title}
+            subtitle={item.detail}
+            chevron
+            last={index === suggestions.length - 1}
+            accessibilityHint="Sends this question to the coach"
+            onPress={() => onPick(item.prompt)}
+          />
+        ))}
+      </View>
+    </Card>
   );
 }
 
 const styles = StyleSheet.create({
-  page: { flex: 1, gap: 12 },
-  messages: { flexGrow: 1, paddingBottom: 8 },
-  start: { gap: 20, paddingBottom: 12 },
-  welcome: { gap: 16 },
-  welcomeHeading: {
+  page: { flex: 1, gap: space.md },
+  thread: { flexGrow: 1, paddingBottom: space.sm },
+  start: { gap: space.xl, paddingBottom: space.md },
+  section: { gap: space.md },
+  listBody: { paddingHorizontal: 18, paddingVertical: space.xs },
+  conversation: { gap: space.lg, paddingVertical: space.xs },
+  coachRow: {
     flexDirection: "row",
     alignItems: "flex-start",
-    gap: 12,
+    gap: space.sm,
+    maxWidth: "92%",
   },
-  coachIcon: {
-    width: 46,
-    height: 46,
-    borderRadius: 14,
-    backgroundColor: colors.actionStrong,
+  avatar: {
+    width: 28,
+    height: 28,
+    borderRadius: radius.sm,
+    backgroundColor: colors.primary,
     alignItems: "center",
     justifyContent: "center",
+    marginTop: 6,
   },
-  welcomeCopy: { flex: 1, gap: 5 },
-  welcomeTitle: {
-    color: colors.ink,
-    fontSize: 19,
-    lineHeight: 25,
-    fontWeight: "700",
-    letterSpacing: -0.25,
-  },
-  welcomeBody: {
-    color: colors.inkSoft,
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  safetyNote: {
-    minHeight: 46,
-    borderRadius: 13,
-    backgroundColor: colors.accentSoft,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 9,
-  },
-  safetyText: {
-    flex: 1,
-    color: colors.inkSoft,
-    fontSize: 13,
-    lineHeight: 19,
-    fontWeight: "600",
-  },
-  questionSection: { gap: 10 },
-  suggestionList: { gap: 9 },
-  suggestion: {
-    minHeight: 66,
-    borderWidth: 1,
-    borderColor: colors.border,
+  coachColumn: { flex: 1, minWidth: 0, gap: space.xs },
+  coachBubble: {
+    alignSelf: "flex-start",
+    backgroundColor: colors.paper2,
     borderRadius: 16,
-    backgroundColor: colors.surface,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 11,
-    ...shadow,
-  },
-  suggestionIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    backgroundColor: colors.accentSoft,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  suggestionCopy: { flex: 1, gap: 2 },
-  suggestionTitle: {
-    color: colors.ink,
-    fontSize: 15,
-    lineHeight: 20,
-    fontWeight: "700",
-  },
-  suggestionDetail: {
-    color: colors.muted,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  chevron: {
-    color: colors.muted,
-    fontSize: 25,
-    lineHeight: 28,
-    fontWeight: "500",
-  },
-  conversation: { gap: 16, paddingVertical: 4 },
-  coachMessage: { alignSelf: "flex-start", maxWidth: "92%", gap: 5 },
-  userMessage: { alignSelf: "flex-end", maxWidth: "88%", gap: 5 },
-  speaker: {
-    color: colors.muted,
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: "700",
-  },
-  bubble: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 17,
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
-  assistant: { backgroundColor: colors.surface },
-  user: {
-    borderColor: colors.actionStrong,
-    backgroundColor: colors.actionStrong,
+  coachText: { color: colors.ink },
+  userBubble: {
+    alignSelf: "flex-end",
+    maxWidth: "85%",
+    backgroundColor: colors.primary,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
   },
-  message: {
-    color: colors.ink,
-    fontSize: 16,
-    lineHeight: 24,
-  },
-  userMessageText: { color: colors.white },
-  listenButton: {
-    minHeight: 44,
+  userText: { color: colors.onPrimary },
+  actions: {
     alignSelf: "flex-start",
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    paddingHorizontal: 10,
-    borderRadius: 12,
+    flexWrap: "wrap",
+    gap: 2,
+    marginLeft: -6,
   },
-  listenText: {
-    color: colors.accent,
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  thinking: { flexDirection: "row", alignItems: "center", gap: 10 },
-  errorCard: { borderColor: colors.red, shadowOpacity: 0 },
-  errorTitle: { color: colors.ink, fontSize: 16, fontWeight: "700" },
-  error: { color: colors.red, fontSize: 14, lineHeight: 20 },
-  voiceStatus: {
-    minHeight: 44,
-    borderWidth: 1,
-    borderColor: colors.accent,
-    borderRadius: 13,
-    backgroundColor: colors.accentSoft,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 9,
-  },
-  voiceStatusError: {
-    borderColor: colors.red,
-    backgroundColor: colors.surface,
-  },
-  voiceStatusText: {
-    flex: 1,
-    color: colors.ink,
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: "600",
-  },
-  voiceStatusErrorText: { color: colors.red },
-  composer: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 17,
-    backgroundColor: colors.surface,
-    padding: 9,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    ...shadow,
-  },
-  inputWrap: { flex: 1 },
-  micButton: {
-    width: 50,
-    minHeight: 50,
-    borderRadius: 14,
-    backgroundColor: colors.accent,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  micButtonRecording: { backgroundColor: colors.actionStrong },
-  voicePrivacy: {
+  actionNote: {
+    fontSize: 14,
+    lineHeight: 20,
     color: colors.muted,
-    fontSize: 11,
-    lineHeight: 16,
-    textAlign: "center",
-    paddingHorizontal: 8,
+    fontWeight: "500",
+    paddingHorizontal: space.sm,
   },
-  pressed: { opacity: 0.72 },
-  disabled: { opacity: 0.45 },
+  footer: { gap: space.sm, paddingTop: space.xs },
+  noticeStack: { gap: space.sm },
+  noticeText: { fontSize: 14, lineHeight: 20, color: colors.ink },
+  composer: { flexDirection: "row", alignItems: "center", gap: space.sm },
+  input: { flex: 1 },
+  send: { alignSelf: "center" },
+  disclosure: { textAlign: "center", paddingHorizontal: space.sm },
 });

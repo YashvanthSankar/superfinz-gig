@@ -1,6 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Alert,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
   BackHandler,
   Pressable,
   StyleSheet,
@@ -10,917 +16,842 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "expo-router";
 import {
-  GIG_PRIORITIES,
-  GIG_WORK_TYPES,
-  type CommitmentRecurrence,
+  RecordingPresets,
+  requestRecordingPermissionsAsync,
+  setAudioModeAsync,
+  useAudioRecorder,
+  useAudioRecorderState,
+} from "expo-audio";
+import { File } from "expo-file-system";
+import {
+  Bot,
+  Check,
+  CheckCircle2,
+  ChevronRight,
+  Mic,
+  Send,
+  ShieldCheck,
+  Square,
+} from "lucide-react-native";
+import {
+  QUICK_SETUP_PRIORITY_LABELS,
+  QUICK_SETUP_QUESTIONS,
+  QUICK_SETUP_SPLITS,
+  QUICK_SETUP_STAGE_ORDER,
+  QUICK_SETUP_WORK_LABELS,
+  buildQuickOnboardingPayload,
+  quickSetupDraftSchema,
+  quickSetupSafetyBuffer,
   type GigPriority,
-  type GigWorkType,
+  type QuickSetupAssistantResponse,
+  type QuickSetupDraft,
+  type QuickSetupStage,
 } from "@superfinz/shared";
-import { apiFetch } from "@/lib/api";
 import {
   Button,
   Card,
   Field,
   Label,
-  Money,
+  Loading,
+  Notice,
   Progress,
   Screen,
+  formatDate,
+  formatMoney,
   ui,
 } from "@/components/ui";
-import { DateField } from "@/components/date-field";
-import { colors } from "@/constants/theme";
+import { apiFetch, apiUpload } from "@/lib/api";
+import { colorString, colors, radius, space } from "@/constants/theme";
 import { useAuth } from "@/providers/auth-provider";
 
-const workLabels: Record<GigWorkType, string> = {
-  DELIVERY: "Delivery",
-  RIDE_HAILING: "Driving / rides",
-  HOME_SERVICES: "Home services",
-  FREELANCE: "Freelance work",
-  STREET_VENDING: "Street vending",
-  DAILY_WAGE: "Daily wage work",
-  DOMESTIC_WORK: "Domestic work",
-  OTHER: "Other work",
+type Answers = Partial<Record<QuickSetupStage, string>>;
+type Assumptions = Partial<Record<QuickSetupStage, string[]>>;
+type SavedSetup = {
+  stage: QuickSetupStage;
+  draft: QuickSetupDraft;
+  answers: Answers;
+  assumptions: Assumptions;
 };
 
-const priorityLabels: Record<GigPriority, string> = {
-  STABLE_WEEKLY_SPENDING: "Know what I can safely spend",
-  EMERGENCY_CUSHION: "Build emergency savings",
-  UPCOMING_BILLS: "Pay my bills on time",
-  WORK_EXPENSES: "Protect fuel and work costs",
-  AVOIDING_DEBT: "Avoid borrowing for daily needs",
-};
+const SETUP_STAGES = QUICK_SETUP_STAGE_ORDER.filter(
+  (stage) => stage !== "REVIEW",
+);
+const priorityOrder = Object.keys(
+  QUICK_SETUP_PRIORITY_LABELS,
+) as GigPriority[];
 
-const billPresets = [
-  "Rent",
-  "Electricity",
-  "Gas",
-  "School fees",
-  "Mobile",
-  "Loan / EMI",
-  "Family support",
-] as const;
+function stageIndex(stage: QuickSetupStage) {
+  return QUICK_SETUP_STAGE_ORDER.indexOf(stage);
+}
 
-const recurrenceOptions: Array<{
-  value: CommitmentRecurrence;
-  label: string;
-}> = [
-  { value: "MONTHLY", label: "Monthly" },
-  { value: "QUARTERLY", label: "Every 3 months" },
-  { value: "YEARLY", label: "Yearly" },
-  { value: "ONE_TIME", label: "One time" },
-];
+function nextStage(stage: QuickSetupStage) {
+  return QUICK_SETUP_STAGE_ORDER[
+    Math.min(QUICK_SETUP_STAGE_ORDER.length - 1, stageIndex(stage) + 1)
+  ];
+}
 
-const recurrenceLabels: Record<CommitmentRecurrence, string> = {
-  WEEKLY: "Weekly",
-  FORTNIGHTLY: "Every 2 weeks",
-  MONTHLY: "Monthly",
-  QUARTERLY: "Every 3 months",
-  YEARLY: "Yearly",
-  ONE_TIME: "One time",
-};
+function previousStage(stage: QuickSetupStage) {
+  return QUICK_SETUP_STAGE_ORDER[Math.max(0, stageIndex(stage) - 1)];
+}
 
-const starterSplit = {
-  essentialsPct: 55,
-  workCostsPct: 15,
-  emergencyPct: 10,
-  longTermPct: 5,
-  flexiblePct: 15,
-};
+function firstMissingStage(draft: QuickSetupDraft): QuickSetupStage | null {
+  if (!draft.preferredName || !draft.city) return "ABOUT";
+  if (
+    !draft.workTypes?.length ||
+    !draft.sourceName ||
+    !draft.sourceType ||
+    !draft.workDaysPerWeek
+  )
+    return "WORK";
+  if (
+    draft.lowWeekIncome === undefined ||
+    draft.typicalWeekIncome === undefined ||
+    draft.goodWeekIncome === undefined ||
+    !draft.nextPayoutDate
+  )
+    return "INCOME";
+  if (draft.weeklyWorkCosts === undefined) return "COSTS";
+  if (
+    draft.openingBalance === undefined ||
+    draft.currentCushion === undefined
+  )
+    return "MONEY";
+  if (!draft.commitments) return "BILLS";
+  if (!draft.primaryPriority) return "PRIORITY";
+  return null;
+}
 
-const splitRows = [
-  ["Bills and needs", starterSplit.essentialsPct],
-  ["Work costs", starterSplit.workCostsPct],
-  ["Emergency savings", starterSplit.emergencyPct],
-  ["Future savings", starterSplit.longTermPct],
-  ["Safe to spend", starterSplit.flexiblePct],
-] as const;
+function cleanSavedSetup(value: unknown): SavedSetup | null {
+  if (!value || typeof value !== "object") return null;
+  const raw = value as Partial<SavedSetup>;
+  const parsedDraft = quickSetupDraftSchema.safeParse(raw.draft);
+  if (!parsedDraft.success) return null;
+  const savedStage = QUICK_SETUP_STAGE_ORDER.includes(
+    raw.stage as QuickSetupStage,
+  )
+    ? (raw.stage as QuickSetupStage)
+    : "ABOUT";
+  const missing = firstMissingStage(parsedDraft.data);
+  return {
+    stage:
+      missing && stageIndex(savedStage) > stageIndex(missing)
+        ? missing
+        : savedStage,
+    draft: parsedDraft.data,
+    answers:
+      raw.answers && typeof raw.answers === "object" ? raw.answers : {},
+    assumptions:
+      raw.assumptions && typeof raw.assumptions === "object"
+        ? raw.assumptions
+        : {},
+  };
+}
 
-const steps = [
-  {
-    title: "About you",
-    subtitle: "Let’s start with the basics.",
-    help: "Your name makes the app personal. Your city helps us use familiar examples. You can change both later.",
-  },
-  {
-    title: "Your work",
-    subtitle: "Choose all the work you do.",
-    help: "This helps SuperFinz understand that your earnings may change from week to week.",
-  },
-  {
-    title: "Your main goal",
-    subtitle: "Choose what would help you most.",
-    help: "There is no wrong choice. This only changes what SuperFinz shows first.",
-  },
-  {
-    title: "Your payouts",
-    subtitle: "Tell us where your main income comes from.",
-    help: "A payout is money you receive from a platform, client, shop, or other work.",
-  },
-  {
-    title: "A week of earnings",
-    subtitle: "Enter what reaches you after app fees.",
-    help: "Use rough take-home amounts. A low week is difficult, a normal week is most weeks, and a good week is one of your better weeks.",
-  },
-  {
-    title: "Cost of working",
-    subtitle: "Keep aside money needed to earn again.",
-    help: "Work costs include fuel, travel, data, tools, repairs, or supplies. App fees are already excluded from the earnings you entered.",
-  },
-  {
-    title: "Money you have now",
-    subtitle: "This helps us avoid showing too much as safe to spend.",
-    help: "Available balance is the money you can use today. Emergency savings should only be used when something goes wrong.",
-  },
-  {
-    title: "Important bills",
-    subtitle: "Add the payments your family cannot miss.",
-    help: "Add rent, electricity, gas, school fees, EMIs, or family support. SuperFinz protects these before showing safe spending money.",
-  },
-  {
-    title: "Your starter plan",
-    subtitle: "Review one simple rule for every payout.",
-    help: "This is only a plan. SuperFinz does not move real money. You can change the percentages later.",
-  },
-] as const;
-
-type BillDraft = {
-  id: string;
-  title: string;
-  amount: string;
-  dueDate: string;
-  recurrence: CommitmentRecurrence;
-};
-
-type Draft = {
-  preferredName: string;
-  city: string;
-  workTypes: GigWorkType[];
-  priority: GigPriority;
-  sourceName: string;
-  low: string;
-  typical: string;
-  good: string;
-  payoutDate: string;
-  workDays: string;
-  workCosts: string;
-  balance: string;
-  cushion: string;
-  safetyBuffer: string;
-  bills: BillDraft[];
-  billName: string;
-  billAmount: string;
-  billDate: string;
-  billRecurrence: CommitmentRecurrence;
-  confirmed: boolean;
-};
-
-const isNonNegative = (value: string) =>
-  value.trim() !== "" && Number.isFinite(Number(value)) && Number(value) >= 0;
-
-const isPositive = (value: string) =>
-  value.trim() !== "" && Number.isFinite(Number(value)) && Number(value) > 0;
+function dateLabel(value?: string) {
+  return value ? formatDate(`${value}T12:00:00`) : "Not added";
+}
 
 export default function Onboarding() {
   const { user, reloadUser } = useAuth();
   const draftKey = useMemo(
-    () => `superfinz:gig-onboarding:v4:${user?.id ?? "pending"}`,
+    () => `superfinz:quick-dashboard-setup:v1:${user?.id ?? "pending"}`,
     [user?.id],
   );
-  const [step, setStep] = useState(0);
-  const [preferredName, setPreferredName] = useState(
-    user?.name?.split(" ")[0] ?? "",
-  );
-  const [city, setCity] = useState("");
-  const [workTypes, setWorkTypes] = useState<GigWorkType[]>([]);
-  const [priority, setPriority] = useState<GigPriority>(
-    "STABLE_WEEKLY_SPENDING",
-  );
-  const [sourceName, setSourceName] = useState("");
-  const [low, setLow] = useState("");
-  const [typical, setTypical] = useState("");
-  const [good, setGood] = useState("");
-  const [payoutDate, setPayoutDate] = useState(
-    () => new Date(Date.now() + 3 * 86_400_000),
-  );
-  const [workDays, setWorkDays] = useState("");
-  const [workCosts, setWorkCosts] = useState("");
-  const [balance, setBalance] = useState("");
-  const [cushion, setCushion] = useState("");
-  const [safetyBuffer, setSafetyBuffer] = useState("");
-  const [bills, setBills] = useState<BillDraft[]>([]);
-  const [billName, setBillName] = useState("");
-  const [billAmount, setBillAmount] = useState("");
-  const [billDate, setBillDate] = useState(
-    () => new Date(Date.now() + 8 * 86_400_000),
-  );
-  const [billRecurrence, setBillRecurrence] =
-    useState<CommitmentRecurrence>("MONTHLY");
-  const [confirmed, setConfirmed] = useState(false);
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const recorderState = useAudioRecorderState(recorder, 250);
+  const stopTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stoppingVoice = useRef(false);
+  const [stage, setStage] = useState<QuickSetupStage>("ABOUT");
+  const [draft, setDraft] = useState<QuickSetupDraft>({});
+  const [answers, setAnswers] = useState<Answers>({});
+  const [assumptions, setAssumptions] = useState<Assumptions>({});
+  const [answer, setAnswer] = useState("");
+  const [confirmation, setConfirmation] = useState<string | null>(null);
+  const [resumeStage, setResumeStage] = useState<QuickSetupStage | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
+  const [sending, setSending] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
 
-  const weeklyOrderValid =
-    isNonNegative(low) &&
-    isPositive(typical) &&
-    isNonNegative(good) &&
-    Number(low) <= Number(typical) &&
-    Number(typical) <= Number(good);
-  const workCostsValid =
-    isPositive(workDays) && Number(workDays) <= 7 && isNonNegative(workCosts);
-  const moneyNowValid =
-    isNonNegative(balance) &&
-    isNonNegative(cushion) &&
-    isNonNegative(safetyBuffer);
-  const stepValid = [
-    Boolean(preferredName.trim() && city.trim()),
-    workTypes.length > 0,
-    Boolean(priority),
-    Boolean(sourceName.trim()),
-    weeklyOrderValid,
-    workCostsValid,
-    moneyNowValid,
-    true,
-    confirmed,
-  ][step];
-  const meta = steps[step];
-
-  const draft: Draft = useMemo(
-    () => ({
-      preferredName,
-      city,
-      workTypes,
-      priority,
-      sourceName,
-      low,
-      typical,
-      good,
-      payoutDate: payoutDate.toISOString(),
-      workDays,
-      workCosts,
-      balance,
-      cushion,
-      safetyBuffer,
-      bills,
-      billName,
-      billAmount,
-      billDate: billDate.toISOString(),
-      billRecurrence,
-      confirmed,
-    }),
-    [
-      preferredName,
-      city,
-      workTypes,
-      priority,
-      sourceName,
-      low,
-      typical,
-      good,
-      payoutDate,
-      workDays,
-      workCosts,
-      balance,
-      cushion,
-      safetyBuffer,
-      bills,
-      billName,
-      billAmount,
-      billDate,
-      billRecurrence,
-      confirmed,
-    ],
+  const currentIndex = stageIndex(stage);
+  const currentQuestion =
+    stage === "REVIEW" ? null : QUICK_SETUP_QUESTIONS[stage];
+  const progress = Math.round(
+    (Math.min(currentIndex + 1, SETUP_STAGES.length) / SETUP_STAGES.length) *
+      100,
   );
+  const allAssumptions = Object.values(assumptions).flat();
+  const busy = sending || transcribing || saving;
+  const recording = recorderState.isRecording;
 
   useEffect(() => {
-    let mounted = true;
+    let active = true;
     AsyncStorage.getItem(draftKey)
       .then((raw) => {
-        if (!mounted || !raw) return;
-        const saved = JSON.parse(raw) as Draft;
-        setPreferredName(saved.preferredName);
-        setCity(saved.city);
-        setWorkTypes(saved.workTypes);
-        setPriority(saved.priority);
-        setSourceName(saved.sourceName);
-        setLow(saved.low);
-        setTypical(saved.typical);
-        setGood(saved.good);
-        setPayoutDate(new Date(saved.payoutDate));
-        setWorkDays(saved.workDays);
-        setWorkCosts(saved.workCosts);
-        setBalance(saved.balance);
-        setCushion(saved.cushion);
-        setSafetyBuffer(saved.safetyBuffer);
-        setBills(saved.bills ?? []);
-        setBillName(saved.billName ?? "");
-        setBillAmount(saved.billAmount ?? "");
-        setBillDate(new Date(saved.billDate));
-        setBillRecurrence(saved.billRecurrence ?? "MONTHLY");
-        setConfirmed(saved.confirmed);
+        if (!active || !raw) return;
+        const saved = cleanSavedSetup(JSON.parse(raw));
+        if (!saved) return;
+        setStage(saved.stage);
+        setDraft(saved.draft);
+        setAnswers(saved.answers);
+        setAssumptions(saved.assumptions);
+        setAnswer(saved.answers[saved.stage] ?? "");
       })
       .catch(() => undefined)
-      .finally(() => mounted && setReady(true));
+      .finally(() => active && setReady(true));
     return () => {
-      mounted = false;
+      active = false;
     };
   }, [draftKey]);
 
   useEffect(() => {
     if (!ready) return;
-    const timer = setTimeout(
-      () =>
-        AsyncStorage.setItem(draftKey, JSON.stringify(draft)).catch(
-          () => undefined,
-        ),
-      250,
-    );
+    const timer = setTimeout(() => {
+      AsyncStorage.setItem(
+        draftKey,
+        JSON.stringify({ stage, draft, answers, assumptions }),
+      ).catch(() => undefined);
+    }, 200);
     return () => clearTimeout(timer);
-  }, [ready, draftKey, draft]);
+  }, [answers, assumptions, draft, draftKey, ready, stage]);
+
+  useEffect(() => {
+    if (!ready || stage !== "ABOUT" || answer) return;
+    const firstName = user?.name?.trim().split(/\s+/)[0];
+    if (firstName) setAnswer(`${firstName}, `);
+  }, [answer, ready, stage, user?.name]);
+
+  useEffect(
+    () => () => {
+      if (stopTimer.current) clearTimeout(stopTimer.current);
+      if (recorder.isRecording) void recorder.stop();
+    },
+    [recorder],
+  );
+
+  const moveTo = useCallback(
+    (target: QuickSetupStage) => {
+      setStage(target);
+      setAnswer(answers[target] ?? "");
+      setConfirmation(null);
+      setError(null);
+    },
+    [answers],
+  );
+
+  const goBack = useCallback(() => {
+    if (stage === "ABOUT") return;
+    setResumeStage(null);
+    moveTo(previousStage(stage));
+  }, [moveTo, stage]);
 
   useFocusEffect(
     useCallback(() => {
       const subscription = BackHandler.addEventListener(
         "hardwareBackPress",
         () => {
-          if (step === 0) return false;
-          setStep((value) => Math.max(0, value - 1));
+          if (stage === "ABOUT") return false;
+          goBack();
           return true;
         },
       );
       return () => subscription.remove();
-    }, [step]),
+    }, [goBack, stage]),
   );
 
-  const toggleWork = (value: GigWorkType) =>
-    setWorkTypes((items) =>
-      items.includes(value)
-        ? items.filter((item) => item !== value)
-        : [...items, value],
-    );
+  const editStage = (target: QuickSetupStage) => {
+    if (stageIndex(stage) > stageIndex(target)) setResumeStage(stage);
+    moveTo(target);
+  };
 
-  const addBill = () => {
-    if (!billName.trim() || !isPositive(billAmount)) {
-      Alert.alert("Add the bill", "Enter a bill name and an amount above ₹0.");
+  const askAssistant = async (voiceAnswer?: string) => {
+    if (stage === "PRIORITY" || stage === "REVIEW" || busy) return;
+    const text = (voiceAnswer ?? answer).trim();
+    if (!text) {
+      setError("Type an answer or use the microphone.");
       return;
     }
-    setBills((items) => [
-      ...items,
-      {
-        id: `${Date.now()}-${items.length}`,
-        title: billName.trim(),
-        amount: billAmount,
-        dueDate: billDate.toISOString(),
-        recurrence: billRecurrence,
-      },
-    ]);
-    setBillName("");
-    setBillAmount("");
+    setSending(true);
+    setError(null);
+    try {
+      const result = await apiFetch<QuickSetupAssistantResponse>(
+        "/api/gig/onboarding/assistant",
+        {
+          method: "POST",
+          body: JSON.stringify({ stage, answer: text }),
+        },
+      );
+      if (!result.accepted) {
+        setConfirmation(null);
+        setError(result.confirmation);
+        return;
+      }
+      setConfirmation(result.confirmation);
+      setDraft((current) => ({ ...current, ...result.patch }));
+      setAnswers((current) => ({ ...current, [stage]: text }));
+      setAssumptions((current) => ({
+        ...current,
+        [stage]: result.assumptions,
+      }));
+      setAnswer("");
+      const upcoming = resumeStage ?? nextStage(stage);
+      setResumeStage(null);
+      setTimeout(() => moveTo(upcoming), 300);
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Check your connection and try again.",
+      );
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const startVoice = async () => {
+    if (busy || recorder.isRecording) return;
+    setError(null);
+    try {
+      const permission = await requestRecordingPermissionsAsync();
+      if (!permission.granted) {
+        setError("Microphone access is off. Allow it in Settings, or type instead.");
+        return;
+      }
+      await setAudioModeAsync({
+        allowsRecording: true,
+        playsInSilentMode: true,
+      });
+      await recorder.prepareToRecordAsync();
+      recorder.record();
+      stopTimer.current = setTimeout(() => void stopVoice(), 25_000);
+    } catch {
+      setError("Couldn’t start the microphone. You can still type your answer.");
+    }
+  };
+
+  const stopVoice = async () => {
+    if (stoppingVoice.current || !recorder.isRecording) return;
+    stoppingVoice.current = true;
+    if (stopTimer.current) clearTimeout(stopTimer.current);
+    stopTimer.current = null;
+    setError(null);
+    try {
+      await recorder.stop();
+      await setAudioModeAsync({
+        allowsRecording: false,
+        playsInSilentMode: true,
+      });
+      if (!recorder.uri) throw new Error("No recording was created");
+      setTranscribing(true);
+      const form = new FormData();
+      const audioFile = new File(recorder.uri);
+      form.append(
+        "audio",
+        {
+          name: "setup-answer.m4a",
+          type: "audio/mp4",
+          bytes: () => audioFile.bytes(),
+        } as unknown as Blob,
+      );
+      const result = await apiUpload<{ transcript: string }>(
+        "/api/gig/coach/transcribe",
+        form,
+      );
+      setAnswer(result.transcript);
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Couldn’t understand that. Please try again.",
+      );
+    } finally {
+      setTranscribing(false);
+      stoppingVoice.current = false;
+    }
+  };
+
+  const choosePriority = (priority: GigPriority) => {
+    setResumeStage(null);
+    setDraft((current) => ({ ...current, primaryPriority: priority }));
+    setAnswers((current) => ({
+      ...current,
+      PRIORITY: QUICK_SETUP_PRIORITY_LABELS[priority],
+    }));
+    setTimeout(() => moveTo("REVIEW"), 200);
   };
 
   const submit = async () => {
+    if (saving) return;
+    const missing = firstMissingStage(draft);
+    if (missing) {
+      moveTo(missing);
+      setError("One answer is missing. Let’s finish it first.");
+      return;
+    }
     setSaving(true);
+    setError(null);
     try {
       await apiFetch("/api/gig/onboarding", {
         method: "POST",
-        body: JSON.stringify({
-          preferredName: preferredName.trim(),
-          city: city.trim(),
-          preferredLanguage: "English",
-          workTypes,
-          primaryPriority: priority,
-          lowWeekIncome: Number(low),
-          typicalWeekIncome: Number(typical),
-          goodWeekIncome: Number(good),
-          workDaysPerWeek: Number(workDays),
-          platformDeductionRate: 0,
-          weeklyWorkCosts: Number(workCosts),
-          openingBalance: Number(balance),
-          currentCushion: Number(cushion),
-          safetyBuffer: Number(safetyBuffer),
-          cushionTargetDays: 30,
-          sources: [
-            {
-              name: sourceName.trim(),
-              type: "PLATFORM_PAYOUT",
-              frequency: "WEEKLY",
-              typicalMin: Number(low),
-              typicalMax: Number(good),
-              nextPayoutAt: payoutDate.toISOString(),
-              connectionMode: "MANUAL",
-              prototype: true,
-            },
-          ],
-          commitments: bills.map((bill, index) => ({
-            title: bill.title,
-            category: bill.title,
-            amount: Number(bill.amount),
-            dueDate: bill.dueDate,
-            recurrence: bill.recurrence,
-            essential: true,
-            priority: Math.min(index + 1, 5),
-            autopay: false,
-          })),
-          splitRule: {
-            ...starterSplit,
-            enabled: confirmed,
-          },
-        }),
+        body: JSON.stringify(buildQuickOnboardingPayload(draft)),
       });
       await AsyncStorage.removeItem(draftKey);
       await reloadUser();
     } catch (cause) {
-      Alert.alert(
-        "Couldn’t build your plan",
+      setError(
         cause instanceof Error
           ? cause.message
-          : "Check your details and try again.",
+          : "Check your connection and try again.",
       );
-    } finally {
       setSaving(false);
     }
   };
 
+  if (!ready) return <Loading label="Preparing your quick setup…" />;
+
+  const stepLabel =
+    stage === "REVIEW"
+      ? "Ready to review"
+      : `Step ${currentIndex + 1} of ${SETUP_STAGES.length}`;
+
   return (
     <Screen
-      title={meta.title}
-      subtitle={meta.subtitle}
-      back={step > 0}
-      onBack={() => setStep((value) => Math.max(0, value - 1))}
-      help={{ title: meta.title, body: meta.help }}
+      eyebrow={stepLabel}
+      title="Quick dashboard setup"
+      subtitle="Answer in your own words. Type or use the microphone."
+      back={stage !== "ABOUT"}
+      onBack={goBack}
+      help={{
+        title: "Quick dashboard setup",
+        body: "The assistant only turns your answers into setup fields. Check everything before saving. Voice recordings are transcribed and are not saved by SuperFinz.",
+      }}
     >
       <View style={styles.progressBlock}>
-        <Text style={styles.progressText}>
-          Step {step + 1} of {steps.length} · saved automatically
-        </Text>
         <Progress
-          label={`Onboarding step ${step + 1} of ${steps.length}`}
-          value={((step + 1) / steps.length) * 100}
+          label={`${stepLabel}: dashboard setup`}
+          value={stage === "REVIEW" ? 100 : progress}
         />
+        <Text style={ui.caption}>Your progress is saved on this device.</Text>
       </View>
 
-      {step === 0 && (
+      {stage === "REVIEW" ? (
+        <Review
+          draft={draft}
+          assumptions={allAssumptions}
+          saving={saving}
+          error={error}
+          onEdit={editStage}
+          onSubmit={() => void submit()}
+        />
+      ) : stage === "PRIORITY" ? (
         <Card>
-          <Field
-            label="What should we call you?"
-            value={preferredName}
-            onChangeText={setPreferredName}
-            autoComplete="name-given"
-            returnKeyType="next"
+          <AssistantQuestion
+            title={currentQuestion?.title ?? "Your main goal"}
+            question={currentQuestion?.question ?? "What should come first?"}
           />
-          <Field
-            label="Your city"
-            value={city}
-            onChangeText={setCity}
-            returnKeyType="done"
-          />
-        </Card>
-      )}
-
-      {step === 1 && (
-        <View style={styles.choiceList}>
-          {GIG_WORK_TYPES.map((value) => (
-            <Choice
-              key={value}
-              label={workLabels[value]}
-              selected={workTypes.includes(value)}
-              role="checkbox"
-              onPress={() => toggleWork(value)}
-            />
-          ))}
-        </View>
-      )}
-
-      {step === 2 && (
-        <View style={styles.choiceList}>
-          {GIG_PRIORITIES.map((value) => (
-            <Choice
-              key={value}
-              label={priorityLabels[value]}
-              selected={priority === value}
-              role="radio"
-              onPress={() => setPriority(value)}
-            />
-          ))}
-        </View>
-      )}
-
-      {step === 3 && (
-        <Card>
-          <Field
-            label="Main income source"
-            value={sourceName}
-            onChangeText={setSourceName}
-            placeholder="For example: Swiggy, Uber, clients"
-          />
-          <DateField
-            label="When is your next payout?"
-            value={payoutDate}
-            onChange={(value) => value && setPayoutDate(value)}
-          />
-          <Text style={ui.small}>No bank account is connected.</Text>
-        </Card>
-      )}
-
-      {step === 4 && (
-        <Card>
-          <Field
-            label="Low week received (₹)"
-            value={low}
-            onChangeText={setLow}
-            keyboardType="decimal-pad"
-          />
-          <Field
-            label="Normal week received (₹)"
-            value={typical}
-            onChangeText={setTypical}
-            keyboardType="decimal-pad"
-          />
-          <Field
-            label="Good week received (₹)"
-            value={good}
-            onChangeText={setGood}
-            keyboardType="decimal-pad"
-          />
-          {!weeklyOrderValid && (
-            <Text accessibilityRole="alert" style={styles.error}>
-              Enter amounts from lowest to highest.
-            </Text>
-          )}
-        </Card>
-      )}
-
-      {step === 5 && (
-        <Card>
-          <Field
-            label="Days you usually work each week"
-            value={workDays}
-            onChangeText={setWorkDays}
-            keyboardType="number-pad"
-          />
-          <Field
-            label="Fuel and other weekly work costs (₹)"
-            value={workCosts}
-            onChangeText={setWorkCosts}
-            keyboardType="decimal-pad"
-          />
-          {!workCostsValid && (
-            <Text accessibilityRole="alert" style={styles.error}>
-              Work days must be from 1 to 7. Enter ₹0 or more for work costs.
-            </Text>
-          )}
-        </Card>
-      )}
-
-      {step === 6 && (
-        <Card>
-          <Field
-            label="Money available today (₹)"
-            value={balance}
-            onChangeText={setBalance}
-            keyboardType="decimal-pad"
-          />
-          <Field
-            label="Emergency savings already kept (₹)"
-            value={cushion}
-            onChangeText={setCushion}
-            keyboardType="decimal-pad"
-          />
-          <Field
-            label="Minimum money to always keep (₹)"
-            value={safetyBuffer}
-            onChangeText={setSafetyBuffer}
-            keyboardType="decimal-pad"
-          />
-          {!moneyNowValid && (
-            <Text accessibilityRole="alert" style={styles.error}>
-              Enter ₹0 or more in each field.
-            </Text>
-          )}
-        </Card>
-      )}
-
-      {step === 7 && (
-        <>
-          {bills.length > 0 && (
-            <View style={styles.billList}>
-              <Label>Added bills</Label>
-              {bills.map((bill) => (
-                <View key={bill.id} style={styles.billRow}>
-                  <View style={styles.billText}>
-                    <Text style={styles.billTitle}>{bill.title}</Text>
-                    <Text style={ui.small}>
-                      ₹{Number(bill.amount).toLocaleString("en-IN")} ·{" "}
-                      {recurrenceLabels[bill.recurrence]}
-                    </Text>
-                  </View>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={`Remove ${bill.title}`}
-                    onPress={() =>
-                      setBills((items) =>
-                        items.filter((item) => item.id !== bill.id),
-                      )
-                    }
-                    style={({ pressed }) => [
-                      styles.removeButton,
-                      pressed && styles.pressed,
-                    ]}
-                  >
-                    <Text style={styles.removeText}>Remove</Text>
-                  </Pressable>
-                </View>
-              ))}
-            </View>
-          )}
-
-          <Card>
-            <Label>Choose a common bill or type your own</Label>
-            <View style={styles.wrap}>
-              {billPresets.map((name) => (
+          <View
+            accessibilityRole="radiogroup"
+            accessibilityLabel="Main dashboard goal"
+            style={styles.priorityList}
+          >
+            {priorityOrder.map((priority) => {
+              const selected = draft.primaryPriority === priority;
+              return (
                 <Pressable
-                  key={name}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Use ${name}`}
-                  onPress={() => setBillName(name)}
+                  key={priority}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: selected }}
+                  onPress={() => choosePriority(priority)}
                   style={({ pressed }) => [
-                    styles.preset,
-                    billName === name && styles.presetActive,
+                    styles.priority,
+                    selected && styles.prioritySelected,
                     pressed && styles.pressed,
                   ]}
                 >
-                  <Text style={styles.presetText}>{name}</Text>
-                </Pressable>
-              ))}
-            </View>
-            <Field
-              label="Bill name"
-              value={billName}
-              onChangeText={setBillName}
-              placeholder="For example: Water bill"
-            />
-            <Field
-              label="Amount (₹)"
-              value={billAmount}
-              onChangeText={setBillAmount}
-              keyboardType="decimal-pad"
-            />
-            <DateField
-              label="Next due date"
-              value={billDate}
-              onChange={(value) => value && setBillDate(value)}
-            />
-            <Label>How often?</Label>
-            <View style={styles.wrap}>
-              {recurrenceOptions.map((option) => (
-                <Choice
-                  key={option.value}
-                  label={option.label}
-                  selected={billRecurrence === option.value}
-                  role="radio"
-                  compact
-                  onPress={() => setBillRecurrence(option.value)}
-                />
-              ))}
-            </View>
-            <Button
-              title="Add this bill"
-              tone="quiet"
-              disabled={!billName.trim() || !isPositive(billAmount)}
-              onPress={addBill}
-            />
-          </Card>
-          {bills.length === 0 && (
-            <Text style={styles.centerHint}>
-              No bill to add now? Continue and add one later from Plan.
-            </Text>
-          )}
-        </>
-      )}
-
-      {step === 8 && (
-        <>
-          <Card>
-            <View style={styles.reviewHeader}>
-              <View>
-                <Label>Example normal payout</Label>
-                <Money value={Number(typical)} />
-              </View>
-              <Text style={styles.changeLater}>Change later</Text>
-            </View>
-            <View style={styles.splitList}>
-              {splitRows.map(([label, percentage]) => (
-                <View key={label} style={styles.splitRow}>
-                  <View style={styles.splitLabel}>
-                    <Text style={styles.billTitle}>{label}</Text>
-                    <Text style={ui.small}>{percentage}% of each payout</Text>
-                  </View>
-                  <Text style={styles.splitAmount}>
-                    ₹
-                    {Math.round(
-                      (Number(typical) * percentage) / 100,
-                    ).toLocaleString("en-IN")}
+                  <Text
+                    style={[
+                      styles.priorityText,
+                      selected && { color: colors.accent },
+                    ]}
+                  >
+                    {QUICK_SETUP_PRIORITY_LABELS[priority]}
                   </Text>
-                </View>
-              ))}
+                  <ChevronRight
+                    accessible={false}
+                    color={colorString(selected ? colors.accent : colors.muted)}
+                    size={19}
+                  />
+                </Pressable>
+              );
+            })}
+          </View>
+          <Text style={ui.small}>
+            This changes what appears first and adjusts your starter payout plan. You can change it later.
+          </Text>
+        </Card>
+      ) : (
+        <>
+          {confirmation && (
+            <Notice tone="good" live>
+              {confirmation}
+            </Notice>
+          )}
+          <Card tone="tint">
+            <AssistantQuestion
+              title={currentQuestion?.title ?? "Quick setup"}
+              question={currentQuestion?.question ?? "Tell me about you."}
+              example={currentQuestion?.example}
+            />
+          </Card>
+
+          <Card>
+            <Field
+              label="Your answer"
+              accessibilityLabel="Your answer"
+              accessibilityHint={currentQuestion?.example}
+              value={answer}
+              onChangeText={(value) => {
+                setAnswer(value);
+                if (error) setError(null);
+              }}
+              placeholder={currentQuestion?.example?.replace(
+                "For example: ",
+                "",
+              )}
+              multiline
+              numberOfLines={4}
+              maxLength={500}
+              editable={!busy && !recording}
+              textAlignVertical="top"
+              style={styles.answerInput}
+              error={error}
+            />
+
+            {stage === "BILLS" && (
+              <Button
+                title="No bills to add"
+                tone="soft"
+                size="sm"
+                inline
+                disabled={busy || recording}
+                onPress={() => void askAssistant("No bills to add right now")}
+              />
+            )}
+
+            <View style={styles.actions}>
+              <Button
+                title={recording ? "Stop" : transcribing ? "Transcribing…" : "Speak"}
+                icon={recording ? Square : Mic}
+                tone={recording ? "dangerSoft" : "quiet"}
+                style={styles.action}
+                disabled={sending || transcribing || saving}
+                onPress={() => (recording ? void stopVoice() : void startVoice())}
+              />
+              <Button
+                title="Send"
+                icon={Send}
+                tone="accent"
+                style={styles.action}
+                loading={sending}
+                disabled={recording || transcribing || !answer.trim()}
+                onPress={() => void askAssistant()}
+              />
+            </View>
+
+            <View style={styles.privacyRow}>
+              <ShieldCheck
+                accessible={false}
+                color={colorString(colors.accent)}
+                size={17}
+              />
+              <Text style={[ui.caption, styles.privacyText]}>
+                Voice is transcribed, not saved by SuperFinz.
+              </Text>
             </View>
           </Card>
-
-          <Card style={styles.summaryCard}>
-            <Label>What SuperFinz will remember</Label>
-            <Text style={ui.body}>
-              {workTypes.map((item) => workLabels[item]).join(", ")} · {city}
-            </Text>
-            <Text style={ui.body}>
-              {bills.length} important {bills.length === 1 ? "bill" : "bills"}{" "}
-              protected
-            </Text>
-            <Text style={ui.small}>
-              No real transfer happens. This is a planning guide.
-            </Text>
-          </Card>
-
-          <Choice
-            label="Yes, use this starter plan"
-            selected={confirmed}
-            role="checkbox"
-            onPress={() => setConfirmed((value) => !value)}
-          />
         </>
       )}
 
-      <View style={styles.actions}>
-        <Button
-          title={step === steps.length - 1 ? "Create my dashboard" : "Continue"}
-          loading={saving}
-          disabled={!stepValid}
-          accessibilityHint={
-            step === steps.length - 1
-              ? "Saves your answers and opens your dashboard"
-              : "Moves to the next short step"
-          }
-          onPress={
-            step === steps.length - 1
-              ? submit
-              : () => setStep((value) => Math.min(steps.length - 1, value + 1))
-          }
-        />
-      </View>
+      <Notice tone="info">
+        AI only fills this setup from your words. It cannot move money, and you review everything before saving.
+      </Notice>
     </Screen>
   );
 }
 
-function Choice({
-  label,
-  selected,
-  role,
-  compact = false,
-  onPress,
+function AssistantQuestion({
+  title,
+  question,
+  example,
 }: {
-  label: string;
-  selected: boolean;
-  role: "checkbox" | "radio";
-  compact?: boolean;
-  onPress: () => void;
+  title: string;
+  question: string;
+  example?: string;
 }) {
   return (
-    <Pressable
-      accessibilityRole={role}
-      accessibilityState={{ checked: selected }}
-      accessibilityLabel={label}
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.choice,
-        compact && styles.choiceCompact,
-        selected && styles.choiceActive,
-        pressed && styles.pressed,
-      ]}
-    >
-      <View style={[styles.choiceMark, selected && styles.choiceMarkActive]}>
-        {selected && <Text style={styles.check}>✓</Text>}
+    <View style={styles.questionRow}>
+      <View style={styles.botTile}>
+        <Bot
+          accessible={false}
+          color={colorString(colors.onPrimary)}
+          size={21}
+        />
       </View>
-      <Text style={styles.choiceText}>{label}</Text>
-    </Pressable>
+      <View style={styles.grow}>
+        <Label tone="accent">{title}</Label>
+        <Text accessibilityRole="header" style={ui.h2}>
+          {question}
+        </Text>
+        {example && <Text style={ui.small}>{example}</Text>}
+      </View>
+    </View>
+  );
+}
+
+function Review({
+  draft,
+  assumptions,
+  saving,
+  error,
+  onEdit,
+  onSubmit,
+}: {
+  draft: QuickSetupDraft;
+  assumptions: string[];
+  saving: boolean;
+  error: string | null;
+  onEdit: (stage: QuickSetupStage) => void;
+  onSubmit: () => void;
+}) {
+  const split = draft.primaryPriority
+    ? QUICK_SETUP_SPLITS[draft.primaryPriority]
+    : null;
+  return (
+    <View style={ui.gap}>
+      <Card tone="good">
+        <View style={styles.questionRow}>
+          <View style={styles.doneTile}>
+            <CheckCircle2
+              accessible={false}
+              color={colorString(colors.good)}
+              size={22}
+            />
+          </View>
+          <View style={styles.grow}>
+            <Label>Review</Label>
+            <Text accessibilityRole="header" style={ui.h2}>
+              Your starter dashboard is ready
+            </Text>
+            <Text style={ui.small}>
+              Check these details. Nothing is saved until you build the dashboard.
+            </Text>
+          </View>
+        </View>
+      </Card>
+
+      <ReviewRow title="You and your work" onEdit={() => onEdit("ABOUT")}>
+        <Text style={ui.bodyStrong}>
+          {draft.preferredName} · {draft.city}
+        </Text>
+        <Text style={ui.small}>
+          {draft.workTypes
+            ?.map((type) => QUICK_SETUP_WORK_LABELS[type])
+            .join(", ")} · {draft.sourceName} · {draft.workDaysPerWeek} days/week
+        </Text>
+      </ReviewRow>
+      <ReviewRow title="Weekly take-home" onEdit={() => onEdit("INCOME")}>
+        <Text style={ui.bodyStrong}>
+          {formatMoney(draft.lowWeekIncome ?? 0)}–
+          {formatMoney(draft.goodWeekIncome ?? 0)}
+        </Text>
+        <Text style={ui.small}>
+          Normal {formatMoney(draft.typicalWeekIncome ?? 0)} · next payout {dateLabel(draft.nextPayoutDate)}
+        </Text>
+      </ReviewRow>
+      <ReviewRow title="Protected first" onEdit={() => onEdit("COSTS")}>
+        <Text style={ui.bodyStrong}>
+          {formatMoney(draft.weeklyWorkCosts ?? 0)} work costs/week
+        </Text>
+        <Text style={ui.small}>
+          {formatMoney(
+            draft.typicalWeekIncome
+              ? quickSetupSafetyBuffer(draft.typicalWeekIncome)
+              : 0,
+          )} forgotten-expense buffer
+        </Text>
+      </ReviewRow>
+      <ReviewRow title="Money now" onEdit={() => onEdit("MONEY")}>
+        <Text style={ui.bodyStrong}>
+          {formatMoney(draft.openingBalance ?? 0)} available
+        </Text>
+        <Text style={ui.small}>
+          {formatMoney(draft.currentCushion ?? 0)} already kept for emergencies
+        </Text>
+      </ReviewRow>
+      <ReviewRow title="Important bills" onEdit={() => onEdit("BILLS")}>
+        {draft.commitments?.length ? (
+          draft.commitments.map((bill) => (
+            <Text key={`${bill.title}-${bill.dueDate}`} style={ui.small}>
+              {bill.title} · {formatMoney(bill.amount)} · {dateLabel(bill.dueDate)}
+            </Text>
+          ))
+        ) : (
+          <Text style={ui.small}>None added. You can add bills later.</Text>
+        )}
+      </ReviewRow>
+      <ReviewRow
+        title="Dashboard focus"
+        onEdit={() => onEdit("PRIORITY")}
+      >
+        <Text style={ui.bodyStrong}>
+          {draft.primaryPriority
+            ? QUICK_SETUP_PRIORITY_LABELS[draft.primaryPriority]
+            : "Not chosen"}
+        </Text>
+        {split && (
+          <Text style={ui.small}>
+            {split.essentialsPct}% needs · {split.workCostsPct}% work · {split.emergencyPct}% emergency · {split.longTermPct}% future · {split.flexiblePct}% flexible
+          </Text>
+        )}
+      </ReviewRow>
+
+      {assumptions.length > 0 && (
+        <Card tone="plain">
+          <Text style={ui.bodyStrong}>Starter estimates we made</Text>
+          {assumptions.map((item) => (
+            <Text key={item} style={ui.small}>• {item}</Text>
+          ))}
+          <Text style={ui.caption}>You can change these after setup.</Text>
+        </Card>
+      )}
+
+      {error && (
+        <Notice tone="bad" live>
+          {error}
+        </Notice>
+      )}
+
+      <Button
+        title="Build my dashboard"
+        icon={ShieldCheck}
+        tone="accent"
+        size="lg"
+        loading={saving}
+        onPress={onSubmit}
+      />
+      <Text style={[ui.caption, styles.centerText]}>
+        This creates a plan only. Future payouts stay estimates and no real money is moved.
+      </Text>
+    </View>
+  );
+}
+
+function ReviewRow({
+  title,
+  onEdit,
+  children,
+}: {
+  title: string;
+  onEdit: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <Card>
+      <View style={styles.reviewHeader}>
+        <View style={styles.reviewTitleRow}>
+          <Check
+            accessible={false}
+            color={colorString(colors.good)}
+            size={17}
+          />
+          <Label>{title}</Label>
+        </View>
+        <Button
+          title="Change"
+          tone="ghost"
+          size="sm"
+          inline
+          onPress={onEdit}
+        />
+      </View>
+      <View style={ui.gapSm}>{children}</View>
+    </Card>
   );
 }
 
 const styles = StyleSheet.create({
-  progressBlock: { gap: 8 },
-  progressText: {
-    color: colors.muted,
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: "600",
-  },
-  choiceList: { gap: 10 },
-  choice: {
-    minHeight: 54,
+  progressBlock: { gap: space.sm },
+  questionRow: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 14,
-    backgroundColor: colors.surface,
-    paddingHorizontal: 15,
-    paddingVertical: 11,
+    alignItems: "flex-start",
+    gap: space.md,
   },
-  choiceCompact: { minHeight: 48, flexGrow: 1 },
-  choiceActive: {
-    borderColor: colors.action,
-    backgroundColor: colors.accentSoft,
-  },
-  choiceMark: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: colors.border,
-    backgroundColor: colors.paper,
+  botTile: {
+    width: 44,
+    height: 44,
+    flexShrink: 0,
     alignItems: "center",
     justifyContent: "center",
+    borderRadius: radius.md,
+    backgroundColor: colors.primary,
   },
-  choiceMarkActive: {
-    borderColor: colors.action,
-    backgroundColor: colors.action,
+  doneTile: {
+    width: 44,
+    height: 44,
+    flexShrink: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
   },
-  check: { color: colors.white, fontSize: 15, fontWeight: "800" },
-  choiceText: {
-    flexShrink: 1,
+  grow: { flex: 1, gap: 6 },
+  answerInput: { minHeight: 112, paddingTop: 13 },
+  actions: { flexDirection: "row", gap: space.sm },
+  action: { flex: 1 },
+  privacyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.sm,
+  },
+  privacyText: { flex: 1 },
+  priorityList: { gap: space.sm },
+  priority: {
+    minHeight: 56,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: space.md,
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+  },
+  prioritySelected: {
+    borderColor: colors.accent,
+    backgroundColor: colors.accentSoft,
+  },
+  priorityText: {
+    flex: 1,
     color: colors.ink,
     fontSize: 16,
     lineHeight: 22,
     fontWeight: "600",
   },
-  wrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  preset: {
-    minHeight: 48,
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 999,
-    backgroundColor: colors.paper,
-    paddingHorizontal: 14,
-  },
-  presetActive: {
-    borderColor: colors.action,
-    backgroundColor: colors.accentSoft,
-  },
-  presetText: { color: colors.ink, fontSize: 14, fontWeight: "600" },
-  pressed: { opacity: 0.7 },
-  error: { color: colors.red, fontWeight: "700", lineHeight: 21 },
-  billList: { gap: 8 },
-  billRow: {
-    minHeight: 66,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 14,
-    backgroundColor: colors.surface,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  billText: { flex: 1, gap: 2 },
-  billTitle: { color: colors.ink, fontSize: 16, fontWeight: "700" },
-  removeButton: {
-    minHeight: 46,
-    justifyContent: "center",
-    paddingHorizontal: 10,
-  },
-  removeText: { color: colors.red, fontSize: 14, fontWeight: "700" },
-  centerHint: {
-    color: colors.muted,
-    fontSize: 14,
-    lineHeight: 20,
-    textAlign: "center",
-  },
+  pressed: { opacity: 0.72 },
   reviewHeader: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    gap: 12,
-  },
-  changeLater: { color: colors.action, fontSize: 13, fontWeight: "700" },
-  splitList: { gap: 2 },
-  splitRow: {
-    minHeight: 58,
+    minHeight: 44,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-    paddingVertical: 9,
+    gap: space.md,
   },
-  splitLabel: { flex: 1, gap: 2 },
-  splitAmount: {
-    color: colors.ink,
-    fontSize: 17,
-    fontWeight: "700",
-    fontVariant: ["tabular-nums"],
+  reviewTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.sm,
   },
-  summaryCard: { backgroundColor: colors.accentSoft },
-  actions: { marginTop: 4 },
+  centerText: { textAlign: "center" },
 });

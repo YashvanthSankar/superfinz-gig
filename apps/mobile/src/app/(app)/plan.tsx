@@ -1,32 +1,56 @@
-import { useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import { Alert, StyleSheet, Text, View } from "react-native";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { CalendarClock, Check, Plus, Trash2 } from "lucide-react-native";
 import {
   simulateGigScenario,
+  type CommitmentDto,
   type CommitmentRecurrence,
   type GigScenarioInput,
 } from "@superfinz/shared";
 import { apiFetch } from "@/lib/api";
 import {
+  Badge,
   Button,
   Card,
-  Empty,
+  Chip,
+  Divider,
+  EmptyState,
   ErrorState,
+  Expandable,
   Field,
+  IconButton,
   Label,
+  ListRow,
   Loading,
+  Notice,
   Screen,
+  SectionHeader,
+  Stat,
+  formatDate,
+  formatMoney,
+  formatMoneyRange,
   ui,
+  type BadgeTone,
 } from "@/components/ui";
 import { DateField } from "@/components/date-field";
-import { colors } from "@/constants/theme";
+import { colors, space } from "@/constants/theme";
 import {
   refreshGigDashboard,
   useGigDashboard,
 } from "@/hooks/use-gig-dashboard";
 
+/* ------------------------------------------------------------------ */
+/* Scenario presets                                                    */
+/* ------------------------------------------------------------------ */
+
 type Scenario =
-  "BASELINE" | "LOWER_INCOME" | "PAYOUT_DELAY" | "REPAIR" | "TIME_OFF";
+  | "BASELINE"
+  | "LOWER_INCOME"
+  | "PAYOUT_DELAY"
+  | "REPAIR"
+  | "TIME_OFF";
+
 const scenarios: Array<{
   value: Scenario;
   label: string;
@@ -34,7 +58,7 @@ const scenarios: Array<{
 }> = [
   {
     value: "BASELINE",
-    label: "Current plan",
+    label: "Baseline",
     input: {
       incomeChangePct: 0,
       payoutDelayDays: 0,
@@ -45,7 +69,7 @@ const scenarios: Array<{
   },
   {
     value: "LOWER_INCOME",
-    label: "Income drops 20%",
+    label: "Income −20%",
     input: {
       incomeChangePct: -20,
       payoutDelayDays: 0,
@@ -56,7 +80,7 @@ const scenarios: Array<{
   },
   {
     value: "PAYOUT_DELAY",
-    label: "Payout is 2 days late",
+    label: "Payout +2 days",
     input: {
       incomeChangePct: 0,
       payoutDelayDays: 2,
@@ -67,7 +91,7 @@ const scenarios: Array<{
   },
   {
     value: "REPAIR",
-    label: "₹2,500 work repair",
+    label: `${formatMoney(2_500)} repair`,
     input: {
       incomeChangePct: 0,
       payoutDelayDays: 0,
@@ -78,7 +102,7 @@ const scenarios: Array<{
   },
   {
     value: "TIME_OFF",
-    label: "Take 2 days off",
+    label: "2 days off",
     input: {
       incomeChangePct: 0,
       payoutDelayDays: 0,
@@ -88,8 +112,11 @@ const scenarios: Array<{
     },
   },
 ];
-const money = (value: number) =>
-  `₹${Math.round(value).toLocaleString("en-IN")}`;
+
+/* ------------------------------------------------------------------ */
+/* Label maps                                                          */
+/* ------------------------------------------------------------------ */
+
 const recurrenceOptions: Array<{
   value: CommitmentRecurrence;
   label: string;
@@ -99,6 +126,7 @@ const recurrenceOptions: Array<{
   { value: "YEARLY", label: "Yearly" },
   { value: "ONE_TIME", label: "One time" },
 ];
+
 const recurrenceLabels: Record<CommitmentRecurrence, string> = {
   WEEKLY: "weekly",
   FORTNIGHTLY: "every 2 weeks",
@@ -108,20 +136,98 @@ const recurrenceLabels: Record<CommitmentRecurrence, string> = {
   ONE_TIME: "one time",
 };
 
+type Priority = "ESSENTIAL" | "FLEXIBLE";
+
+const priorityOptions: Array<{ value: Priority; label: string }> = [
+  { value: "ESSENTIAL", label: "Protect first" },
+  { value: "FLEXIBLE", label: "Flexible" },
+];
+
+const priorityLabels: Record<Priority, string> = {
+  ESSENTIAL: "protected",
+  FLEXIBLE: "flexible",
+};
+
+type BillStatus = "PAID" | "OVERDUE" | "SOON" | "DUE";
+
+const statusLabels: Record<BillStatus, string> = {
+  PAID: "Paid",
+  OVERDUE: "Overdue",
+  SOON: "Due soon",
+  DUE: "Due",
+};
+
+const statusBadgeTones: Record<BillStatus, BadgeTone> = {
+  PAID: "good",
+  OVERDUE: "bad",
+  SOON: "warn",
+  DUE: "neutral",
+};
+
+const statusIconTones: Record<BillStatus, "good" | "bad" | "warn" | "accent"> =
+  {
+    PAID: "good",
+    OVERDUE: "bad",
+    SOON: "warn",
+    DUE: "accent",
+  };
+
+const DAY_MS = 86_400_000;
+
+function startOfToday() {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+function billStatus(item: CommitmentDto, today: Date): BillStatus {
+  if (item.status === "PAID") return "PAID";
+  const daysUntil = Math.ceil(
+    (new Date(item.dueDate).getTime() - today.getTime()) / DAY_MS,
+  );
+  if (daysUntil < 0) return "OVERDUE";
+  if (daysUntil <= 7) return "SOON";
+  return "DUE";
+}
+
+function plural(count: number, one: string, many: string) {
+  return `${count} ${count === 1 ? one : many}`;
+}
+
+/* ------------------------------------------------------------------ */
+/* Screen                                                              */
+/* ------------------------------------------------------------------ */
+
+type FormErrors = { title?: string; amount?: string };
+
 export default function Plan() {
   const client = useQueryClient();
   const [showForm, setShowForm] = useState(false);
-  const [showWhatIf, setShowWhatIf] = useState(false);
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
   const [dueDate, setDueDate] = useState(
-    () => new Date(Date.now() + 7 * 86_400_000),
+    () => new Date(Date.now() + 7 * DAY_MS),
   );
-  const [essential, setEssential] = useState(true);
+  const [priority, setPriority] = useState<Priority>("ESSENTIAL");
   const [recurrence, setRecurrence] = useState<CommitmentRecurrence>("MONTHLY");
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [notice, setNotice] = useState<string | null>(null);
   const [scenario, setScenario] = useState<Scenario>("BASELINE");
   const query = useGigDashboard();
   const refresh = () => refreshGigDashboard(client);
+  const essential = priority === "ESSENTIAL";
+
+  useEffect(() => {
+    if (!notice) return;
+    const timer = setTimeout(() => setNotice(null), 6_000);
+    return () => clearTimeout(timer);
+  }, [notice]);
+
+  const closeForm = () => {
+    setShowForm(false);
+    setErrors({});
+  };
+
   const create = useMutation({
     mutationFn: () =>
       apiFetch("/api/gig/commitments", {
@@ -138,9 +244,11 @@ export default function Plan() {
         }),
       }),
     onSuccess: async () => {
+      const savedTitle = title.trim();
       setTitle("");
       setAmount("");
-      setShowForm(false);
+      closeForm();
+      setNotice(`${savedTitle} is now protected in your plan.`);
       await refresh();
     },
     onError: (cause) =>
@@ -149,24 +257,25 @@ export default function Plan() {
         cause instanceof Error ? cause.message : "Try again",
       ),
   });
+
   const markPaid = useMutation({
-    mutationFn: (id: string) =>
+    mutationFn: (item: { id: string; title: string }) =>
       apiFetch<{ commitment: { dueDate: string; status: string } }>(
         "/api/gig/commitments",
         {
           method: "PATCH",
-          body: JSON.stringify({ id, status: "PAID" }),
+          body: JSON.stringify({ id: item.id, status: "PAID" }),
         },
       ),
-    onSuccess: async (result: {
-      commitment: { dueDate: string; status: string };
-    }) => {
+    onSuccess: async (
+      result: { commitment: { dueDate: string; status: string } },
+      item,
+    ) => {
       await refresh();
-      Alert.alert(
-        "Bill recorded as paid",
+      setNotice(
         result.commitment.status === "DUE"
-          ? `Your plan balance was reduced. No payment was sent. Next due ${new Date(result.commitment.dueDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}.`
-          : "Your plan balance was reduced. No payment was sent.",
+          ? `${item.title} recorded as paid. Next due ${formatDate(result.commitment.dueDate)}. No payment was sent.`
+          : `${item.title} recorded as paid. No payment was sent.`,
       );
     },
     onError: (cause) =>
@@ -175,6 +284,7 @@ export default function Plan() {
         cause instanceof Error ? cause.message : "Try again",
       ),
   });
+
   const remove = useMutation({
     mutationFn: (id: string) =>
       apiFetch("/api/gig/commitments", {
@@ -189,6 +299,44 @@ export default function Plan() {
       ),
   });
 
+  const submit = () => {
+    const next: FormErrors = {};
+    if (!title.trim()) next.title = "Give this bill a name.";
+    const value = Number(amount);
+    if (!amount.trim() || !Number.isFinite(value) || value <= 0)
+      next.amount = "Enter an amount above zero.";
+    setErrors(next);
+    if (next.title || next.amount) return;
+    create.mutate();
+  };
+
+  const confirmMarkPaid = (item: CommitmentDto) =>
+    Alert.alert(
+      "Mark this bill as paid?",
+      `Your plan balance will reduce by ${formatMoney(item.amount)}. No payment is sent.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Mark paid",
+          onPress: () => markPaid.mutate({ id: item.id, title: item.title }),
+        },
+      ],
+    );
+
+  const confirmDelete = (item: CommitmentDto) =>
+    Alert.alert(
+      "Delete this bill?",
+      "It will no longer be protected in your plan.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => remove.mutate(item.id),
+        },
+      ],
+    );
+
   if (query.isLoading) return <Loading label="Building your plan…" />;
   if (query.isError || !query.data)
     return (
@@ -200,388 +348,375 @@ export default function Plan() {
     );
 
   const dashboard = query.data.dashboard;
-  const s = dashboard.summary;
+  const summary = dashboard.summary;
+  const commitments = dashboard.commitments;
+  const today = startOfToday();
+  const unpaid = commitments.filter((item) => item.status !== "PAID");
+  const unpaidTotal = unpaid.reduce((sum, item) => sum + item.amount, 0);
+  const nextDue = [...unpaid].sort(
+    (a, b) => Date.parse(a.dueDate) - Date.parse(b.dueDate),
+  )[0];
+
   const scenarioInput =
     scenarios.find((item) => item.value === scenario)?.input ??
     scenarios[0].input;
   const result = simulateGigScenario(dashboard, scenarioInput);
   const hasGap = result.earningTarget > 0;
+  const protectedDays = Math.floor(result.protectedDays);
+  const busy = markPaid.isPending || remove.isPending;
 
   return (
     <Screen
+      eyebrow="Bills and commitments"
       title="Plan"
       subtitle="Keep important bills visible and protected."
+      refreshing={query.isFetching && Boolean(query.data)}
       help={{
         title: "Your bill plan",
         body: "Add payments you cannot miss. When you mark a repeating bill as paid, SuperFinz creates its next due date automatically.",
       }}
+      action={
+        <IconButton
+          icon={Plus}
+          label={showForm ? "Close the bill form" : "Add a bill"}
+          hint="Shows a short form for a new bill"
+          active={showForm}
+          onPress={() => (showForm ? closeForm() : setShowForm(true))}
+        />
+      }
     >
-      <Button
-        title={showForm ? "Close bill form" : "Add a bill"}
-        tone={showForm ? "quiet" : "accent"}
-        onPress={() => setShowForm((value) => !value)}
-      />
+      {notice && (
+        <Notice tone="good" live>
+          {notice}
+        </Notice>
+      )}
+
       {showForm && (
         <Card>
+          <SectionHeader
+            eyebrow="New bill"
+            title="Add a bill"
+            description="Rent, EMI, school fees or anything you cannot miss."
+          />
           <Field
             label="Bill name"
+            required
             value={title}
-            onChangeText={setTitle}
+            onChangeText={(value) => {
+              setTitle(value);
+              if (errors.title) setErrors((prev) => ({ ...prev, title: undefined }));
+            }}
             placeholder="Mobile bill"
+            autoCapitalize="sentences"
+            returnKeyType="next"
+            error={errors.title}
           />
           <Field
             label="Amount"
+            required
+            prefix="₹"
             value={amount}
-            onChangeText={setAmount}
+            onChangeText={(value) => {
+              setAmount(value);
+              if (errors.amount)
+                setErrors((prev) => ({ ...prev, amount: undefined }));
+            }}
             keyboardType="decimal-pad"
-            placeholder="₹ 500"
+            placeholder="500"
+            error={errors.amount}
           />
           <DateField
             label="Due date"
             value={dueDate}
             onChange={(value) => value && setDueDate(value)}
           />
-          <Label>How often?</Label>
-          <View style={styles.choices}>
-            {recurrenceOptions.map((option) => (
-              <Choice
-                key={option.value}
-                label={option.label}
-                selected={recurrence === option.value}
-                onPress={() => setRecurrence(option.value)}
-              />
-            ))}
+          <View style={styles.group}>
+            <Label>How often</Label>
+            <View style={ui.wrap}>
+              {recurrenceOptions.map((option) => (
+                <Chip
+                  key={option.value}
+                  role="radio"
+                  label={option.label}
+                  selected={recurrence === option.value}
+                  onPress={() => setRecurrence(option.value)}
+                />
+              ))}
+            </View>
           </View>
-          <Pressable
-            accessibilityRole="checkbox"
-            accessibilityState={{ checked: essential }}
-            accessibilityLabel="Protect this bill first"
-            onPress={() => setEssential((value) => !value)}
-            style={({ pressed }) => [
-              styles.check,
-              essential && styles.checkActive,
-              pressed && styles.pressed,
-            ]}
-          >
-            <Text
-              style={[styles.checkText, essential && styles.checkTextActive]}
-            >
-              {essential ? "✓ " : ""}Protect this bill first
+          <View style={styles.group}>
+            <Label>Priority</Label>
+            <View style={ui.wrap}>
+              {priorityOptions.map((option) => (
+                <Chip
+                  key={option.value}
+                  role="radio"
+                  label={option.label}
+                  selected={priority === option.value}
+                  onPress={() => setPriority(option.value)}
+                />
+              ))}
+            </View>
+            <Text style={ui.caption}>
+              Protected bills are covered before flexible spending.
             </Text>
-          </Pressable>
-          <Button
-            title="Save bill"
-            loading={create.isPending}
-            disabled={!title.trim() || Number(amount) <= 0}
-            onPress={() => create.mutate()}
-          />
+          </View>
+          <View style={styles.formActions}>
+            <Button
+              title="Cancel"
+              tone="ghost"
+              inline
+              disabled={create.isPending}
+              onPress={closeForm}
+            />
+            <Button
+              title="Save bill"
+              tone="accent"
+              icon={Check}
+              loading={create.isPending}
+              onPress={submit}
+              style={styles.submit}
+            />
+          </View>
+        </Card>
+      )}
+
+      {commitments.length > 0 && (
+        <Card>
+          <View style={styles.summaryRow}>
+            <Stat
+              label="Still to pay"
+              value={formatMoney(unpaidTotal)}
+              help={plural(unpaid.length, "bill unpaid", "bills unpaid")}
+              style={styles.summaryStat}
+            />
+            <Stat
+              label="Next due"
+              value={nextDue ? formatDate(nextDue.dueDate) : "Nothing due"}
+              help={nextDue ? nextDue.title : "Every bill is paid"}
+              style={styles.summaryStat}
+            />
+          </View>
+        </Card>
+      )}
+
+      {commitments.length === 0 ? (
+        <EmptyState
+          icon={CalendarClock}
+          title="No bills yet"
+          body="Add rent, EMI or school fees so they stay protected."
+          action={{ title: "Add a bill", onPress: () => setShowForm(true) }}
+        />
+      ) : (
+        <Card padded={false}>
+          <View style={styles.listHeader}>
+            <SectionHeader
+              eyebrow="Payment calendar"
+              title="Upcoming bills"
+              action={
+                <Badge label={plural(commitments.length, "bill", "bills")} />
+              }
+            />
+          </View>
+          <View style={styles.list}>
+            {commitments.map((item, index) => {
+              const status = billStatus(item, today);
+              const isMarking =
+                markPaid.isPending && markPaid.variables?.id === item.id;
+              return (
+                <ListRow
+                  key={item.id}
+                  icon={CalendarClock}
+                  iconTone={statusIconTones[status]}
+                  title={item.title}
+                  subtitle={`Due ${formatDate(item.dueDate)} · ${recurrenceLabels[item.recurrence]} · ${priorityLabels[item.essential ? "ESSENTIAL" : "FLEXIBLE"]}`}
+                  value={formatMoney(item.amount)}
+                  badge={
+                    <Badge
+                      label={statusLabels[status]}
+                      tone={statusBadgeTones[status]}
+                    />
+                  }
+                  last={index === commitments.length - 1}
+                >
+                  <View style={styles.rowActions}>
+                    {item.status !== "PAID" && (
+                      <Button
+                        title="Mark paid"
+                        size="sm"
+                        tone="quiet"
+                        icon={Check}
+                        inline
+                        loading={isMarking}
+                        disabled={busy && !isMarking}
+                        onPress={() => confirmMarkPaid(item)}
+                      />
+                    )}
+                    <IconButton
+                      icon={Trash2}
+                      tone="danger"
+                      label={`Delete ${item.title}`}
+                      hint="Asks you to confirm first"
+                      disabled={busy}
+                      onPress={() => confirmDelete(item)}
+                    />
+                  </View>
+                </ListRow>
+              );
+            })}
+          </View>
         </Card>
       )}
 
       <Card>
-        <Label>Your bills</Label>
-        {!dashboard.commitments.length ? (
-          <Empty
-            title="No bills added"
-            body="Add rent, phone, loan payment, or family support so SuperFinz can protect it."
-          />
-        ) : (
-          dashboard.commitments.map((item) => (
-            <View key={item.id} style={styles.bill}>
-              <View style={styles.billText}>
-                <Text style={styles.billName}>{item.title}</Text>
-                <Text style={ui.small}>
-                  Due{" "}
-                  {new Date(item.dueDate).toLocaleDateString("en-IN", {
-                    day: "numeric",
-                    month: "short",
-                  })}
-                  {` · ${recurrenceLabels[item.recurrence]}`}
-                  {item.essential ? " · important" : " · flexible"}
-                </Text>
-                <Text style={styles.billAmount}>{money(item.amount)}</Text>
-              </View>
-              {item.status !== "PAID" && (
-                <View style={styles.billActions}>
-                  <Button
-                    title="Mark paid"
-                    tone="quiet"
-                    loading={
-                      markPaid.isPending && markPaid.variables === item.id
-                    }
-                    disabled={
-                      markPaid.isPending && markPaid.variables !== item.id
-                    }
-                    onPress={() =>
-                      Alert.alert(
-                        "Mark this bill as paid?",
-                        `Your plan balance will reduce by ${money(item.amount)}. No payment is sent.`,
-                        [
-                          { text: "Cancel", style: "cancel" },
-                          {
-                            text: "Mark paid",
-                            onPress: () => markPaid.mutate(item.id),
-                          },
-                        ],
-                      )
-                    }
-                  />
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={`Delete ${item.title}`}
-                    accessibilityState={{
-                      disabled: markPaid.isPending || remove.isPending,
-                    }}
-                    disabled={markPaid.isPending || remove.isPending}
-                    hitSlop={10}
-                    onPress={() =>
-                      Alert.alert(
-                        "Delete this bill?",
-                        "It will no longer be protected in your plan.",
-                        [
-                          { text: "Cancel", style: "cancel" },
-                          {
-                            text: "Delete",
-                            style: "destructive",
-                            onPress: () => remove.mutate(item.id),
-                          },
-                        ],
-                      )
-                    }
-                    style={[
-                      styles.delete,
-                      (markPaid.isPending || remove.isPending) &&
-                        styles.disabled,
-                    ]}
-                  >
-                    <Text style={styles.deleteText}>Delete</Text>
-                  </Pressable>
-                </View>
-              )}
-            </View>
-          ))
-        )}
-      </Card>
+        <Expandable
+          title="What if income changes?"
+          summary="Test a slow week or a late payout"
+        >
+          <Label>Try one change</Label>
+          <View style={ui.wrap}>
+            {scenarios.map((item) => (
+              <Chip
+                key={item.value}
+                role="radio"
+                label={item.label}
+                selected={scenario === item.value}
+                onPress={() => setScenario(item.value)}
+              />
+            ))}
+          </View>
 
-      <Button
-        title={showWhatIf ? "Hide what-if check" : "What if income changes?"}
-        tone="quiet"
-        onPress={() => setShowWhatIf((value) => !value)}
-      />
-
-      {showWhatIf && (
-        <>
-          <Card>
-            <Label>Try one change</Label>
-            <View style={styles.choices}>
-              {scenarios.map((item) => (
-                <Choice
-                  key={item.value}
-                  label={item.label}
-                  selected={scenario === item.value}
-                  onPress={() => setScenario(item.value)}
-                />
-              ))}
-            </View>
-            <View
-              accessibilityLiveRegion="polite"
-              style={[
-                styles.result,
-                hasGap ? styles.resultWarning : styles.resultGood,
-              ]}
-            >
-              <Label>
-                {scenario === "BASELINE" ? "Today’s plan" : "After this change"}
-              </Label>
-              <Text style={styles.safeValue}>{money(result.safeToSpend)}</Text>
-              <Text style={styles.safeLabel}>safe to use</Text>
-              <Text style={ui.body}>
-                Emergency cover: {Math.floor(result.protectedDays)}{" "}
-                {Math.floor(result.protectedDays) === 1 ? "day" : "days"}
-              </Text>
-              <Text style={ui.body}>
-                {result.atRiskCommitments.length
-                  ? `${result.atRiskCommitments.length} important bill${result.atRiskCommitments.length === 1 ? "" : "s"} may be at risk.`
-                  : "No important bills are at risk."}
-              </Text>
-              <Text style={ui.body}>{result.recommendedAction}</Text>
-              {hasGap && (
-                <Text style={styles.target}>
-                  Try to earn {money(result.targetPerRemainingWorkday)} net per
-                  remaining workday.
-                </Text>
-              )}
-            </View>
-          </Card>
-
-          {hasGap && (
-            <Card style={styles.options}>
-              <Label>Try these before borrowing</Label>
-              {result.nonCreditAlternatives.map((item, index) => (
-                <View key={item} style={styles.optionRow}>
-                  <Text style={styles.optionNumber}>{index + 1}</Text>
-                  <Text style={styles.optionText}>{item}</Text>
-                </View>
-              ))}
-            </Card>
-          )}
-
-          <Card>
-            <View style={ui.between}>
-              <View>
-                <Label>Next 30 days</Label>
-                <Text style={ui.h2}>
-                  {money(result.forecastIncomeLow30d)}–
-                  {money(result.forecastIncomeHigh30d)}
-                </Text>
-              </View>
-              <Text style={styles.estimate}>estimate</Text>
-            </View>
-            <View style={styles.metrics}>
-              <Metric label="Bills" value={money(s.committedOutflow30d)} />
-              <Metric
-                label="Work costs"
-                value={money(s.estimatedWorkCosts30d)}
+          <Card
+            tone="navy"
+            accessibilityLiveRegion="polite"
+            style={styles.flat}
+          >
+            <Label tone="onPrimary">
+              {scenario === "BASELINE" ? "Today’s plan" : "After this change"}
+            </Label>
+            <View style={styles.tiles}>
+              <Stat
+                onPrimary
+                label="Safe to spend"
+                value={formatMoney(result.safeToSpend)}
+                style={styles.tile}
+              />
+              <Stat
+                onPrimary
+                label="Lowest balance"
+                value={formatMoney(result.lowestProjectedBalance)}
+                style={styles.tile}
+              />
+              <Stat
+                onPrimary
+                label="Protected days"
+                value={plural(protectedDays, "day", "days")}
+                style={styles.tile}
               />
             </View>
-            <Text style={ui.small}>
-              Expected money is not counted as money you already have.
+            <Text style={styles.recommendation}>
+              {result.recommendedAction}
             </Text>
+            {hasGap && (
+              <Text style={[ui.small, ui.onPrimarySoft]}>
+                Try to earn {formatMoney(result.targetPerRemainingWorkday)} net
+                per remaining workday.
+              </Text>
+            )}
           </Card>
-        </>
-      )}
+
+          {result.atRiskCommitments.length ? (
+            <Notice
+              tone="warn"
+              title={`${plural(result.atRiskCommitments.length, "important bill", "important bills")} may be at risk`}
+            >
+              <View style={styles.noticeList}>
+                {result.atRiskCommitments.map((item) => (
+                  <Text key={item.id} style={styles.noticeLine}>
+                    {item.title} · {formatMoney(item.amount)} · due{" "}
+                    {formatDate(item.dueDate)}
+                  </Text>
+                ))}
+              </View>
+            </Notice>
+          ) : (
+            <Notice tone="good">No important bills are at risk.</Notice>
+          )}
+
+          {hasGap && result.nonCreditAlternatives.length > 0 && (
+            <Notice tone="info" title="Try these before borrowing">
+              <View style={styles.noticeList}>
+                {result.nonCreditAlternatives.map((item, index) => (
+                  <Text key={item} style={styles.noticeLine}>
+                    {index + 1}. {item}
+                  </Text>
+                ))}
+              </View>
+            </Notice>
+          )}
+
+          <Divider />
+          <Label>Next 30 days · estimate</Label>
+          <Text style={[ui.h3, ui.num]}>
+            {formatMoneyRange(
+              result.forecastIncomeLow30d,
+              result.forecastIncomeHigh30d,
+            )}
+          </Text>
+          <View style={styles.summaryRow}>
+            <Stat
+              label="Bills"
+              value={formatMoney(summary.committedOutflow30d)}
+              style={styles.summaryStat}
+            />
+            <Stat
+              label="Work costs"
+              value={formatMoney(summary.estimatedWorkCosts30d)}
+              style={styles.summaryStat}
+            />
+          </View>
+          <Text style={ui.caption}>
+            Expected money is not counted as money you already have.
+          </Text>
+        </Expandable>
+      </Card>
     </Screen>
   );
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.metric}>
-      <Label>{label}</Label>
-      <Text style={styles.metricValue}>{value}</Text>
-    </View>
-  );
-}
-
-function Choice({
-  label,
-  selected,
-  onPress,
-}: {
-  label: string;
-  selected: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="radio"
-      accessibilityState={{ checked: selected }}
-      accessibilityLabel={label}
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.choice,
-        selected && styles.choiceActive,
-        pressed && styles.pressed,
-      ]}
-    >
-      <Text style={[styles.choiceText, selected && styles.choiceTextActive]}>
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
-  choices: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  choice: {
-    minHeight: 48,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 999,
-    backgroundColor: colors.paper,
-    paddingHorizontal: 13,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  choiceActive: {
-    borderColor: colors.action,
-    backgroundColor: colors.accentSoft,
-  },
-  choiceText: { color: colors.ink, fontWeight: "600", fontSize: 13 },
-  choiceTextActive: { color: colors.ink },
-  pressed: { opacity: 0.7 },
-  disabled: { opacity: 0.45 },
-  result: { borderRadius: 15, padding: 15, gap: 6 },
-  resultGood: { backgroundColor: colors.greenSoft },
-  resultWarning: { backgroundColor: colors.accentSoft },
-  safeValue: {
-    color: colors.ink,
-    fontSize: 38,
-    lineHeight: 44,
-    fontWeight: "700",
-    letterSpacing: -1.3,
-    fontVariant: ["tabular-nums"],
-  },
-  safeLabel: { color: colors.inkSoft, fontSize: 14, fontWeight: "600" },
-  target: {
-    color: colors.accent,
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: "700",
-  },
-  options: { backgroundColor: colors.accentSoft },
-  optionRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
-  optionNumber: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    overflow: "hidden",
-    backgroundColor: colors.action,
-    color: colors.white,
-    textAlign: "center",
-    lineHeight: 24,
-    fontWeight: "700",
-  },
-  optionText: { flex: 1, color: colors.ink, fontSize: 14, lineHeight: 21 },
-  estimate: { color: colors.muted, fontSize: 12, fontWeight: "600" },
-  metrics: { flexDirection: "row", gap: 12 },
-  metric: { flex: 1, gap: 3 },
-  metricValue: {
-    color: colors.ink,
-    fontSize: 16,
-    fontWeight: "700",
-    fontVariant: ["tabular-nums"],
-  },
-  check: {
-    minHeight: 48,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 13,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  checkActive: { borderColor: colors.action, backgroundColor: colors.action },
-  checkText: { color: colors.ink, fontWeight: "600", fontSize: 14 },
-  checkTextActive: { color: colors.white },
-  bill: {
-    minHeight: 86,
+  group: { gap: space.sm },
+  formActions: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-    borderTopWidth: 1,
-    borderColor: colors.border,
-    paddingVertical: 10,
+    justifyContent: "flex-end",
+    gap: space.sm,
+    marginTop: space.xs,
   },
-  billText: { flex: 1 },
-  billName: { color: colors.ink, fontSize: 15, fontWeight: "700" },
-  billAmount: {
-    color: colors.ink,
-    fontSize: 14,
-    fontWeight: "700",
-    marginTop: 3,
-    fontVariant: ["tabular-nums"],
+  submit: { flex: 1 },
+  summaryRow: { flexDirection: "row", gap: space.md },
+  summaryStat: { flex: 1 },
+  listHeader: {
+    paddingHorizontal: 18,
+    paddingTop: 18,
+    paddingBottom: space.sm,
   },
-  billActions: { width: 82, gap: 5 },
-  delete: { minHeight: 48, alignItems: "center", justifyContent: "center" },
-  deleteText: { color: colors.red, fontSize: 13, fontWeight: "700" },
+  list: { paddingHorizontal: 18, paddingBottom: space.sm },
+  rowActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.sm,
+    marginTop: space.sm,
+  },
+  flat: { shadowOpacity: 0, elevation: 0 },
+  tiles: { flexDirection: "row", flexWrap: "wrap", gap: space.sm },
+  tile: { flex: 1, minWidth: 120 },
+  recommendation: {
+    color: colors.accentOnPrimary,
+    fontSize: 15,
+    lineHeight: 22,
+    fontWeight: "600",
+  },
+  noticeList: { gap: space.xs },
+  noticeLine: { color: colors.ink, fontSize: 14, lineHeight: 20 },
 });

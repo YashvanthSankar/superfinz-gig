@@ -1,13 +1,29 @@
 import { useState } from "react";
 import { Image, ScrollView, StyleSheet, Text, View } from "react-native";
+import brandMark from "../../assets/images/brand-mark.png";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Button } from "@/components/ui";
-import { colors } from "@/constants/theme";
+import {
+  CircleGauge,
+  LogIn,
+  ShieldCheck,
+  WalletCards,
+} from "lucide-react-native";
+import { Button, Card, Label, ListRow, Notice, ui } from "@/components/ui";
+import { colors, radius, space } from "@/constants/theme";
 import { useAuth } from "@/providers/auth-provider";
 
 export default function Login() {
   const { signInWithGoogle, reloadUser, loading, error } = useAuth();
   const [localError, setLocalError] = useState<string | null>(null);
+  const message = localError ?? error;
+
+  const handleSignIn = () => {
+    setLocalError(null);
+    signInWithGoogle().catch((cause) =>
+      setLocalError(cause instanceof Error ? cause.message : "Sign-in failed"),
+    );
+  };
+
   return (
     <SafeAreaView style={styles.page}>
       <ScrollView
@@ -16,117 +32,130 @@ export default function Login() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.brand}>
-          <View accessible accessibilityLabel="SuperFinz" style={styles.mark}>
+          <View style={styles.mark}>
             <Image
               accessibilityIgnoresInvertColors
-              source={require("../../assets/images/brand-mark.png")}
+              alt="SuperFinz"
+              source={brandMark}
               style={styles.markImage}
             />
           </View>
           <Text style={styles.logo}>SuperFinz</Text>
         </View>
-        <View style={styles.hero}>
-          <Text style={styles.kicker}>MONEY, WITHOUT THE LECTURE</Text>
-          <Text accessibilityRole="header" style={styles.title}>
-            Know where it goes.{"\n"}
-            <Text style={{ color: colors.accent }}>Build what’s next.</Text>
-          </Text>
-          <Text style={styles.body}>
-            A clear spending plan, savings goals, and a finance companion built
-            for real life and irregular income.
-          </Text>
+
+        <View style={styles.middle}>
+          <View style={styles.hero}>
+            <Label tone="accent">
+              Financial resilience for irregular earners
+            </Label>
+            <Text accessibilityRole="header" style={ui.display}>
+              Know what is <Text style={styles.highlight}>safe</Text> today.
+            </Text>
+            <Text style={ui.body}>
+              SuperFinz turns irregular payouts into a simple plan: bills
+              protected, work costs covered, and one safe-to-spend number.
+            </Text>
+          </View>
+
+          <Card padded={false} style={styles.listCard}>
+            <ListRow
+              icon={CircleGauge}
+              title="Know today's safe amount"
+              chevron={false}
+            />
+            <ListRow
+              icon={ShieldCheck}
+              title="Protect essentials and earning costs"
+              chevron={false}
+            />
+            <ListRow
+              icon={WalletCards}
+              title="Prepare for low-income weeks"
+              chevron={false}
+              last
+            />
+          </Card>
         </View>
+
         <View style={styles.login}>
           <Button
             title="Continue with Google"
+            tone="ink"
+            size="lg"
+            icon={LogIn}
             loading={loading}
             accessibilityHint="Signs in securely with your Google account"
-            onPress={() =>
-              signInWithGoogle().catch((cause) =>
-                setLocalError(
-                  cause instanceof Error ? cause.message : "Sign-in failed",
-                ),
-              )
-            }
+            onPress={handleSignIn}
           />
-          {(localError ?? error) && (
-            <>
-              <Text accessibilityRole="alert" style={styles.error}>
-                {localError ?? error}
-              </Text>
-              {error && (
-                <Button
-                  title="Try loading my account again"
-                  tone="quiet"
-                  onPress={() => reloadUser()}
-                />
-              )}
-            </>
+          {message && (
+            <Notice tone="bad">
+              <View style={styles.noticeBody}>
+                <Text style={styles.noticeText}>{message}</Text>
+                {error && (
+                  <Button
+                    title="Try loading my account again"
+                    tone="quiet"
+                    size="sm"
+                    inline
+                    onPress={() => void reloadUser()}
+                  />
+                )}
+              </View>
+            </Notice>
           )}
-          <Text style={styles.note}>
-            Google sign-in requires the SuperFinz development build. Expo Go is
-            not supported.
-          </Text>
+          <View style={styles.captions}>
+            <Text style={[ui.caption, styles.centered]}>
+              Only your basic Google identity is used. SuperFinz never moves
+              money.
+            </Text>
+            <Text style={[ui.caption, styles.centered]}>
+              Google sign-in needs the SuperFinz development build. Expo Go is
+              not supported.
+            </Text>
+          </View>
         </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
+
 const styles = StyleSheet.create({
-  page: {
-    flex: 1,
-    backgroundColor: colors.paper,
-  },
+  page: { flex: 1, backgroundColor: colors.paper },
   content: {
     flexGrow: 1,
-    padding: 24,
+    paddingHorizontal: space.xl,
+    paddingTop: space.lg,
+    paddingBottom: space.xxl,
     justifyContent: "space-between",
-    gap: 32,
+    gap: space.xxl,
   },
-  brand: { flexDirection: "row", alignItems: "center", gap: 10 },
+  brand: { flexDirection: "row", alignItems: "center", gap: space.md },
   mark: {
     width: 44,
     height: 44,
     backgroundColor: colors.accentSoft,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 13,
+    borderRadius: radius.md,
     alignItems: "center",
     justifyContent: "center",
   },
   markImage: { width: 38, height: 38, resizeMode: "contain" },
   logo: {
-    fontWeight: "800",
     fontSize: 20,
-    letterSpacing: -0.5,
-    color: colors.ink,
-  },
-  hero: { gap: 18 },
-  kicker: {
-    fontSize: 11,
-    letterSpacing: 2,
-    fontWeight: "700",
-    color: colors.inkSoft,
-  },
-  title: {
-    fontSize: 46,
-    lineHeight: 48,
-    letterSpacing: -2,
+    lineHeight: 24,
     fontWeight: "700",
     color: colors.ink,
+    letterSpacing: -0.4,
   },
-  body: {
-    fontSize: 17,
-    lineHeight: 25,
-    color: colors.inkSoft,
-    fontWeight: "600",
-  },
-  login: { gap: 14 },
-  error: { color: colors.red, fontWeight: "700", textAlign: "center" },
-  note: {
-    color: colors.muted,
-    fontSize: 11,
-    lineHeight: 16,
-    textAlign: "center",
-  },
+  middle: { gap: space.xl },
+  hero: { gap: space.md },
+  highlight: { color: colors.accent },
+  /** ListRow has no horizontal inset of its own; give the flush card one. */
+  listCard: { paddingHorizontal: space.lg },
+  login: { gap: space.lg },
+  noticeBody: { gap: space.sm },
+  noticeText: { fontSize: 14, lineHeight: 20, color: colors.ink },
+  captions: { gap: space.xs },
+  centered: { textAlign: "center" },
 });

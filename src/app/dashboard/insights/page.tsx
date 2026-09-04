@@ -1,8 +1,11 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { calculateGigDashboard } from "@superfinz/shared";
 import { InsightsClient } from "@/components/gig/insights-client";
 import { getSession } from "@/lib/auth";
 import { getGigBundle } from "@/lib/gig-store";
+
+export const metadata: Metadata = { title: "Insights" };
 
 export default async function InsightsPage() {
   const session = await getSession();

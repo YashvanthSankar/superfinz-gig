@@ -25,11 +25,12 @@ import {
 import { Phone } from "@/components/landing/phone";
 import { Reveal } from "@/components/landing/reveal";
 import { DemoVideo } from "@/components/landing/demo-video";
+import { NavMenu, type NavLinkItem } from "@/components/landing/nav-menu";
 import { DAILY_INCOME, MONTH_TOTAL, inr } from "@/components/landing/landing-data";
 import styles from "./page.module.css";
 
 export const metadata: Metadata = {
-  title: "SuperFinz — Every payout, planned",
+  title: { absolute: "SuperFinz — Every payout, planned" },
   description:
     "A one-stop money dashboard that turns irregular gig income into protected bills, work money, savings, and one safe-to-spend number.",
 };
@@ -102,8 +103,18 @@ const trustItems = [
   },
 ] as const;
 
+const navLinks: readonly NavLinkItem[] = [
+  { href: "#problem", label: "The problem" },
+  { href: "#solution", label: "How it works" },
+  { href: "#product", label: "Product" },
+  { href: "#impact", label: "Why it matters" },
+  { href: "/login", label: "Sign in", quiet: true },
+];
+
 const incomeBars = DAILY_INCOME.slice(0, 14);
 const maxIncome = Math.max(...incomeBars);
+const incomeTotal = incomeBars.reduce<number>((sum, value) => sum + value, 0);
+const zeroIncomeDays = incomeBars.filter((value) => value === 0).length;
 
 function Brand() {
   return (
@@ -139,15 +150,19 @@ export default function LandingPage() {
           <Link href="/" className={styles.brandLink} aria-label="SuperFinz home">
             <Brand />
           </Link>
-          <ul className={styles.navLinks}>
-            <li><a href="#problem">The problem</a></li>
-            <li><a href="#solution">How it works</a></li>
-            <li><a href="#product">Product</a></li>
-            <li><a href="#impact">Why it matters</a></li>
-          </ul>
-          <a href="#demo" className={styles.navCta}>
-            Live demo <Arrow />
-          </a>
+          <NavMenu
+            links={navLinks}
+            classNames={{
+              list: styles.navLinks,
+              quiet: styles.navQuiet,
+              button: styles.menuButton,
+              srOnly: styles.srOnly,
+            }}
+          >
+            <Link href="/demo" className={styles.navCta}>
+              Live demo <Arrow />
+            </Link>
+          </NavMenu>
         </nav>
       </header>
 
@@ -169,11 +184,11 @@ export default function LandingPage() {
                 work costs, savings, and showing exactly what is safe to spend.
               </p>
               <div className={styles.heroActions}>
-                <a href="#demo" className={styles.primaryButton}>
-                  Watch the product demo <Arrow />
-                </a>
-                <a href="#solution" className={styles.secondaryButton}>
-                  See how it works
+                <Link href="/demo" className={styles.primaryButton}>
+                  Try the live demo <Arrow />
+                </Link>
+                <a href="#demo" className={styles.secondaryButton}>
+                  Watch the product demo
                 </a>
               </div>
               <ul className={styles.heroTrust} aria-label="Product principles">
@@ -204,7 +219,11 @@ export default function LandingPage() {
                 <span className={styles.toastCheck}><Check size={14} /></span>
               </div>
 
-              <div className={styles.safeCard} aria-label="Example safe-to-spend amount">
+              <div
+                className={styles.safeCard}
+                role="img"
+                aria-label="Example safe-to-spend card: ₹3,010 safe to spend, ₹430 a day until Sunday, with ₹8,450 of bills protected"
+              >
                 <div className={styles.safeCardTop}>
                   <span>Safe to spend</span>
                   <span className={styles.liveDot}>Live</span>
@@ -260,10 +279,17 @@ export default function LandingPage() {
                   <p>Bills &amp; income</p>
                 </div>
 
-                <div className={styles.videoPhone}>
-                  <div className={styles.videoSpeaker} aria-hidden="true" />
-                  <DemoVideo className={styles.demoVideo} />
-                </div>
+                <DemoVideo
+                  classNames={{
+                    stack: styles.videoStack,
+                    frame: styles.videoPhone,
+                    speaker: styles.videoSpeaker,
+                    video: styles.demoVideo,
+                    speedGroup: styles.speedGroup,
+                    speedButton: styles.speedButton,
+                    srOnly: styles.srOnly,
+                  }}
+                />
 
                 <div className={styles.demoCalloutRight} aria-hidden="true">
                   <span>03</span>
@@ -274,7 +300,7 @@ export default function LandingPage() {
                 </div>
               </div>
               <div className={styles.demoFooter}>
-                <p><span>●</span> Real product capture</p>
+                <p><span aria-hidden="true">●</span> Real product capture</p>
                 <p>iOS interface · Full journey · Plays at 2×</p>
               </div>
             </div>
@@ -300,7 +326,11 @@ export default function LandingPage() {
                 </div>
                 <h3>There is no payday.</h3>
                 <p>Good days, slow days, cash, and several platform settlements.</p>
-                <div className={styles.miniChart} aria-label="Example of uneven income over fourteen days">
+                <div
+                  className={styles.miniChart}
+                  role="img"
+                  aria-label={`Fourteen days of uneven income totalling ${inr(incomeTotal)}: ${zeroIncomeDays} days with no income and a best day of ${inr(maxIncome)}`}
+                >
                   {incomeBars.map((value, index) => (
                     <span
                       key={`${value}-${index}`}
@@ -309,7 +339,7 @@ export default function LandingPage() {
                     />
                   ))}
                 </div>
-                <div className={styles.chartMeta}><span>14 days</span><b>{inr(incomeBars.reduce<number>((sum, value) => sum + value, 0))}</b></div>
+                <div className={styles.chartMeta}><span>14 days</span><b>{inr(incomeTotal)}</b></div>
               </article>
 
               <article className={`${styles.problemCard} ${styles.billCard}`}>
@@ -320,8 +350,8 @@ export default function LandingPage() {
                 <h3>Bills still arrive all at once.</h3>
                 <p>Rent can be larger than the best earning day of the month.</p>
                 <div className={styles.billCompare}>
-                  <div><span>Best earning day</span><i style={{ width: "31%" }} /><b>₹2,750</b></div>
-                  <div><span>Monthly rent</span><i style={{ width: "100%" }} /><b>₹9,000</b></div>
+                  <div><span>Best earning day</span><i style={{ width: "31%" }} aria-hidden="true" /><b>₹2,750</b></div>
+                  <div><span>Monthly rent</span><i style={{ width: "100%" }} aria-hidden="true" /><b>₹9,000</b></div>
                 </div>
               </article>
 
@@ -395,18 +425,22 @@ export default function LandingPage() {
                   <strong>₹3,010</strong>
                   <p>₹430 per day for the next 7 days</p>
                 </div>
-                <div className={styles.allocationBar} aria-label="₹11,460 split between bills, work, safety, and safe to spend">
+                <div
+                  className={styles.allocationBar}
+                  role="img"
+                  aria-label="₹11,460 split: ₹5,900 bills protected, ₹1,450 work protected, ₹1,100 safety contribution, ₹3,010 safe to spend"
+                >
                   <span className={styles.allocBills} />
                   <span className={styles.allocWork} />
                   <span className={styles.allocSafety} />
                   <span className={styles.allocSafe} />
                 </div>
                 <dl className={styles.allocationList}>
-                  <div><dt><i className={styles.dotBills} /> Money now</dt><dd>₹11,460</dd></div>
-                  <div><dt><i className={styles.dotBills} /> Bills protected</dt><dd>−₹5,900</dd></div>
-                  <div><dt><i className={styles.dotWork} /> Work protected</dt><dd>−₹1,450</dd></div>
-                  <div><dt><i className={styles.dotSafety} /> Safety contribution</dt><dd>−₹1,100</dd></div>
-                  <div className={styles.totalRow}><dt><i className={styles.dotSafe} /> Safe to spend</dt><dd>₹3,010</dd></div>
+                  <div><dt><i className={styles.dotMoney} aria-hidden="true" /> Money now</dt><dd>₹11,460</dd></div>
+                  <div><dt><i className={styles.dotBills} aria-hidden="true" /> Bills protected</dt><dd>−₹5,900</dd></div>
+                  <div><dt><i className={styles.dotWork} aria-hidden="true" /> Work protected</dt><dd>−₹1,450</dd></div>
+                  <div><dt><i className={styles.dotSafety} aria-hidden="true" /> Safety contribution</dt><dd>−₹1,100</dd></div>
+                  <div className={styles.totalRow}><dt><i className={styles.dotSafe} aria-hidden="true" /> Safe to spend</dt><dd>₹3,010</dd></div>
                 </dl>
                 <p className={styles.panelNote}><ShieldCheck size={15} /> Nothing moves until the worker confirms.</p>
               </div>
@@ -434,9 +468,9 @@ export default function LandingPage() {
                   );
                 })}
               </ul>
-              <a href="#demo" className={styles.textButton}>
-                Watch the full product demo <Arrow />
-              </a>
+              <Link href="/demo" className={styles.textButton}>
+                Try the live demo <Arrow />
+              </Link>
             </div>
 
             <div className={styles.phoneStage} data-reveal>
@@ -444,7 +478,7 @@ export default function LandingPage() {
               <Phone screen="bills" className={styles.phoneBackLeft} />
               <Phone screen="today" className={styles.phoneFront} />
               <Phone screen="split" className={styles.phoneBackRight} />
-              <p className={styles.platformBadge}><span>●</span> Native app · iOS &amp; Android</p>
+              <p className={styles.platformBadge}><span aria-hidden="true">●</span> Native app · iOS &amp; Android</p>
             </div>
           </div>
         </section>
@@ -520,9 +554,12 @@ export default function LandingPage() {
               to smart payout splits and money coaching.
             </p>
             <div className={styles.finalActions}>
-              <a href="#demo" className={styles.finalPrimary}>
-                Watch product demo <Arrow />
-              </a>
+              <Link href="/demo" className={styles.finalPrimary}>
+                Try the live demo <Arrow />
+              </Link>
+              <Link href="/login" className={styles.finalSecondary}>
+                Sign in
+              </Link>
               <a
                 href="https://github.com/YashvanthSankar/superfinz-gig"
                 target="_blank"
@@ -530,6 +567,7 @@ export default function LandingPage() {
                 className={styles.finalSecondary}
               >
                 View the build
+                <span className={styles.srOnly}> (opens in a new tab)</span>
               </a>
             </div>
           </div>
@@ -543,7 +581,7 @@ export default function LandingPage() {
             <p>A salary layer for people without salaries.</p>
           </div>
           <div className={styles.footerStatus}>
-            <span>●</span> Working prototype · Web, iOS &amp; Android
+            <span aria-hidden="true">●</span> Working prototype · Web, iOS &amp; Android
           </div>
         </div>
         <div className={`${styles.container} ${styles.footerBottom}`}>

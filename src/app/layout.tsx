@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import localFont from "next/font/local";
 import "./globals.css";
 import { Providers } from "@/components/session-provider";
 import { Analytics } from "@vercel/analytics/next";
@@ -16,45 +15,6 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const gatwick = localFont({
-  src: [
-    {
-      path: "../../public/Gatwick/Gatwick-Ultralight.otf",
-      weight: "200",
-      style: "normal",
-    },
-    {
-      path: "../../public/Gatwick/Gatwick-Light.otf",
-      weight: "300",
-      style: "normal",
-    },
-    {
-      path: "../../public/Gatwick/Gatwick-Regular.otf",
-      weight: "400",
-      style: "normal",
-    },
-    {
-      path: "../../public/Gatwick/Gatwick-Medium.otf",
-      weight: "500",
-      style: "normal",
-    },
-    {
-      path: "../../public/Gatwick/Gatwick-Bold.otf",
-      weight: "700",
-      style: "normal",
-    },
-    {
-      path: "../../public/Gatwick/Gatwick-Ultrabold.otf",
-      weight: "800",
-      style: "normal",
-    },
-  ],
-  variable: "--font-gatwick",
-  display: "swap",
-  preload: true,
-  fallback: ["Inter", "Arial", "sans-serif"],
-});
-
 export const viewport: Viewport = {
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#F7F9FC" },
@@ -66,7 +26,10 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXTAUTH_URL ?? "http://localhost:3000"),
-  title: "SuperFinz — Financial resilience for irregular earners",
+  title: {
+    default: "SuperFinz — Financial resilience for irregular earners",
+    template: "%s · SuperFinz",
+  },
   description:
     "Turn irregular earnings into a predictable money plan with safe-to-spend guidance, protected pockets, and explainable resilience.",
   manifest: "/manifest.json",
@@ -102,7 +65,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable} ${gatwick.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <head>
         <script

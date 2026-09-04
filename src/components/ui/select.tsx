@@ -1,47 +1,52 @@
 "use client";
+import { ReactNode, SelectHTMLAttributes, forwardRef, useId } from "react";
+import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { SelectHTMLAttributes, forwardRef } from "react";
+import { Field, controlClasses, fieldDescribedBy } from "./field";
 
-interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
-  label?: string;
-  error?: string;
+export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
+  label?: ReactNode;
+  hint?: ReactNode;
+  error?: ReactNode;
+  wrapperClassName?: string;
 }
 
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(
-  ({ className, label, error, id, children, ...props }, ref) => (
-    <div className="flex flex-col gap-1.5">
-      {label && (
-        <label htmlFor={id} className="brut-label">
-          {label}
-        </label>
-      )}
-      <div className="relative">
-        <select
-          ref={ref}
-          id={id}
-          className={cn(
-            "h-12 w-full appearance-none rounded-xl border border-ink bg-paper px-3 pr-10 text-base font-medium text-ink shadow-sm",
-            "cursor-pointer transition-[background-color,border-color,box-shadow] duration-200 focus:border-accent focus:outline-none focus:ring-4 focus:ring-accent/15",
-            error && "border-bad bg-bad-soft",
-            className,
-          )}
-          {...props}
-        >
-          {children}
-        </select>
-        <span
-          aria-hidden
-          className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-sm text-mute"
-        >
-          ⌄
-        </span>
-      </div>
-      {error && (
-        <p role="alert" className="text-sm font-medium text-bad">
-          {error}
-        </p>
-      )}
-    </div>
-  ),
+  (
+    { className, wrapperClassName, label, hint, error, id: idProp, required, children, ...props },
+    ref,
+  ) => {
+    const generated = useId();
+    const id = idProp ?? generated;
+    return (
+      <Field
+        id={id}
+        label={label}
+        hint={hint}
+        error={error}
+        required={required}
+        className={wrapperClassName}
+      >
+        <div className="relative">
+          <select
+            ref={ref}
+            id={id}
+            required={required}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={fieldDescribedBy(id, hint, error)}
+            className={cn(controlClasses, "appearance-none pr-11", className)}
+            {...props}
+          >
+            {children}
+          </select>
+          <ChevronDown
+            aria-hidden
+            size={18}
+            className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-mute"
+          />
+        </div>
+      </Field>
+    );
+  },
 );
 Select.displayName = "Select";

@@ -1,13 +1,13 @@
-"use client";
+import type { Metadata } from "next";
+import { Suspense } from "react";
+import { LoginClient } from "@/components/auth/login-client";
 
-import { useState } from "react";
-import Link from "next/link";
-import { signIn } from "next-auth/react";
-import { ArrowRight, CircleGauge, ShieldCheck, WalletCards } from "lucide-react";
-import { Logo } from "@/components/ui/logo";
+export const metadata: Metadata = { title: "Sign in" };
 
 export default function LoginPage() {
-  const [loading, setLoading] = useState(false); const [error, setError] = useState<string | null>(null);
-  const go = async () => { setLoading(true); setError(null); try { await signIn("google", { callbackUrl: "/dashboard" }); } catch { setError("Google sign-in could not start. You can retry or open the demo without an account."); setLoading(false); } };
-  return <main className="min-h-dvh bg-paper p-4 sm:p-8"><div className="mx-auto grid min-h-[calc(100dvh-4rem)] max-w-5xl items-center gap-10 lg:grid-cols-2"><section><Link href="/" aria-label="SuperFinz home" className="inline-flex items-center gap-3"><Logo size="lg" /><span className="text-2xl font-black">SUPERFINZ</span></Link><p className="brut-stamp mt-8 inline-flex bg-accent-soft">Salary layer for irregular earners</p><h1 className="brut-display mt-5 text-5xl sm:text-6xl">Know what is safe today.</h1><p className="mt-5 text-lg font-semibold leading-8 text-ink-soft">Sign in to build a live plan, or enter the Ravi demo immediately—no setup and no bank account required.</p><div className="mt-7 grid gap-3">{[[CircleGauge, "Know today’s safe amount"], [ShieldCheck, "Protect essentials and earning costs"], [WalletCards, "Prepare for low-income weeks"]].map(([Icon, text]) => { const Glyph = Icon as typeof CircleGauge; return <div key={String(text)} className="flex min-h-12 items-center gap-3 border-2 border-ink bg-paper-2 px-4 font-bold"><Glyph aria-hidden size={19} />{String(text)}</div>; })}</div></section><section className="brut-card-lg bg-paper p-6 sm:p-8"><p className="brut-label">Welcome to SuperFinz</p><h2 className="mt-2 text-3xl font-black">Your earnings vary. Your plan adapts.</h2><button onClick={go} disabled={loading} className="brut-btn mt-7 min-h-14 w-full bg-ink text-paper" aria-describedby={error ? "login-error" : undefined}>{loading && <span className="h-4 w-4 animate-spin border-2 border-paper border-t-transparent" aria-hidden />}Continue with Google</button><Link href="/demo" className="brut-btn mt-3 min-h-14 w-full bg-accent text-paper">Continue as Ravi<ArrowRight aria-hidden size={18} /></Link>{error && <p id="login-error" role="alert" className="mt-4 border-2 border-bad bg-bad-soft p-3 text-sm font-bold text-bad">{error}</p>}<div className="mt-6 border-t-2 border-ink pt-5"><p className="text-sm font-semibold text-ink-soft">Only your basic Google identity is used for sign-in. The demo uses clearly labeled prototype data. No account connection, money transfer, or credit request occurs.</p></div></section></div></main>;
+  return (
+    <Suspense fallback={<main className="min-h-dvh bg-paper" aria-busy="true" />}>
+      <LoginClient />
+    </Suspense>
+  );
 }

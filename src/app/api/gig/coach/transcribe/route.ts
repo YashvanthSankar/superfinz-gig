@@ -19,11 +19,6 @@ export async function POST(request: NextRequest) {
   const session = await getSession(request);
   if (!session)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!session.onboarded)
-    return NextResponse.json(
-      { error: "Complete onboarding first" },
-      { status: 409 },
-    );
 
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey)
@@ -59,7 +54,7 @@ export async function POST(request: NextRequest) {
   );
   upstreamForm.append(
     "prompt",
-    "A short money-planning question from an Indian gig worker. Terms may include rupees, UPI, payout, EMI, petrol, rent, bills, and SuperFinz.",
+    "A short onboarding answer or money-planning question from an Indian gig worker. Preserve the spoken language and code-switching. Terms may include rupees, UPI, payout, EMI, petrol, rent, bills, Zomato, Swiggy, Uber, Ola, Rapido, and SuperFinz.",
   );
 
   try {

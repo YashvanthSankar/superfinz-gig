@@ -1,77 +1,109 @@
 "use client";
 import { ButtonHTMLAttributes, forwardRef } from "react";
+import { Slot } from "@radix-ui/react-slot";
+import { LoaderCircle } from "lucide-react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl border font-semibold tracking-[-0.01em] shadow-[var(--shadow-sm)] transition-[transform,box-shadow,background-color,border-color] duration-200 focus:outline-none focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50 disabled:translate-y-0",
+  [
+    "inline-flex min-h-11 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-xl border font-semibold tracking-[-0.01em] whitespace-nowrap",
+    "transition-[transform,box-shadow,background-color,border-color,color] duration-200",
+    "focus:outline-none focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-accent",
+    "disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50",
+  ].join(" "),
   {
     variants: {
       variant: {
         primary:
-          "border-transparent bg-ink text-paper hover:-translate-y-px hover:shadow-[var(--shadow-md)] active:translate-y-0",
+          "border-transparent bg-primary text-on-primary shadow-sm hover:-translate-y-px hover:shadow-md active:translate-y-0",
         accent:
-          "border-transparent bg-accent text-paper hover:-translate-y-px hover:shadow-[var(--shadow-md)] active:translate-y-0",
+          "border-transparent bg-accent text-on-accent shadow-sm hover:-translate-y-px hover:shadow-md active:translate-y-0",
         secondary:
-          "border-ink bg-paper text-ink hover:bg-paper-2 hover:shadow-[var(--shadow-md)]",
+          "border-line-strong bg-surface text-ink shadow-sm hover:bg-paper-2 hover:shadow-md",
         outline:
-          "border-ink bg-transparent text-ink shadow-none hover:border-accent hover:bg-accent-soft",
+          "border-line-strong bg-transparent text-ink hover:border-accent hover:bg-accent-soft",
         ghost:
-          "border-transparent bg-transparent text-ink shadow-none hover:bg-paper-2",
+          "border-transparent bg-transparent text-ink-soft hover:bg-paper-2 hover:text-ink",
+        soft:
+          "border-transparent bg-accent-soft text-accent-ink hover:bg-accent/15",
         danger:
-          "border-transparent bg-bad text-paper hover:-translate-y-px hover:shadow-[var(--shadow-md)] active:translate-y-0",
+          "border-transparent bg-bad text-on-bad shadow-sm hover:-translate-y-px hover:shadow-md active:translate-y-0",
+        "danger-soft":
+          "border-transparent bg-bad-soft text-bad hover:bg-bad/20",
       },
       size: {
         sm: "min-h-11 px-3 text-sm",
         md: "min-h-11 px-4 text-sm",
         lg: "min-h-12 px-6 text-base",
+        xl: "min-h-14 px-6 text-base",
         icon: "h-11 w-11 p-0",
       },
+      block: {
+        true: "w-full",
+        false: "",
+      },
     },
-    defaultVariants: { variant: "primary", size: "md" },
+    defaultVariants: { variant: "primary", size: "md", block: false },
   },
 );
 
 export interface ButtonProps
-  extends
-    ButtonHTMLAttributes<HTMLButtonElement>,
+  extends ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
+  /** Render the child element (for example a Next.js Link) with button styling. */
+  asChild?: boolean;
+  /** Shows a spinner, sets aria-busy and disables the control. */
   loading?: boolean;
+  /** Screen-reader text announced while loading. */
+  loadingLabel?: string;
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   (
-    { className, variant, size, loading, disabled, children, ...props },
+    {
+      className,
+      variant,
+      size,
+      block,
+      asChild = false,
+      loading = false,
+      loadingLabel = "Working",
+      disabled,
+      type,
+      children,
+      ...props
+    },
     ref,
   ) => {
+    const classes = cn(buttonVariants({ variant, size, block }), className);
+
+    if (asChild) {
+      return (
+        <Slot ref={ref} className={classes} {...props}>
+          {children}
+        </Slot>
+      );
+    }
+
     return (
       <button
         ref={ref}
+        type={type ?? "button"}
         disabled={disabled || loading}
-        className={cn(buttonVariants({ variant, size }), className)}
+        aria-busy={loading || undefined}
+        className={classes}
         {...props}
       >
         {loading && (
-          <svg
-            aria-hidden
-            className="h-4 w-4 animate-spin motion-reduce:animate-none"
-            fill="none"
-            viewBox="0 0 24 24"
-          >
-            <circle
-              className="opacity-25"
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              strokeWidth="4"
+          <>
+            <LoaderCircle
+              aria-hidden
+              size={16}
+              className="animate-spin motion-reduce:animate-none"
             />
-            <path
-              className="opacity-75"
-              fill="currentColor"
-              d="M4 12a8 8 0 018-8v8H4z"
-            />
-          </svg>
+            <span className="sr-only">{loadingLabel}</span>
+          </>
         )}
         {children}
       </button>

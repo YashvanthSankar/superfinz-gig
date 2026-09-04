@@ -1,4 +1,5 @@
 import { AlertTriangle, LoaderCircle, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export function LoadingPanel({
   label = "Loading your plan",
@@ -12,7 +13,7 @@ export function LoadingPanel({
     >
       <LoaderCircle
         aria-hidden
-        className="animate-spin text-accent motion-reduce:animate-none"
+        className="animate-spin text-accent-ink motion-reduce:animate-none"
         size={22}
       />
       <span className="font-semibold text-ink-soft">{label}…</span>
@@ -28,20 +29,30 @@ export function ErrorPanel({
   retry: () => void;
 }) {
   return (
-    <div className="brut-card bg-bad-soft p-6" role="alert">
+    <div className="brut-card border-bad/40 bg-bad-soft p-6" role="alert">
       <AlertTriangle aria-hidden className="text-bad" size={24} />
       <h2 className="brut-display mt-3 text-2xl">
         We could not load this page.
       </h2>
       <p className="mt-2 font-medium text-ink-soft">{message}</p>
-      <button
-        type="button"
-        onClick={retry}
-        className="brut-btn mt-5 min-h-12 bg-paper"
-      >
+      <Button variant="secondary" size="lg" className="mt-5" onClick={retry}>
         <RefreshCw aria-hidden size={17} />
         Try again
-      </button>
+      </Button>
+    </div>
+  );
+}
+
+/** Thin "updating" line shown while data refreshes behind a live screen. */
+export function RefreshingBar({ active }: { active: boolean }) {
+  if (!active) return null;
+  return (
+    <div
+      role="status"
+      className="flex items-center gap-2 rounded-xl border border-line bg-surface px-3 py-2 text-sm text-mute shadow-sm"
+    >
+      <LoaderCircle aria-hidden size={14} className="animate-spin motion-reduce:animate-none" />
+      Updating your plan…
     </div>
   );
 }
@@ -60,7 +71,7 @@ export function PageHeading({
   return (
     <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        <p className="brut-label text-accent">{eyebrow}</p>
+        <p className="brut-label text-accent-ink">{eyebrow}</p>
         <h1 className="brut-display mt-2 text-3xl sm:text-[2.65rem]">
           {title}
         </h1>

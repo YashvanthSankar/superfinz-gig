@@ -262,7 +262,7 @@ export default function PayoutSplit() {
         ? {
             ...customProjection,
             percentages: custom,
-            reasons: ["You chose these percentages."],
+            reasons: ["You chose this split."],
             fundedCommitments: [],
           }
         : null;
@@ -418,7 +418,7 @@ export default function PayoutSplit() {
             description={
               mode === "ADAPTIVE"
                 ? "Based on your next bills, work costs and safety goal."
-                : "You choose the percentages."
+                : "You choose the amounts or percentages."
             }
           />
           <View style={ui.wrap}>

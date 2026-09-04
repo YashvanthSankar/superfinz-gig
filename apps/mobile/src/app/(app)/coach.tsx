@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -27,6 +27,7 @@ import {
 } from "lucide-react-native";
 import {
   RecordingPresets,
+  getRecordingPermissionsAsync,
   requestRecordingPermissionsAsync,
   setAudioModeAsync,
   useAudioPlayer,
@@ -120,6 +121,8 @@ export default function Coach() {
   const warnTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stoppingVoice = useRef(false);
   const recordingActive = useRef(false);
+  const recorderPrepared = useRef(false);
+  const recorderPreparation = useRef<Promise<boolean> | null>(null);
   const voiceRequest = useRef(0);
   const voiceFile = useRef<File | null>(null);
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
@@ -141,12 +144,63 @@ export default function Coach() {
     Record<number, Feedback | undefined>
   >({});
 
+  const ensureRecorderReady = useCallback(
+    async (requestPermission: boolean) => {
+      if (recorderPrepared.current && recorder.getStatus().canRecord) {
+        await setAudioModeAsync({
+          allowsRecording: true,
+          playsInSilentMode: true,
+        });
+        return true;
+      }
+      if (recorderPreparation.current) {
+        const ready = await recorderPreparation.current;
+        if (ready || !requestPermission) return ready;
+      }
+
+      const preparation = (async () => {
+        let permission = await getRecordingPermissionsAsync();
+        if (!permission.granted && requestPermission)
+          permission = await requestRecordingPermissionsAsync();
+        if (!permission.granted) return false;
+        await setAudioModeAsync({
+          allowsRecording: true,
+          playsInSilentMode: true,
+        });
+        await recorder.prepareToRecordAsync();
+        recorderPrepared.current = true;
+        return true;
+      })();
+      recorderPreparation.current = preparation;
+      try {
+        return await preparation;
+      } finally {
+        if (recorderPreparation.current === preparation)
+          recorderPreparation.current = null;
+      }
+    },
+    [recorder],
+  );
+
+  useEffect(() => {
+    // If access was already granted, prepare while the user reads the screen.
+    // A first-time permission prompt still appears only after they tap Voice.
+    void ensureRecorderReady(false).catch(() => {
+      recorderPrepared.current = false;
+    });
+  }, [ensureRecorderReady]);
+
   useEffect(
     () => () => {
       if (stopTimer.current) clearTimeout(stopTimer.current);
       if (warnTimer.current) clearTimeout(warnTimer.current);
+      recorderPrepared.current = false;
       voiceRequest.current += 1;
       void Speech.stop();
+      void setAudioModeAsync({
+        allowsRecording: false,
+        playsInSilentMode: true,
+      });
       const cachedVoice = voiceFile.current;
       voiceFile.current = null;
       if (cachedVoice) {
@@ -172,7 +226,15 @@ export default function Coach() {
         // Cache cleanup is best-effort.
       }
     }
-  }, [speakingId, voicePlayer, voicePlayerState.didJustFinish]);
+    void ensureRecorderReady(false).catch(() => {
+      recorderPrepared.current = false;
+    });
+  }, [
+    ensureRecorderReady,
+    speakingId,
+    voicePlayer,
+    voicePlayerState.didJustFinish,
+  ]);
 
   useEffect(() => {
     if (!voicePlayerState.error || speakingId === null) return;
@@ -220,7 +282,12 @@ export default function Coach() {
       language: speechLanguage(plain),
       rate: 0.9,
       pitch: 1,
-      onDone: () => setSpeakingId(null),
+      onDone: () => {
+        setSpeakingId(null);
+        void ensureRecorderReady(false).catch(() => {
+          recorderPrepared.current = false;
+        });
+      },
       onStopped: () => setSpeakingId(null),
       onError: () => {
         setSpeakingId(null);
@@ -315,22 +382,17 @@ export default function Coach() {
     setStartingVoice(true);
     setVoiceError(null);
     try {
-      const [permission] = await Promise.all([
-        requestRecordingPermissionsAsync(),
+      const [ready] = await Promise.all([
+        ensureRecorderReady(true),
         stopSpokenReply(),
       ]);
-      if (!permission.granted) {
+      if (!ready) {
         Alert.alert(
           "Microphone is off",
           "Allow microphone access in Settings, or type your question instead.",
         );
         return;
       }
-      await setAudioModeAsync({
-        allowsRecording: true,
-        playsInSilentMode: true,
-      });
-      await recorder.prepareToRecordAsync();
       recorder.record();
       recordingActive.current = true;
       stopTimer.current = setTimeout(() => {
@@ -356,6 +418,7 @@ export default function Coach() {
     setVoiceError(null);
     try {
       await recorder.stop();
+      recorderPrepared.current = false;
       await setAudioModeAsync({
         allowsRecording: false,
         playsInSilentMode: true,

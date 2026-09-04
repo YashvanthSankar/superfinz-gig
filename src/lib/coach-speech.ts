@@ -18,7 +18,7 @@ const latinPatterns: Array<{
   {
     mode: "Hinglish",
     pattern:
-      /\b(kya|hai|hain|mera|meri|mujhe|kitna|karu|karna|paisa|paise|bachao|aaj|kal|nahi|chahiye|sakta|sakthi|hoon)\b/gi,
+      /\b(aap|aapka|aapki|apna|apne|abhi|aur|kya|hai|hain|mera|meri|mujhe|kitna|karu|karna|kharch|paisa|paise|bachao|bacha|aaj|kal|nahi|chahiye|sakta|sakthi|hoon|rakho|rakhna|liye)\b/gi,
   },
   {
     mode: "Tanglish",

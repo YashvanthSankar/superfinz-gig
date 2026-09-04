@@ -37,6 +37,16 @@ test("keeps an English reply in English regardless of profile preference", () =>
   assert.equal(detectCoachSpeechMode("₹500 is safe today.", "Tamil"), "English");
 });
 
+test("recognizes a Romanized Hindi coach reply", () => {
+  assert.equal(
+    detectCoachSpeechMode(
+      "Aap abhi ₹500 kharch kar sakte hain aur baaki paisa bacha sakte hain.",
+      "English",
+    ),
+    "Hinglish",
+  );
+});
+
 test("uses profile preference only for an ambiguous matching phrase", () => {
   assert.equal(detectCoachSpeechMode("₹500 panam is safe.", "Tamil"), "Tanglish");
 });
